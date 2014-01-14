@@ -10,16 +10,20 @@
 #include <wx/tokenzr.h>
 
 #ifndef CB_PRECOMP
-    #include <algorithm>
     #include <cbexception.h> // for cbThrow()
+
+    #include <algorithm>
 #endif // CB_PRECOMP
 
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack, unsigned include_len, CXClientData client_data);
 
+//clang_getCursorDisplayName()
 class TranslationUnit
 {
     public:
-        TranslationUnit(const wxString& filename, const std::vector<const char*>& args, CXIndex clIndex)
+        TranslationUnit(const wxString& filename, const std::vector<const char*>& args, CXIndex clIndex) :
+            m_LastCC(nullptr),
+            m_LastPos(-1, -1)
         {
             m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
                                                          args.size(), nullptr, 0, clang_defaultEditingTranslationUnitOptions() );
@@ -40,14 +44,18 @@ class TranslationUnit
 #if __cplusplus >= 201103L
         TranslationUnit(TranslationUnit&& other) :
             m_Files(std::move(other.m_Files)),
-            m_ClTranslUnit(other.m_ClTranslUnit)
+            m_ClTranslUnit(other.m_ClTranslUnit),
+            m_LastCC(nullptr),
+            m_LastPos(-1, -1)
         {
              other.m_ClTranslUnit = nullptr;
         }
 #else
         TranslationUnit(const TranslationUnit& other) :
             m_Files(other.m_Files),
-            m_ClTranslUnit(other.m_ClTranslUnit)
+            m_ClTranslUnit(other.m_ClTranslUnit),
+            m_LastCC(nullptr),
+            m_LastPos(-1, -1)
         {
              const_cast<TranslationUnit&>(other).m_ClTranslUnit = nullptr;
         }
@@ -55,6 +63,8 @@ class TranslationUnit
 
         ~TranslationUnit()
         {
+            if (m_LastCC)
+                clang_disposeCodeCompleteResults(m_LastCC);
             if (m_ClTranslUnit)
                 clang_disposeTranslationUnit(m_ClTranslUnit);
         }
@@ -69,14 +79,19 @@ class TranslationUnit
             return std::binary_search(m_Files.begin(), m_Files.end(), filename);
         }
 
-        // call clang_disposeCodeCompleteResults() later to free memory (if not null)
         // note that complete_line and complete_column are 1 index, not 0 index!
         CXCodeCompleteResults* CodeCompleteAt( const char* complete_filename, unsigned complete_line,
                                                unsigned complete_column, struct CXUnsavedFile* unsaved_files,
                                                unsigned num_unsaved_files )
         {
-            return clang_codeCompleteAt(m_ClTranslUnit, complete_filename, complete_line, complete_column, unsaved_files,
-                                        num_unsaved_files, clang_defaultCodeCompleteOptions() | CXCodeComplete_IncludeCodePatterns);
+            if (m_LastPos.Equals(complete_line, complete_column))
+                return m_LastCC;
+            if (m_LastCC)
+                clang_disposeCodeCompleteResults(m_LastCC);
+            m_LastCC = clang_codeCompleteAt(m_ClTranslUnit, complete_filename, complete_line, complete_column, unsaved_files,
+                                            num_unsaved_files, clang_defaultCodeCompleteOptions() | CXCodeComplete_IncludeCodePatterns);
+            m_LastPos.Set(complete_line, complete_column);
+            return m_LastCC;
         }
 
     private:
@@ -87,6 +102,27 @@ class TranslationUnit
 
         std::vector<wxString> m_Files;
         CXTranslationUnit m_ClTranslUnit;
+        CXCodeCompleteResults* m_LastCC;
+
+        struct FilePos
+        {
+            FilePos(unsigned ln, unsigned col) :
+                line(ln), column(col) {}
+
+            void Set(unsigned ln, unsigned col)
+            {
+                line   = ln;
+                column = col;
+            }
+
+            bool Equals(unsigned ln, unsigned col)
+            {
+                return (line == ln && column == col);
+            }
+
+            unsigned line;
+            unsigned column;
+        } m_LastPos;
 };
 
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack, unsigned include_len, CXClientData client_data)
@@ -223,5 +259,4 @@ void ClangProxy::CodeCompleteAt(const wxString& filename, int line, int column, 
             }
         }
     }
-    clang_disposeCodeCompleteResults(clResults);
 }

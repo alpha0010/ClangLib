@@ -14,6 +14,7 @@
     #include <cbeditor.h>
     #include <cbproject.h>
     #include <compilerfactory.h>
+    #include <configmanager.h>
     #include <editorcolourset.h>
     #include <editormanager.h>
     #include <logmanager.h>
@@ -21,6 +22,7 @@
     #include <projectfile.h>
     #include <projectmanager.h>
 
+    #include <algorithm>
     #include <wx/dir.h>
 #endif // CB_PRECOMP
 
@@ -159,6 +161,14 @@ ClangPlugin::CCProviderStatus ClangPlugin::GetProviderStatusFor(cbEditor* ed)
     return ccpsInactive;
 }
 
+struct PrioritySorter
+{
+    bool operator()(const ClangPlugin::CCToken& a, const ClangPlugin::CCToken& b)
+    {
+        return a.weight < b.weight;
+    }
+};
+
 std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEditor* ed, int& tknStart, int& tknEnd)
 {
     std::vector<CCToken> tokens;
@@ -197,7 +207,17 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
         unsavedFiles.insert(std::make_pair(ed->GetFilename(), stc->GetText())); // current file
         // todo: add other editors (do we want to?)
     }
-    m_Proxy.CodeCompleteAt(ed->GetFilename(), line + 1, tknStart - stc->PositionFromLine(line) + 1, m_TranslUnitId, unsavedFiles, tknResults);
+    const int lnStart = stc->PositionFromLine(line);
+    int column = tknStart - lnStart;
+    for (; column > 0; --column)
+    {
+        if (   !wxIsspace(stc->GetCharAt(lnStart + column - 1))
+            || (column != 1 && !wxIsspace(stc->GetCharAt(lnStart + column - 2))) )
+        {
+            break;
+        }
+    }
+    m_Proxy.CodeCompleteAt(ed->GetFilename(), line + 1, column + 1, m_TranslUnitId, unsavedFiles, tknResults);
     const wxString& prefix = stc->GetTextRange(tknStart, tknEnd).Lower();
     if (prefix.Length() > 3)
     {
@@ -220,6 +240,11 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
 
     if (!tokens.empty())
     {
+        if (prefix.IsEmpty() && tokens.size() > 1500) // reduce to give only top matches
+        {
+            std::partial_sort(tokens.begin(), tokens.begin() + 1000, tokens.end(), PrioritySorter());
+            tokens.erase(tokens.begin() + 1000, tokens.end());
+        }
         const int imgCount = m_ImageList.GetImageCount();
         for (int i = 0; i < imgCount; ++i)
             stc->RegisterImage(i, m_ImageList.GetBitmap(i));
@@ -461,7 +486,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
     {
         EditorManager* edMgr = Manager::Get()->GetEditorManager();
         cbEditor* ed = edMgr->GetBuiltinActiveEditor();
-        if (  !ed || GetProviderStatusFor(ed) == ccpsInactive
+        if (  !ed || !IsProviderFor(ed)
             || m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND )
         {
             return;
