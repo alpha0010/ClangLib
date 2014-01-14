@@ -25,6 +25,8 @@ class ClangPlugin : public cbCodeCompletionPlugin
         virtual std::vector<CCToken> GetTokenAt(int pos, cbEditor* ed);
         // Handle documentation link event.
         virtual wxString OnDocumentationLink(wxHtmlLinkEvent& event, bool& dismissPopup);
+        // Callback for inserting the selected autocomplete entry into the editor.
+        virtual void DoAutocomplete(const CCToken& token, cbEditor* ed);
 
     protected:
         virtual void OnAttach();

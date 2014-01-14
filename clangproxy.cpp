@@ -17,7 +17,6 @@
 
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack, unsigned include_len, CXClientData client_data);
 
-//clang_getCursorDisplayName()
 class TranslationUnit
 {
     public:
@@ -89,9 +88,16 @@ class TranslationUnit
             if (m_LastCC)
                 clang_disposeCodeCompleteResults(m_LastCC);
             m_LastCC = clang_codeCompleteAt(m_ClTranslUnit, complete_filename, complete_line, complete_column, unsaved_files,
-                                            num_unsaved_files, clang_defaultCodeCompleteOptions() | CXCodeComplete_IncludeCodePatterns);
+                                            num_unsaved_files, clang_defaultCodeCompleteOptions() | CXCodeComplete_IncludeCodePatterns | CXCodeComplete_IncludeBriefComments);
             m_LastPos.Set(complete_line, complete_column);
             return m_LastCC;
+        }
+
+        const CXCompletionResult* GetCCResult(unsigned index)
+        {
+            if (m_LastCC && index < m_LastCC->NumResults)
+                return m_LastCC->Results + index;
+            return nullptr;
         }
 
     private:
@@ -246,17 +252,126 @@ void ClangProxy::CodeCompleteAt(const wxString& filename, int line, int column, 
     for (int i = 0; i < numResults; ++i)
     {
         const CXCompletionResult& token = clResults->Results[i];
+        if (CXAvailability_Available != clang_getCompletionAvailability(token.CompletionString))
+            continue;
         const int numChunks = clang_getNumCompletionChunks(token.CompletionString);
+        wxString type;
         for (int j = 0; j < numChunks; ++j)
         {
-            if (clang_getCompletionChunkKind(token.CompletionString, j) == CXCompletionChunk_TypedText)
+            CXCompletionChunkKind kind = clang_getCompletionChunkKind(token.CompletionString, j);
+            if (kind == CXCompletionChunk_ResultType)
+            {
+                CXString str = clang_getCompletionChunkText(token.CompletionString, j);
+                type = wxT(": ") + wxString::FromUTF8(clang_getCString(str));
+                wxString prefix;
+                if (type.EndsWith(wxT(" *"), &prefix) || type.EndsWith(wxT(" &"), &prefix))
+                    type = prefix + type.Last();
+                clang_disposeString(str);
+            }
+            else if (kind == CXCompletionChunk_TypedText)
             {
                 CXString completeTxt = clang_getCompletionChunkText(token.CompletionString, j);
-                results.push_back(ClToken(wxString::FromUTF8(clang_getCString(completeTxt)),// + F(wxT("%d"), token.CursorKind),
+                results.push_back(ClToken(wxString::FromUTF8(clang_getCString(completeTxt)) + type,// + F(wxT("%d"), token.CursorKind),
                                           i, clang_getCompletionPriority(token.CompletionString), GetTokenCategory(token.CursorKind)));
                 clang_disposeString(completeTxt);
+                type.Empty();
                 break;
             }
         }
     }
+}
+
+wxString ClangProxy::DocumentCCToken(int translId, int tknId)
+{
+    const CXCompletionResult* token = m_TranslUnits[translId].GetCCResult(tknId);
+    if (!token)
+        return wxEmptyString;
+    int upperBound = clang_getNumCompletionChunks(token->CompletionString);
+    wxString doc;
+    for (int i = 0; i < upperBound; ++i)
+    {
+        CXString str = clang_getCompletionChunkText(token->CompletionString, i);
+        doc += wxString::FromUTF8(clang_getCString(str));
+        if (   clang_getCompletionChunkKind(token->CompletionString, i) == CXCompletionChunk_ResultType
+            && (wxIsalpha(doc.Last()) || doc.Last() == wxT('_')) )
+            doc += wxT(" ");
+        clang_disposeString(str);
+    }
+
+    CXString comment = clang_getCompletionBriefComment(token->CompletionString);
+    doc += wxT("\n") + wxString::FromUTF8(clang_getCString(comment));
+    clang_disposeString(comment);
+
+    wxString html = wxT("<html><body>");
+    html.reserve(doc.Len() + 30);
+    for (size_t i = 0; i < doc.Length(); ++i)
+    {
+        switch (doc.GetChar(i))
+        {
+            case wxT('&'):  html += wxT("&amp;");  break;
+            case wxT('\"'): html += wxT("&quot;"); break;
+            case wxT('\''): html += wxT("&apos;"); break;
+            case wxT('<'):  html += wxT("&lt;");   break;
+            case wxT('>'):  html += wxT("&gt;");   break;
+            case wxT('\n'): html += wxT("<br>");   break;
+            default:        html += doc[i];        break;
+        }
+    }
+    html += wxT("</body></html>");
+    return html;
+}
+
+wxString ClangProxy::GetCCInsertSuffix(int translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets)
+{
+    const CXCompletionResult* token = m_TranslUnits[translId].GetCCResult(tknId);
+    if (!token)
+        return wxEmptyString;
+
+    const CXCompletionString& clCompStr = token->CompletionString;
+    int upperBound = clang_getNumCompletionChunks(clCompStr);
+    enum BuilderState { init, store, exit };
+    BuilderState state = init;
+    wxString suffix;
+    for (int i = 0; i < upperBound; ++i)
+    {
+        switch (clang_getCompletionChunkKind(clCompStr, i))
+        {
+            case CXCompletionChunk_TypedText:
+                if (state == init)
+                    state = store;
+                break;
+
+            case CXCompletionChunk_Placeholder:
+                if (state == store)
+                {
+                    CXString str = clang_getCompletionChunkText(clCompStr, i);
+                    const wxString& param = wxT("/*! ") + wxString::FromUTF8(clang_getCString(str)) + wxT(" !*/");
+                    offsets = std::make_pair(suffix.Length(), suffix.Length() + param.Length());
+                    suffix += param;
+                    clang_disposeString(str);
+                    state = exit;
+                }
+                break;
+
+            case CXCompletionChunk_Informative:
+                break;
+
+            case CXCompletionChunk_VerticalSpace:
+                if (state != init)
+                    suffix += newLine;
+                break;
+
+            default:
+                if (state != init)
+                {
+                    CXString str = clang_getCompletionChunkText(clCompStr, i);
+                    suffix += wxString::FromUTF8(clang_getCString(str));
+                    clang_disposeString(str);
+                }
+                break;
+        }
+    }
+    if (state != exit)
+        offsets = std::make_pair(suffix.Length(), suffix.Length());
+    return suffix;
 }

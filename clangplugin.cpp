@@ -169,6 +169,14 @@ struct PrioritySorter
     }
 };
 
+static wxString GetActualName(const wxString& name)
+{
+    const int idx = name.Find(wxT(':'));
+    if (idx == wxNOT_FOUND)
+        return name;
+    return name.Mid(0, idx);
+}
+
 std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEditor* ed, int& tknStart, int& tknEnd)
 {
     std::vector<CCToken> tokens;
@@ -265,7 +273,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
                 continue;
             if (isPP)
                 tknIt->category = tcPreprocessor;
-            else if (std::binary_search(keywords.begin(), keywords.end(), tknIt->name))
+            else if (std::binary_search(keywords.begin(), keywords.end(), GetActualName(tknIt->name)))
                 tknIt->category = tcLangKeyword;
         }
     }
@@ -275,6 +283,8 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
 
 wxString ClangPlugin::GetDocumentation(const CCToken& token)
 {
+    if (token.id >= 0)
+        return m_Proxy.DocumentCCToken(m_TranslUnitId, token.id);
     return wxEmptyString;
 }
 
@@ -291,6 +301,45 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetTokenAt(int pos, cbEditor* ed)
 wxString ClangPlugin::OnDocumentationLink(wxHtmlLinkEvent& event, bool& dismissPopup)
 {
     return wxEmptyString;
+}
+
+void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
+{
+    wxString tknText = token.name;
+    int idx = tknText.Find(wxT(':'));
+    if (idx != wxNOT_FOUND)
+        tknText.Truncate(idx);
+    std::pair<int, int> offsets = std::make_pair(0, 0);
+    cbStyledTextCtrl* stc = ed->GetControl();
+    wxString suffix = m_Proxy.GetCCInsertSuffix(m_TranslUnitId, token.id, GetEOLStr(stc->GetEOLMode()) + ed->GetLineIndentString(stc->GetCurrentLine()), offsets);
+    int pos = stc->GetCurrentPos();
+    int startPos = std::min(stc->WordStartPosition(pos, true), std::min(stc->GetSelectionStart(), stc->GetSelectionEnd()));
+    int moveToPos = startPos + tknText.Length();
+    stc->SetTargetStart(startPos);
+    int endPos = stc->WordEndPosition(pos, true);
+    if (tknText.EndsWith(stc->GetTextRange(pos, endPos)))
+    {
+        if (!suffix.IsEmpty())
+        {
+            if (stc->GetCharAt(endPos) == suffix[0])
+                offsets = std::make_pair(1, 1);
+            else
+                tknText += suffix;
+        }
+    }
+    else
+    {
+        endPos = pos;
+        tknText += suffix;
+    }
+    stc->SetTargetEnd(endPos);
+
+    stc->AutoCompCancel();
+
+    if (stc->GetTextRange(startPos, endPos) != tknText)
+        stc->ReplaceTarget(tknText);
+    stc->SetSelectionVoid(moveToPos + offsets.first, moveToPos + offsets.second);
+    stc->ChooseCaretX();
 }
 
 void ClangPlugin::OnEditorOpen(CodeBlocksEvent& event)
