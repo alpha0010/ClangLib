@@ -7,6 +7,7 @@
 #include <sdk.h>
 #include <compilercommandgenerator.h>
 #include <cbstyledtextctrl.h>
+#include <editor_hooks.h>
 
 #include <wx/tokenzr.h>
 
@@ -33,15 +34,18 @@ namespace
 }
 
 static const wxString g_InvalidStr(wxT("invalid"));
-const int idEdOpenTimer = wxNewId();
+const int idEdOpenTimer  = wxNewId();
+const int idReparseTimer = wxNewId();
 
 // milliseconds
 #define ED_OPEN_DELAY 1000
 #define ED_ACTIVATE_DELAY 150
+#define REPARSE_DELAY 900
 
 ClangPlugin::ClangPlugin() :
     m_ImageList(16, 16),
     m_EdOpenTimer(this, idEdOpenTimer),
+    m_ReparseTimer(this, idReparseTimer),
     m_pLastEditor(nullptr),
     m_TranslUnitId(wxNOT_FOUND)
 {
@@ -144,11 +148,15 @@ void ClangPlugin::OnAttach()
     typedef cbEventFunctor<ClangPlugin, CodeBlocksEvent> ClEvent;
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_OPEN,      new ClEvent(this, &ClangPlugin::OnEditorOpen));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new ClEvent(this, &ClangPlugin::OnEditorActivate));
-    Connect(idEdOpenTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idEdOpenTimer,  wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idReparseTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangPlugin>(this, &ClangPlugin::OnEditorHook));
 }
 
 void ClangPlugin::OnRelease(bool appShutDown)
 {
+    EditorHooks::UnregisterHook(m_EditorHookId);
+    Disconnect(idReparseTimer);
     Disconnect(idEdOpenTimer);
     Manager::Get()->RemoveAllEventSinksFor(this);
     m_ImageList.RemoveAll();
@@ -295,7 +303,25 @@ wxStringVec ClangPlugin::GetCallTips(int pos, int style, cbEditor* ed, int& hlSt
 
 std::vector<ClangPlugin::CCToken> ClangPlugin::GetTokenAt(int pos, cbEditor* ed)
 {
-    return std::vector<CCToken>();
+    std::vector<CCToken> tokens;
+    if (ed != m_pLastEditor)
+    {
+        m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
+        m_pLastEditor = ed;
+    }
+    if (m_TranslUnitId == wxNOT_FOUND)
+        return tokens;
+
+    cbStyledTextCtrl* stc = ed->GetControl();
+    if (stc->GetTextRange(pos - 1, pos + 1).Strip().IsEmpty())
+        return tokens;
+    const int line = stc->LineFromPosition(pos);
+    const int column = pos - stc->PositionFromLine(line);
+    wxStringVec names;
+    m_Proxy.GetTokensAt(ed->GetFilename(), line + 1, column + 1, m_TranslUnitId, names);
+    for (wxStringVec::const_iterator nmIt = names.begin(); nmIt != names.end(); ++nmIt)
+        tokens.push_back(CCToken(-1, *nmIt));
+    return tokens;
 }
 
 wxString ClangPlugin::OnDocumentationLink(wxHtmlLinkEvent& event, bool& dismissPopup)
@@ -322,7 +348,10 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
         if (!suffix.IsEmpty())
         {
             if (stc->GetCharAt(endPos) == suffix[0])
-                offsets = std::make_pair(1, 1);
+            {
+                if (suffix.Length() != 2 || stc->GetCharAt(endPos + 1) != suffix[1])
+                    offsets = std::make_pair(1, 1);
+            }
             else
                 tknText += suffix;
         }
@@ -334,7 +363,7 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
     }
     stc->SetTargetEnd(endPos);
 
-    stc->AutoCompCancel();
+    stc->AutoCompCancel(); // so (wx)Scintilla does not insert the text as well
 
     if (stc->GetTextRange(startPos, endPos) != tknText)
         stc->ReplaceTarget(tknText);
@@ -531,7 +560,8 @@ bool ClangPlugin::IsSourceOf(const wxFileName& candidateFile, const wxFileName& 
 
 void ClangPlugin::OnTimer(wxTimerEvent& event)
 {
-    if (event.GetId() == idEdOpenTimer)
+    const int evId = event.GetId();
+    if (evId == idEdOpenTimer)
     {
         EditorManager* edMgr = Manager::Get()->GetEditorManager();
         cbEditor* ed = edMgr->GetBuiltinActiveEditor();
@@ -581,6 +611,38 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         }
         m_Proxy.CreateTranslationUnit(ed->GetFilename(), compileCommand);
     }
+    else if (evId == idReparseTimer)
+    {
+        EditorManager* edMgr = Manager::Get()->GetEditorManager();
+        cbEditor* ed = edMgr->GetBuiltinActiveEditor();
+        if (ed != m_pLastEditor)
+        {
+            m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
+            m_pLastEditor = ed;
+        }
+        if (m_TranslUnitId == wxNOT_FOUND)
+            return;
+        std::map<wxString, wxString> unsavedFiles;
+        for (int i = 0; i < edMgr->GetEditorsCount(); ++i)
+        {
+            ed = edMgr->GetBuiltinEditor(i);
+            if (ed && ed->GetModified())
+                unsavedFiles.insert(std::make_pair(ed->GetFilename(), ed->GetControl()->GetText()));
+        }
+        m_Proxy.Reparse(m_TranslUnitId, unsavedFiles);
+    }
     else
         event.Skip();
+}
+
+void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
+{
+    event.Skip();
+    if (!IsProviderFor(ed))
+        return;
+    if (event.GetEventType() == wxEVT_SCI_MODIFIED)
+    {
+        if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
+            m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
+    }
 }

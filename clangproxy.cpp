@@ -100,6 +100,17 @@ class TranslationUnit
             return nullptr;
         }
 
+        CXCursor GetTokensAt(const wxString& filename, int line, int column)
+        {
+            return clang_getCursor(m_ClTranslUnit, clang_getLocation(m_ClTranslUnit, clang_getFile(m_ClTranslUnit, filename.ToUTF8().data()), line, column));
+        }
+
+        void Reparse(unsigned num_unsaved_files, struct CXUnsavedFile* unsaved_files)
+        {
+            // TODO: check and handle error conditions
+            clang_reparseTranslationUnit(m_ClTranslUnit, num_unsaved_files, unsaved_files, clang_defaultReparseOptions(m_ClTranslUnit));
+        }
+
     private:
 #if __cplusplus >= 201103L
         // copying not allowed (we can move)
@@ -148,6 +159,7 @@ ClangProxy::ClangProxy()
 
 ClangProxy::~ClangProxy()
 {
+    m_TranslUnits.clear();
     clang_disposeIndex(m_ClIndex);
 }
 
@@ -292,9 +304,12 @@ wxString ClangProxy::DocumentCCToken(int translId, int tknId)
     {
         CXString str = clang_getCompletionChunkText(token->CompletionString, i);
         doc += wxString::FromUTF8(clang_getCString(str));
-        if (   clang_getCompletionChunkKind(token->CompletionString, i) == CXCompletionChunk_ResultType
-            && (wxIsalpha(doc.Last()) || doc.Last() == wxT('_')) )
-            doc += wxT(" ");
+        if (clang_getCompletionChunkKind(token->CompletionString, i) == CXCompletionChunk_ResultType)
+        {
+            if (doc.Length() > 2 && doc[doc.Length() - 2] == wxT(' '))
+                doc.RemoveLast(2) += doc.Last();
+            doc += wxT(' ');
+        }
         clang_disposeString(str);
     }
 
@@ -374,4 +389,60 @@ wxString ClangProxy::GetCCInsertSuffix(int translId, int tknId, const wxString& 
     if (state != exit)
         offsets = std::make_pair(suffix.Length(), suffix.Length());
     return suffix;
+}
+
+void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int translId, wxStringVec& results)
+{
+    CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
+    if (clang_Cursor_isNull(token))
+        return;
+    CXCursor resolve = clang_getCursorDefinition(token);
+    if (clang_Cursor_isNull(resolve))
+    {
+        resolve = clang_getCursorReferenced(token);
+        if (!clang_Cursor_isNull(resolve))
+            token = resolve;
+    }
+    else
+        token = resolve;
+
+    wxString tknStr;
+    const CXCompletionString& clCompStr = clang_getCursorCompletionString(token);
+    int upperBound = clang_getNumCompletionChunks(clCompStr);
+    for (int i = 0; i < upperBound; ++i)
+    {
+        CXString str = clang_getCompletionChunkText(clCompStr, i);
+        tknStr += wxString::FromUTF8(clang_getCString(str));
+        if (clang_getCompletionChunkKind(clCompStr, i) == CXCompletionChunk_ResultType)
+        {
+            if (tknStr.Length() > 2 && tknStr[tknStr.Length() - 2] == wxT(' '))
+                tknStr.RemoveLast(2) += tknStr.Last();
+            tknStr += wxT(' ');
+        }
+        clang_disposeString(str);
+    }
+    if (!tknStr.IsEmpty())
+        results.push_back(tknStr);
+}
+
+void ClangProxy::Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles)
+{
+    std::vector<CXUnsavedFile> clUnsavedFiles;
+    std::vector<wxCharBuffer> clFileBuffer;
+    for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
+         fileIt != unsavedFiles.end(); ++fileIt)
+    {
+        CXUnsavedFile unit;
+        clFileBuffer.push_back(fileIt->first.ToUTF8());
+        unit.Filename = clFileBuffer.back().data();
+        clFileBuffer.push_back(fileIt->second.ToUTF8());
+        unit.Contents = clFileBuffer.back().data();
+#if wxCHECK_VERSION(2, 9, 4)
+        unit.Length   = clFileBuffer.back().length();
+#else
+        unit.Length   = strlen(unit.Contents); // extra work needed because wxString::Length() treats multibyte character length as '1'
+#endif
+        clUnsavedFiles.push_back(unit);
+    }
+    m_TranslUnits[translId].Reparse(clUnsavedFiles.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0]);
 }

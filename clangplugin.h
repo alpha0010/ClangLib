@@ -41,13 +41,16 @@ class ClangPlugin : public cbCodeCompletionPlugin
         void OnEditorOpen(CodeBlocksEvent& event);
         void OnEditorActivate(CodeBlocksEvent& event);
         void OnTimer(wxTimerEvent& event);
+        void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
 
         ClangProxy m_Proxy;
         wxImageList m_ImageList;
         wxTimer m_EdOpenTimer;
+        wxTimer m_ReparseTimer;
         std::map<wxString, wxString> m_compInclDirs;
         cbEditor* m_pLastEditor;
         int m_TranslUnitId;
+        int m_EditorHookId;
 };
 
 #endif // CLANGPLUGIN_H
