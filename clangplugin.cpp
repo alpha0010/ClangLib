@@ -627,6 +627,21 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
             comp = CompilerFactory::GetDefaultCompiler();
         comp->GetCommandGenerator(proj)->GenerateCommandLine(compileCommand, target, pf, ed->GetFilename(),
                                                              g_InvalidStr, g_InvalidStr, g_InvalidStr );
+        wxStringTokenizer tokenizer(compileCommand);
+        compileCommand.Empty();
+        wxString pathStr;
+        while (tokenizer.HasMoreTokens())
+        {
+            wxString flag = tokenizer.GetNextToken();
+            // make all include paths absolute, so clang does not choke if Code::Blocks switches directories
+            if (flag.StartsWith(wxT("-I"), &pathStr))
+            {
+                wxFileName path(pathStr);
+                if (path.Normalize(wxPATH_NORM_ALL & ~wxPATH_NORM_CASE))
+                    flag = wxT("-I") + path.GetFullPath();
+            }
+            compileCommand += flag + wxT(" ");
+        }
         compileCommand += GetCompilerInclDirs(comp->GetID());
         if (FileTypeOf(ed->GetFilename()) == ftHeader) // try to find the associated source
         {
