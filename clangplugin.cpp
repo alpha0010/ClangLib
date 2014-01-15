@@ -235,7 +235,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
     }
     m_Proxy.CodeCompleteAt(ed->GetFilename(), line + 1, column + 1, m_TranslUnitId, unsavedFiles, tknResults);
     const wxString& prefix = stc->GetTextRange(tknStart, tknEnd).Lower();
-    if (prefix.Length() > 3)
+    if (prefix.Length() > 3) // larger context, match the prefix at any point in the token
     {
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
              tknIt != tknResults.end(); ++tknIt)
@@ -244,7 +244,16 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
                 tokens.push_back(CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
         }
     }
-    else
+    else if (prefix.IsEmpty())
+    {
+        for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
+             tknIt != tknResults.end(); ++tknIt)
+        {
+            if (!tknIt->name.StartsWith(wxT("operator"))) // it is rather unlikely for an operator to be the desired completion
+                tokens.push_back(CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
+        }
+    }
+    else // smaller context, only allow matches of the prefix at the beginning of the token
     {
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
              tknIt != tknResults.end(); ++tknIt)
@@ -274,15 +283,35 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
                 keywords.push_back(tokenizer.GetNextToken());
             std::sort(keywords.begin(), keywords.end());
         }
+        std::set<int> usedWeights;
         for (std::vector<CCToken>::iterator tknIt = tokens.begin();
              tknIt != tokens.end(); ++tknIt)
         {
+            usedWeights.insert(tknIt->weight);
             if (tknIt->category != -1)
                 continue;
             if (isPP)
                 tknIt->category = tcPreprocessor;
             else if (std::binary_search(keywords.begin(), keywords.end(), GetActualName(tknIt->name)))
                 tknIt->category = tcLangKeyword;
+        }
+        // Clang sometimes gives many weight values, which can make completion more difficult
+        // because results are less alphabetical. Use a compression map on the lower priority
+        // values (higher numbers) to reduce the total number of weights used.
+        if (usedWeights.size() > 3)
+        {
+            std::vector<int> weightsVec(usedWeights.begin(), usedWeights.end());
+            std::map<int, int> weightCompr;
+            weightCompr[weightsVec[0]] = weightsVec[0];
+            weightCompr[weightsVec[1]] = weightsVec[1];
+            int factor = (weightsVec.size() > 7 ? 3 : 2);
+            for (size_t i = 2; i < weightsVec.size(); ++i)
+                weightCompr[weightsVec[i]] = weightsVec[(i - 2) / factor + 2];
+            for (std::vector<CCToken>::iterator tknIt = tokens.begin();
+                 tknIt != tokens.end(); ++tknIt)
+            {
+                tknIt->weight = weightCompr[tknIt->weight];
+            }
         }
     }
 

@@ -37,6 +37,7 @@ class TranslationUnit
 #else
             std::vector<wxString>(m_Files).swap(m_Files);
 #endif
+            Reparse(0, nullptr); // seems to improve performance for some reason?
         }
 
         // move ctor
