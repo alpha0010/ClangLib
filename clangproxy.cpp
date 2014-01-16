@@ -24,9 +24,8 @@ class TranslationUnit
             m_LastCC(nullptr),
             m_LastPos(-1, -1)
         {
-            m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
-                                                         args.size(), nullptr, 0, clang_defaultEditingTranslationUnitOptions() );
-
+            m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0], args.size(), nullptr, 0,
+                                                         clang_defaultEditingTranslationUnitOptions() | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion );
             clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, this);
             m_Files.reserve(1024);
             m_Files.push_back(filename);
