@@ -34,18 +34,21 @@ namespace
 }
 
 static const wxString g_InvalidStr(wxT("invalid"));
-const int idEdOpenTimer  = wxNewId();
-const int idReparseTimer = wxNewId();
+const int idEdOpenTimer     = wxNewId();
+const int idReparseTimer    = wxNewId();
+const int idDiagnosticTimer = wxNewId();
 
 // milliseconds
 #define ED_OPEN_DELAY 1000
 #define ED_ACTIVATE_DELAY 150
 #define REPARSE_DELAY 900
+#define DIAGNOSTIC_DELAY 3000
 
 ClangPlugin::ClangPlugin() :
     m_ImageList(16, 16),
     m_EdOpenTimer(this, idEdOpenTimer),
     m_ReparseTimer(this, idReparseTimer),
+    m_DiagnosticTimer(this, idDiagnosticTimer),
     m_pLastEditor(nullptr),
     m_TranslUnitId(wxNOT_FOUND)
 {
@@ -148,14 +151,16 @@ void ClangPlugin::OnAttach()
     typedef cbEventFunctor<ClangPlugin, CodeBlocksEvent> ClEvent;
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_OPEN,      new ClEvent(this, &ClangPlugin::OnEditorOpen));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new ClEvent(this, &ClangPlugin::OnEditorActivate));
-    Connect(idEdOpenTimer,  wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
-    Connect(idReparseTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idEdOpenTimer,     wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idReparseTimer,    wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idDiagnosticTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangPlugin>(this, &ClangPlugin::OnEditorHook));
 }
 
 void ClangPlugin::OnRelease(bool appShutDown)
 {
     EditorHooks::UnregisterHook(m_EditorHookId);
+    Disconnect(idDiagnosticTimer);
     Disconnect(idReparseTimer);
     Disconnect(idEdOpenTimer);
     Manager::Get()->RemoveAllEventSinksFor(this);
@@ -218,10 +223,12 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
     std::vector<ClToken> tknResults;
     const int line = stc->LineFromPosition(tknStart);
     std::map<wxString, wxString> unsavedFiles;
-    if (ed->GetModified())
+    EditorManager* edMgr = Manager::Get()->GetEditorManager();
+    for (int i = 0; i < edMgr->GetEditorsCount(); ++i)
     {
-        unsavedFiles.insert(std::make_pair(ed->GetFilename(), stc->GetText())); // current file
-        // todo: add other editors (do we want to?)
+        cbEditor* editor = edMgr->GetBuiltinEditor(i);
+        if (editor && editor->GetModified())
+            unsavedFiles.insert(std::make_pair(editor->GetFilename(), editor->GetControl()->GetText()));
     }
     const int lnStart = stc->PositionFromLine(line);
     int column = tknStart - lnStart;
@@ -592,11 +599,12 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
     const int evId = event.GetId();
     if (evId == idEdOpenTimer)
     {
-        EditorManager* edMgr = Manager::Get()->GetEditorManager();
-        cbEditor* ed = edMgr->GetBuiltinActiveEditor();
-        if (  !ed || !IsProviderFor(ed)
-            || m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND )
+        cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+        if (!ed || !IsProviderFor(ed))
+            return;
+        else if (m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND)
         {
+            m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
             return;
         }
         wxString compileCommand;
@@ -654,6 +662,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
             }
         }
         m_Proxy.CreateTranslationUnit(ed->GetFilename(), compileCommand);
+        m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
     }
     else if (evId == idReparseTimer)
     {
@@ -674,6 +683,19 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
                 unsavedFiles.insert(std::make_pair(ed->GetFilename(), ed->GetControl()->GetText()));
         }
         m_Proxy.Reparse(m_TranslUnitId, unsavedFiles);
+        DiagnoseEd(m_pLastEditor, dlMinimal);
+    }
+    else if (evId == idDiagnosticTimer)
+    {
+        cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+        if (ed != m_pLastEditor)
+        {
+            m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
+            m_pLastEditor = ed;
+        }
+        if (m_TranslUnitId == wxNOT_FOUND)
+            return;
+        DiagnoseEd(ed, dlFull);
     }
     else
         event.Skip();
@@ -687,6 +709,53 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     if (event.GetEventType() == wxEVT_SCI_MODIFIED)
     {
         if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
+        {
             m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
+            m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
+        }
     }
+}
+
+void ClangPlugin::DiagnoseEd(cbEditor* ed, DiagnosticLevel diagLv)
+{
+    std::vector<ClDiagnostic> diagnostics;
+    m_Proxy.GetDiagnostics(m_TranslUnitId, diagnostics);
+    cbStyledTextCtrl* stc = ed->GetControl();
+    if (diagLv == dlFull)
+        stc->AnnotationClearAll();
+    const int warningIndicator = 0; // predefined
+    const int errorIndicator = 15; // hopefully we do not clash with someone else...
+    stc->SetIndicatorCurrent(warningIndicator);
+    stc->IndicatorClearRange(0, stc->GetLength());
+    stc->IndicatorSetStyle(errorIndicator, wxSCI_INDIC_SQUIGGLE);
+    stc->IndicatorSetForeground(errorIndicator, *wxRED);
+    stc->SetIndicatorCurrent(errorIndicator);
+    stc->IndicatorClearRange(0, stc->GetLength());
+    const wxString& fileNm = ed->GetFilename();
+    for ( std::vector<ClDiagnostic>::const_iterator dgItr = diagnostics.begin();
+          dgItr != diagnostics.end(); ++dgItr )
+    {
+        //Manager::Get()->GetLogManager()->Log(dgItr->file + wxT(" ") + dgItr->message + F(wxT(" %d, %d"), dgItr->range.first, dgItr->range.second));
+        if (dgItr->file != fileNm)
+            continue;
+        if (diagLv == dlFull)
+        {
+            wxString str = stc->AnnotationGetText(dgItr->line - 1);
+            if (!str.IsEmpty())
+                str += wxT("\n");
+            stc->AnnotationSetText(dgItr->line - 1, str + dgItr->message);
+            stc->AnnotationSetStyle(dgItr->line - 1, 50);
+        }
+        int pos = stc->PositionFromLine(dgItr->line - 1) + dgItr->range.first - 1;
+        int range = dgItr->range.second - dgItr->range.first;
+        if (range == 0)
+            range = stc->WordEndPosition(pos, true) - pos;
+        if (dgItr->severity == sError)
+            stc->SetIndicatorCurrent(errorIndicator);
+        else
+            stc->SetIndicatorCurrent(warningIndicator);
+        stc->IndicatorFillRange(pos, range);
+    }
+    if (diagLv == dlFull)
+        stc->AnnotationSetVisible(wxSCI_ANNOTATION_BOXED);
 }

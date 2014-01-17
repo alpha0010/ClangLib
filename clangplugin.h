@@ -43,10 +43,14 @@ class ClangPlugin : public cbCodeCompletionPlugin
         void OnTimer(wxTimerEvent& event);
         void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
 
+        enum DiagnosticLevel { dlMinimal, dlFull };
+        void DiagnoseEd(cbEditor* ed, DiagnosticLevel diagLv);
+
         ClangProxy m_Proxy;
         wxImageList m_ImageList;
         wxTimer m_EdOpenTimer;
         wxTimer m_ReparseTimer;
+        wxTimer m_DiagnosticTimer;
         std::map<wxString, wxString> m_compInclDirs;
         cbEditor* m_pLastEditor;
         int m_TranslUnitId;

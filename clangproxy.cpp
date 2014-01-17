@@ -111,11 +111,79 @@ class TranslationUnit
             clang_reparseTranslationUnit(m_ClTranslUnit, num_unsaved_files, unsaved_files, clang_defaultReparseOptions(m_ClTranslUnit));
         }
 
+        void GetDiagnostics(std::vector<ClDiagnostic>& diagnostics)
+        {
+            CXDiagnosticSet diagSet = clang_getDiagnosticSetFromTU(m_ClTranslUnit);
+            ExpandDiagnosticSet(diagSet, diagnostics);
+            clang_disposeDiagnosticSet(diagSet);
+        }
+
     private:
 #if __cplusplus >= 201103L
         // copying not allowed (we can move)
         TranslationUnit(const TranslationUnit& /*other*/) { cbThrow(wxT("Illegal copy attempted of TranslationUnit object.")); }
 #endif
+
+        void ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<ClDiagnostic>& diagnostics)
+        {
+            size_t numDiags = clang_getNumDiagnosticsInSet(diagSet);
+            for (size_t i = 0; i < numDiags; ++i)
+            {
+                CXDiagnostic diag = clang_getDiagnosticInSet(diagSet, i);
+                //ExpandDiagnosticSet(clang_getChildDiagnostics(diag), diagnostics);
+                size_t numRnges = clang_getDiagnosticNumRanges(diag);
+                unsigned rgStart = 0;
+                unsigned rgEnd = 0;
+                for (size_t j = 0; j < numRnges; ++j) // often no range data (clang bug?)
+                {
+                    CXSourceRange range = clang_getDiagnosticRange(diag, j);
+                    CXSourceLocation loc = clang_getRangeStart(range);
+                    clang_getSpellingLocation(loc, nullptr, nullptr, &rgStart, nullptr);
+                    loc = clang_getRangeEnd(range);
+                    clang_getSpellingLocation(loc, nullptr, nullptr, &rgEnd, nullptr);
+                    if (rgStart != rgEnd)
+                        break;
+                }
+                if (rgStart == rgEnd) // check if there is FixIt data for the range
+                {
+                    numRnges = clang_getDiagnosticNumFixIts(diag);
+                    for (size_t j = 0; j < numRnges; ++j)
+                    {
+                        CXSourceRange range;
+                        clang_getDiagnosticFixIt(diag, j, &range);
+                        CXSourceLocation loc = clang_getRangeStart(range);
+                        clang_getSpellingLocation(loc, nullptr, nullptr, &rgStart, nullptr);
+                        loc = clang_getRangeEnd(range);
+                        clang_getSpellingLocation(loc, nullptr, nullptr, &rgEnd, nullptr);
+                        if (rgStart != rgEnd)
+                            break;
+                    }
+                }
+                CXSourceLocation loc = clang_getDiagnosticLocation(diag);
+                if (rgEnd == 0) // still no range -> use the range of the current token
+                {
+                    CXCursor token = clang_getCursor(m_ClTranslUnit, loc);
+                    CXSourceRange range = clang_getCursorExtent(token);
+                    CXSourceLocation rgLoc = clang_getRangeStart(range);
+                    clang_getSpellingLocation(rgLoc, nullptr, nullptr, &rgStart, nullptr);
+                    rgLoc = clang_getRangeEnd(range);
+                    clang_getSpellingLocation(rgLoc, nullptr, nullptr, &rgEnd, nullptr);
+                }
+                unsigned line;
+                unsigned column;
+                CXFile file;
+                clang_getSpellingLocation(loc, &file, &line, &column, nullptr);
+                if (rgEnd < column || rgStart > column) // out of bounds?
+                    rgStart = rgEnd = column;
+                CXString str = clang_getFileName(file);
+                wxString flName = wxString::FromUTF8(clang_getCString(str));
+                clang_disposeString(str);
+                str = clang_formatDiagnostic(diag, 0);
+                diagnostics.push_back(ClDiagnostic(line, rgStart, rgEnd, (clang_getDiagnosticSeverity(diag) >= CXDiagnostic_Error ? sError : sWarning), flName, wxString::FromUTF8(clang_getCString(str))));
+                clang_disposeString(str);
+                clang_disposeDiagnostic(diag);
+            }
+        }
 
         std::vector<wxString> m_Files;
         CXTranslationUnit m_ClTranslUnit;
@@ -445,4 +513,9 @@ void ClangProxy::Reparse(int translId, const std::map<wxString, wxString>& unsav
         clUnsavedFiles.push_back(unit);
     }
     m_TranslUnits[translId].Reparse(clUnsavedFiles.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0]);
+}
+
+void ClangProxy::GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnostics)
+{
+    m_TranslUnits[translId].GetDiagnostics(diagnostics);
 }

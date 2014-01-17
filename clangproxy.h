@@ -53,6 +53,19 @@ struct ClToken // TODO: do we want this, or is just using CCToken good enough?
     wxString name;
 };
 
+enum Severity { sWarning, sError };
+struct ClDiagnostic
+{
+    ClDiagnostic(int ln, int rgStart, int rgEnd, Severity level, const wxString& fl, const wxString& msg) :
+        line(ln), range(rgStart, rgEnd), severity(level), file(fl), message(msg) {}
+
+    int line;
+    std::pair<int, int> range;
+    Severity severity;
+    wxString file;
+    wxString message;
+};
+
 class ClangProxy
 {
     public:
@@ -69,6 +82,8 @@ class ClangProxy
         void GetTokensAt(const wxString& filename, int line, int column, int translId, std::vector<wxString>& results);
 
         void Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles);
+
+        void GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnostics);
 
     protected:
     private:
