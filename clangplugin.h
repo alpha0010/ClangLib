@@ -20,13 +20,15 @@ class ClangPlugin : public cbCodeCompletionPlugin
         // Supply html formatted documentation for the passed token.
         virtual wxString GetDocumentation(const CCToken& token);
         // Supply content for the calltip at the specified location.
-        virtual wxStringVec GetCallTips(int pos, int style, cbEditor* ed, int& hlStart, int& hlEnd, int& argsPos);
+        virtual std::vector<CCCallTip> GetCallTips(int pos, int style, cbEditor* ed, int& argsPos);
         // Supply the definition of the token at the specified location.
         virtual std::vector<CCToken> GetTokenAt(int pos, cbEditor* ed);
         // Handle documentation link event.
         virtual wxString OnDocumentationLink(wxHtmlLinkEvent& event, bool& dismissPopup);
         // Callback for inserting the selected autocomplete entry into the editor.
         virtual void DoAutocomplete(const CCToken& token, cbEditor* ed);
+
+        virtual void BuildModuleMenu(const ModuleType type, wxMenu* menu, const FileTreeData* data = nullptr);
 
     protected:
         virtual void OnAttach();
@@ -42,6 +44,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
         void OnEditorActivate(CodeBlocksEvent& event);
         void OnTimer(wxTimerEvent& event);
         void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
+        void OnGotoDeclaration(wxCommandEvent& event);
 
         enum DiagnosticLevel { dlMinimal, dlFull };
         void DiagnoseEd(cbEditor* ed, DiagnosticLevel diagLv);

@@ -25,7 +25,7 @@ class TranslationUnit
             m_LastPos(-1, -1)
         {
             m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0], args.size(), nullptr, 0,
-                                                         clang_defaultEditingTranslationUnitOptions() | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion );
+                                                         clang_defaultEditingTranslationUnitOptions() | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion | CXTranslationUnit_DetailedPreprocessingRecord );
             clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, this);
             m_Files.reserve(1024);
             m_Files.push_back(filename);
@@ -370,9 +370,18 @@ wxString ClangProxy::DocumentCCToken(int translId, int tknId)
     wxString doc;
     for (int i = 0; i < upperBound; ++i)
     {
+        CXCompletionChunkKind kind = clang_getCompletionChunkKind(token->CompletionString, i);
+        if (kind == CXCompletionChunk_TypedText)
+        {
+            CXString str = clang_getCompletionParent(token->CompletionString, nullptr);
+            wxString parent = wxString::FromUTF8(clang_getCString(str));
+            if (!parent.IsEmpty())
+                doc += parent + wxT("::");
+            clang_disposeString(str);
+        }
         CXString str = clang_getCompletionChunkText(token->CompletionString, i);
         doc += wxString::FromUTF8(clang_getCString(str));
-        if (clang_getCompletionChunkKind(token->CompletionString, i) == CXCompletionChunk_ResultType)
+        if (kind == CXCompletionChunk_ResultType)
         {
             if (doc.Length() > 2 && doc[doc.Length() - 2] == wxT(' '))
                 doc.RemoveLast(2) += doc.Last();
@@ -465,10 +474,10 @@ void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int
     if (clang_Cursor_isNull(token))
         return;
     CXCursor resolve = clang_getCursorDefinition(token);
-    if (clang_Cursor_isNull(resolve))
+    if (clang_Cursor_isNull(resolve) || clang_isInvalid(token.kind))
     {
         resolve = clang_getCursorReferenced(token);
-        if (!clang_Cursor_isNull(resolve))
+        if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(token.kind))
             token = resolve;
     }
     else
@@ -479,9 +488,18 @@ void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int
     int upperBound = clang_getNumCompletionChunks(clCompStr);
     for (int i = 0; i < upperBound; ++i)
     {
+        CXCompletionChunkKind kind = clang_getCompletionChunkKind(clCompStr, i);
+        if (kind == CXCompletionChunk_TypedText)
+        {
+            CXString str = clang_getCompletionParent(clCompStr, nullptr);
+            wxString parent = wxString::FromUTF8(clang_getCString(str));
+            if (!parent.IsEmpty())
+                tknStr += parent + wxT("::");
+            clang_disposeString(str);
+        }
         CXString str = clang_getCompletionChunkText(clCompStr, i);
         tknStr += wxString::FromUTF8(clang_getCString(str));
-        if (clang_getCompletionChunkKind(clCompStr, i) == CXCompletionChunk_ResultType)
+        if (kind == CXCompletionChunk_ResultType)
         {
             if (tknStr.Length() > 2 && tknStr[tknStr.Length() - 2] == wxT(' '))
                 tknStr.RemoveLast(2) += tknStr.Last();
@@ -491,6 +509,40 @@ void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int
     }
     if (!tknStr.IsEmpty())
         results.push_back(tknStr);
+}
+
+void ClangProxy::ResolveTokenAt(wxString& filename, int& line, int& column, int translId)
+{
+    CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
+    if (clang_Cursor_isNull(token))
+        return;
+    CXCursor resolve = clang_getCursorDefinition(token);
+    if (clang_Cursor_isNull(resolve) || clang_isInvalid(token.kind))
+    {
+        resolve = clang_getCursorReferenced(token);
+        if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(token.kind))
+            token = resolve;
+    }
+    else
+        token = resolve;
+    CXFile file;
+    if (token.kind == CXCursor_InclusionDirective)
+    {
+        file = clang_getIncludedFile(token);
+        line = 1;
+        column = 1;
+    }
+    else
+    {
+        CXSourceLocation loc = clang_getCursorLocation(token);
+        unsigned ln, col;
+        clang_getSpellingLocation(loc, &file, &ln, &col, nullptr);
+        line   = ln;
+        column = col;
+    }
+    CXString str = clang_getFileName(file);
+    filename = wxString::FromUTF8(clang_getCString(str));
+    clang_disposeString(str);
 }
 
 void ClangProxy::Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles)

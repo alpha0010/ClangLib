@@ -80,6 +80,7 @@ class ClangProxy
         wxString GetCCInsertSuffix(int translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets);
 
         void GetTokensAt(const wxString& filename, int line, int column, int translId, std::vector<wxString>& results);
+        void ResolveTokenAt(wxString& filename, int& line, int& column, int translId);
 
         void Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles);
 

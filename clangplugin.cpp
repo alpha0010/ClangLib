@@ -38,6 +38,8 @@ const int idEdOpenTimer     = wxNewId();
 const int idReparseTimer    = wxNewId();
 const int idDiagnosticTimer = wxNewId();
 
+const int idGotoDeclaration = wxNewId();
+
 // milliseconds
 #define ED_OPEN_DELAY 1000
 #define ED_ACTIVATE_DELAY 150
@@ -154,12 +156,14 @@ void ClangPlugin::OnAttach()
     Connect(idEdOpenTimer,     wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     Connect(idReparseTimer,    wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     Connect(idDiagnosticTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idGotoDeclaration, wxEVT_COMMAND_MENU_SELECTED, /*wxMenuEventHandler*/wxCommandEventHandler(ClangPlugin::OnGotoDeclaration), nullptr, this);
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangPlugin>(this, &ClangPlugin::OnEditorHook));
 }
 
 void ClangPlugin::OnRelease(bool appShutDown)
 {
     EditorHooks::UnregisterHook(m_EditorHookId);
+    Disconnect(idGotoDeclaration);
     Disconnect(idDiagnosticTimer);
     Disconnect(idReparseTimer);
     Disconnect(idEdOpenTimer);
@@ -242,12 +246,22 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
     }
     m_Proxy.CodeCompleteAt(ed->GetFilename(), line + 1, column + 1, m_TranslUnitId, unsavedFiles, tknResults);
     const wxString& prefix = stc->GetTextRange(tknStart, tknEnd).Lower();
+    bool includeCtors = true; // sometimes we get a lot of these
+    for (int i = tknStart - 1; i > 0; --i)
+    {
+        if (!wxIsspace(stc->GetCharAt(i)))
+        {
+            if (stc->GetCharAt(i) == wxT(';') || stc->GetCharAt(i) == wxT('}')) // last non-whitespace character
+                includeCtors = false; // filter out ctors (they are unlikely to be wanted in this situation)
+            break;
+        }
+    }
     if (prefix.Length() > 3) // larger context, match the prefix at any point in the token
     {
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
              tknIt != tknResults.end(); ++tknIt)
         {
-            if (tknIt->name.Lower().Find(prefix) != wxNOT_FOUND)
+            if (tknIt->name.Lower().Find(prefix) != wxNOT_FOUND && (includeCtors || tknIt->category != tcCtorPublic))
                 tokens.push_back(CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
         }
     }
@@ -256,7 +270,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
              tknIt != tknResults.end(); ++tknIt)
         {
-            if (!tknIt->name.StartsWith(wxT("operator"))) // it is rather unlikely for an operator to be the desired completion
+            if (!tknIt->name.StartsWith(wxT("operator")) && (includeCtors || tknIt->category != tcCtorPublic)) // it is rather unlikely for an operator to be the desired completion
                 tokens.push_back(CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
         }
     }
@@ -265,7 +279,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
              tknIt != tknResults.end(); ++tknIt)
         {
-            if (tknIt->name.Lower().StartsWith(prefix))
+            if (tknIt->name.Lower().StartsWith(prefix) && (includeCtors || tknIt->category != tcCtorPublic))
                 tokens.push_back(CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
         }
     }
@@ -332,9 +346,9 @@ wxString ClangPlugin::GetDocumentation(const CCToken& token)
     return wxEmptyString;
 }
 
-wxStringVec ClangPlugin::GetCallTips(int pos, int style, cbEditor* ed, int& hlStart, int& hlEnd, int& argsPos)
+std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int style, cbEditor* ed, int& argsPos)
 {
-    return wxStringVec();
+    return std::vector<CCCallTip>();
 }
 
 std::vector<ClangPlugin::CCToken> ClangPlugin::GetTokenAt(int pos, cbEditor* ed)
@@ -407,6 +421,27 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
     stc->ChooseCaretX();
 }
 
+void ClangPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, const FileTreeData* data)
+{
+    if (type != mtEditorManager)
+        return;
+    cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!ed)
+        return;
+    if (ed != m_pLastEditor)
+    {
+        m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
+        m_pLastEditor = ed;
+    }
+    if (m_TranslUnitId == wxNOT_FOUND)
+        return;
+    cbStyledTextCtrl* stc = ed->GetControl();
+    const int pos = stc->GetCurrentPos();
+    if (stc->GetTextRange(pos - 1, pos + 1).Strip().IsEmpty())
+        return;
+    menu->Insert(0, idGotoDeclaration, _("Resolve token (clang)"));
+}
+
 void ClangPlugin::OnEditorOpen(CodeBlocksEvent& event)
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
@@ -421,6 +456,25 @@ void ClangPlugin::OnEditorActivate(CodeBlocksEvent& event)
     if (ed && !m_EdOpenTimer.IsRunning())
         m_EdOpenTimer.Start(ED_ACTIVATE_DELAY, wxTIMER_ONE_SHOT);
     event.Skip();
+}
+
+void ClangPlugin::OnGotoDeclaration(wxCommandEvent& event)
+{
+    cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!ed || m_TranslUnitId == wxNOT_FOUND)
+        return;
+    cbStyledTextCtrl* stc = ed->GetControl();
+    const int pos = stc->GetCurrentPos();
+    wxString filename = ed->GetFilename();
+    int line = stc->LineFromPosition(pos);
+    int column = pos - stc->PositionFromLine(line) + 1;
+    if (stc->GetLine(line).StartsWith(wxT("#include")))
+        column = 2;
+    ++line;
+    m_Proxy.ResolveTokenAt(filename, line, column, m_TranslUnitId);
+    ed = Manager::Get()->GetEditorManager()->Open(filename);
+    if (ed)
+        ed->GotoTokenPosition(line - 1, stc->GetTextRange(stc->WordStartPosition(pos, true), stc->WordEndPosition(pos, true)));
 }
 
 wxString ClangPlugin::GetCompilerInclDirs(const wxString& compId)
@@ -742,16 +796,25 @@ void ClangPlugin::DiagnoseEd(cbEditor* ed, DiagnosticLevel diagLv)
         {
             wxString str = stc->AnnotationGetText(dgItr->line - 1);
             if (!str.IsEmpty())
-                str += wxT("\n");
+                str += wxT('\n');
             stc->AnnotationSetText(dgItr->line - 1, str + dgItr->message);
             stc->AnnotationSetStyle(dgItr->line - 1, 50);
         }
         int pos = stc->PositionFromLine(dgItr->line - 1) + dgItr->range.first - 1;
         int range = dgItr->range.second - dgItr->range.first;
         if (range == 0)
+        {
             range = stc->WordEndPosition(pos, true) - pos;
+            if (range == 0)
+            {
+                pos = stc->WordStartPosition(pos, true);
+                range = stc->WordEndPosition(pos, true) - pos;
+            }
+        }
         if (dgItr->severity == sError)
             stc->SetIndicatorCurrent(errorIndicator);
+        else if (dgItr != diagnostics.begin() && dgItr->line == (dgItr - 1)->line && dgItr->range.first <= (dgItr - 1)->range.second)
+            continue; // do not overwrite the last indicator
         else
             stc->SetIndicatorCurrent(warningIndicator);
         stc->IndicatorFillRange(pos, range);
