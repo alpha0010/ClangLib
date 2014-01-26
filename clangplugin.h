@@ -22,7 +22,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
         // Supply content for the calltip at the specified location.
         virtual std::vector<CCCallTip> GetCallTips(int pos, int style, cbEditor* ed, int& argsPos);
         // Supply the definition of the token at the specified location.
-        virtual std::vector<CCToken> GetTokenAt(int pos, cbEditor* ed);
+        virtual std::vector<CCToken> GetTokenAt(int pos, cbEditor* ed, bool& allowCallTip);
         // Handle documentation link event.
         virtual wxString OnDocumentationLink(wxHtmlLinkEvent& event, bool& dismissPopup);
         // Callback for inserting the selected autocomplete entry into the editor.

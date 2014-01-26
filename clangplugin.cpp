@@ -351,7 +351,7 @@ std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int style,
     return std::vector<CCCallTip>();
 }
 
-std::vector<ClangPlugin::CCToken> ClangPlugin::GetTokenAt(int pos, cbEditor* ed)
+std::vector<ClangPlugin::CCToken> ClangPlugin::GetTokenAt(int pos, cbEditor* ed, bool& allowCallTip)
 {
     std::vector<CCToken> tokens;
     if (ed != m_pLastEditor)
