@@ -47,6 +47,7 @@ const int idGotoDeclaration = wxNewId();
 #define DIAGNOSTIC_DELAY 3000
 
 ClangPlugin::ClangPlugin() :
+    m_Proxy(m_Database, m_CppKeywords),
     m_ImageList(16, 16),
     m_EdOpenTimer(this, idEdOpenTimer),
     m_ReparseTimer(this, idReparseTimer),
@@ -149,6 +150,13 @@ void ClangPlugin::OnAttach()
     m_ImageList.Add(bmp); // PARSER_IMG_MACRO_FOLDER
     bmp = cbLoadBitmap(prefix + wxT("cpp_lang.png"),          wxBITMAP_TYPE_PNG);
     m_ImageList.Add(bmp); // tcLangKeyword
+
+    EditorColourSet* theme = Manager::Get()->GetEditorManager()->GetColourSet();
+    wxStringTokenizer tokenizer(theme->GetKeywords(theme->GetHighlightLanguage(wxT("C/C++")), 0));
+    while (tokenizer.HasMoreTokens())
+        m_CppKeywords.push_back(tokenizer.GetNextToken());
+    std::sort(m_CppKeywords.begin(), m_CppKeywords.end());
+    wxStringVec(m_CppKeywords).swap(m_CppKeywords);
 
     typedef cbEventFunctor<ClangPlugin, CodeBlocksEvent> ClEvent;
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_OPEN,      new ClEvent(this, &ClangPlugin::OnEditorOpen));
@@ -295,15 +303,6 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
         for (int i = 0; i < imgCount; ++i)
             stc->RegisterImage(i, m_ImageList.GetBitmap(i));
         bool isPP = stc->GetLine(line).Strip(wxString::leading).StartsWith(wxT("#"));
-        wxStringVec keywords;
-        if (!isPP)
-        {
-            EditorColourSet* theme = ed->GetColourSet();
-            wxStringTokenizer tokenizer(theme->GetKeywords(theme->GetHighlightLanguage(wxT("C/C++")), 0));
-            while (tokenizer.HasMoreTokens())
-                keywords.push_back(tokenizer.GetNextToken());
-            std::sort(keywords.begin(), keywords.end());
-        }
         std::set<int> usedWeights;
         for (std::vector<CCToken>::iterator tknIt = tokens.begin();
              tknIt != tokens.end(); ++tknIt)
@@ -313,7 +312,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
                 continue;
             if (isPP)
                 tknIt->category = tcPreprocessor;
-            else if (std::binary_search(keywords.begin(), keywords.end(), GetActualName(tknIt->name)))
+            else if (std::binary_search(m_CppKeywords.begin(), m_CppKeywords.end(), GetActualName(tknIt->name)))
                 tknIt->category = tcLangKeyword;
         }
         // Clang sometimes gives many weight values, which can make completion more difficult

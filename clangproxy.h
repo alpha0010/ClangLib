@@ -6,7 +6,9 @@
 #include <wx/string.h>
 
 class TranslationUnit;
+class TokenDatabase;
 typedef void* CXIndex;
+typedef int FileId;
 
 enum TokenCategory
 {
@@ -69,10 +71,11 @@ struct ClDiagnostic
 class ClangProxy
 {
     public:
-        ClangProxy();
+        ClangProxy(TokenDatabase& database, const std::vector<wxString>& cppKeywords);
         ~ClangProxy();
 
         void CreateTranslationUnit(const wxString& filename, const wxString& commands);
+        int GetTranslationUnitId(FileId fId);
         int GetTranslationUnitId(const wxString& filename);
 
         void CodeCompleteAt(const wxString& filename, int line, int column, int translId, const std::map<wxString, wxString>& unsavedFiles, std::vector<ClToken>& results);
@@ -88,6 +91,8 @@ class ClangProxy
 
     protected:
     private:
+        TokenDatabase& m_Database;
+        const std::vector<wxString>& m_CppKeywords;
         std::vector<TranslationUnit> m_TranslUnits;
         CXIndex m_ClIndex;
 };

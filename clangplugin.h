@@ -6,6 +6,7 @@
 #include <wx/timer.h>
 
 #include "clangproxy.h"
+#include "tokendatabase.h"
 
 class ClangPlugin : public cbCodeCompletionPlugin
 {
@@ -49,6 +50,8 @@ class ClangPlugin : public cbCodeCompletionPlugin
         enum DiagnosticLevel { dlMinimal, dlFull };
         void DiagnoseEd(cbEditor* ed, DiagnosticLevel diagLv);
 
+        TokenDatabase m_Database;
+        wxStringVec m_CppKeywords;
         ClangProxy m_Proxy;
         wxImageList m_ImageList;
         wxTimer m_EdOpenTimer;
