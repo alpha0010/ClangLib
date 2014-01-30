@@ -73,6 +73,10 @@
 		<Unit filename="clangproxy.cpp" />
 		<Unit filename="clangproxy.h" />
 		<Unit filename="resources/manifest.xml" />
+		<Unit filename="tokendatabase.cpp" />
+		<Unit filename="tokendatabase.h" />
+		<Unit filename="treemap.cpp" />
+		<Unit filename="treemap.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />

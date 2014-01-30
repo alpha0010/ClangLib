@@ -4,6 +4,7 @@
 
 #include "tokendatabase.h"
 
+#include <wx/filename.h>
 #include <wx/string.h>
 
 #include "treemap.h"
@@ -22,9 +23,12 @@ TokenDatabase::~TokenDatabase()
 
 FileId TokenDatabase::GetFilenameId(const wxString& filename)
 {
-    std::vector<int> id = m_pFilenames->GetIdSet(filename);
+    wxFileName fln(filename);
+    fln.Normalize(wxPATH_NORM_ALL & ~wxPATH_NORM_CASE);
+    const wxString& normFile = fln.GetFullPath(wxPATH_UNIX);
+    std::vector<int> id = m_pFilenames->GetIdSet(normFile);
     if (id.empty())
-        return m_pFilenames->Insert(filename, filename);
+        return m_pFilenames->Insert(normFile, normFile);
     return id.front();
 }
 

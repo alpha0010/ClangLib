@@ -233,7 +233,7 @@ static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion
 
 static unsigned HashToken(CXCompletionString token, wxString& identifier)
 {
-    unsigned hVal = 2166136261;
+    unsigned hVal = 2166136261u;
     size_t upperBound = clang_getNumCompletionChunks(token);
     for (size_t i = 0; i < upperBound; ++i)
     {
@@ -244,7 +244,7 @@ static unsigned HashToken(CXCompletionString token, wxString& identifier)
         for (; *pCh; ++pCh)
         {
             hVal ^= *pCh;
-            hVal *= 16777619;
+            hVal *= 16777619u;
         }
         clang_disposeString(str);
     }
@@ -275,7 +275,7 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClie
         case CXCursor_Constructor:
         case CXCursor_Destructor:
         case CXCursor_FunctionTemplate:
-        case CXCursor_MacroDefinition:
+        //case CXCursor_MacroDefinition:
             ret = CXChildVisit_Continue;
             break;
 
@@ -378,7 +378,7 @@ namespace HTML_Writer
                     {
                         const wxString& tkn = code.Mid(stRg, enRg - stRg);
                         if (std::binary_search(cppKeywords.begin(), cppKeywords.end(), tkn))
-                            html += wxT("<b>") + Colourise(Escape(tkn), wxT("DarkBlue")) + wxT("</b>");
+                            html += wxT("<b>") + Colourise(Escape(tkn), wxT("#00008b")) + wxT("</b>"); // DarkBlue
                         else
                             html += Escape(tkn);
                         stRg = enRg;
@@ -416,7 +416,7 @@ namespace HTML_Writer
                     {
                         if (ch == wxT('"'))
                             ++enRg;
-                        html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("MediumBlue"));
+                        html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("#0000cd")); // MediumBlue
                         stRg = enRg;
                         --enRg;
                     }
@@ -452,7 +452,7 @@ namespace HTML_Writer
                         break;
                     if (stRg != enRg)
                     {
-                        html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("LightSlateGray"));
+                        html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("#778899")); // LightSlateGray
                         stRg = enRg;
                     }
                     style = wxSCI_C_DEFAULT;
