@@ -2,9 +2,9 @@
  * Communication proxy to libclang-c
  */
 
-#include "clangproxy.h"
-
 #include <sdk.h>
+
+#include "clangproxy.h"
 
 #include <clang-c/Index.h>
 #include <wx/tokenzr.h>
@@ -275,7 +275,7 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClie
         case CXCursor_Constructor:
         case CXCursor_Destructor:
         case CXCursor_FunctionTemplate:
-        //case CXCursor_MacroDefinition:
+        //case CXCursor_MacroDefinition: // this can crash Clang on Windows
             ret = CXChildVisit_Continue;
             break;
 
@@ -642,7 +642,7 @@ int ClangProxy::GetTranslationUnitId(const wxString& filename)
     return GetTranslationUnitId(m_Database.GetFilenameId(filename));
 }
 
-static TokenCategory GetTokenCategory(CXCursorKind kind)
+static TokenCategory GetTokenCategory(CXCursorKind kind, CX_CXXAccessSpecifier access = CX_CXXInvalidAccessSpecifier)
 {
     switch (kind)
     {
@@ -650,29 +650,91 @@ static TokenCategory GetTokenCategory(CXCursorKind kind)
         case CXCursor_UnionDecl:
         case CXCursor_ClassDecl:
         case CXCursor_ClassTemplate:
-            return tcClassPublic;
+            switch (access)
+            {
+                case CX_CXXPublic:
+                    return tcClassPublic;
+                case CX_CXXProtected:
+                    return tcClassProtected;
+                case CX_CXXPrivate:
+                    return tcClassPrivate;
+                default:
+                case CX_CXXInvalidAccessSpecifier:
+                    return tcClass;
+            }
 
         case CXCursor_Constructor:
-            return tcCtorPublic;
+            switch (access)
+            {
+                default:
+                case CX_CXXInvalidAccessSpecifier:
+                case CX_CXXPublic:
+                    return tcCtorPublic;
+                case CX_CXXProtected:
+                    return tcCtorProtected;
+                case CX_CXXPrivate:
+                    return tcCtorPrivate;
+            }
 
         case CXCursor_Destructor:
-            return tcDtorPublic;
+            switch (access)
+            {
+                default:
+                case CX_CXXInvalidAccessSpecifier:
+                case CX_CXXPublic:
+                    return tcDtorPublic;
+                case CX_CXXProtected:
+                    return tcDtorProtected;
+                case CX_CXXPrivate:
+                    return tcDtorPrivate;
+            }
 
         case CXCursor_FunctionDecl:
         case CXCursor_CXXMethod:
         case CXCursor_FunctionTemplate:
-            return tcFuncPublic;
+            switch (access)
+            {
+                default:
+                case CX_CXXInvalidAccessSpecifier:
+                case CX_CXXPublic:
+                    return tcFuncPublic;
+                case CX_CXXProtected:
+                    return tcFuncProtected;
+                case CX_CXXPrivate:
+                    return tcFuncPrivate;
+            }
 
         case CXCursor_FieldDecl:
         case CXCursor_VarDecl:
         case CXCursor_ParmDecl:
-            return tcVarPublic;
+            switch (access)
+            {
+                default:
+                case CX_CXXInvalidAccessSpecifier:
+                case CX_CXXPublic:
+                    return tcVarPublic;
+                case CX_CXXProtected:
+                    return tcVarProtected;
+                case CX_CXXPrivate:
+                    return tcVarPrivate;
+            }
 
         case CXCursor_MacroDefinition:
             return tcPreprocessor;
 
         case CXCursor_EnumDecl:
-            return tcEnumPublic;
+            switch (access)
+            {
+                case CX_CXXPublic:
+                    return tcEnumPublic;
+                case CX_CXXProtected:
+                    return tcEnumProtected;
+                case CX_CXXPrivate:
+                    return tcEnumPrivate;
+                default:
+                case CX_CXXInvalidAccessSpecifier:
+                    return tcEnum;
+            }
 
         case CXCursor_EnumConstantDecl:
             return tcEnumerator;
@@ -681,7 +743,18 @@ static TokenCategory GetTokenCategory(CXCursorKind kind)
             return tcNamespace;
 
         case CXCursor_TypedefDecl:
-            return tcTypedefPublic;
+            switch (access)
+            {
+                case CX_CXXPublic:
+                    return tcTypedefPublic;
+                case CX_CXXProtected:
+                    return tcTypedefProtected;
+                case CX_CXXPrivate:
+                    return tcTypedefPrivate;
+                default:
+                case CX_CXXInvalidAccessSpecifier:
+                    return tcTypedef;
+            }
 
         // TODO: what is this?
 //        case:
@@ -757,6 +830,8 @@ wxString ClangProxy::DocumentCCToken(int translId, int tknId)
 
     int upperBound = clang_getNumCompletionChunks(token->CompletionString);
     wxString doc;
+    if (token->CursorKind == CXCursor_Namespace)
+        doc = wxT("namespace ");
     for (int i = 0; i < upperBound; ++i)
     {
         CXCompletionChunkKind kind = clang_getCompletionChunkKind(token->CompletionString, i);
@@ -793,6 +868,18 @@ wxString ClangProxy::DocumentCCToken(int translId, int tknId)
             {
                 CXComment docComment = clang_Cursor_getParsedComment(clTkn);
                 HTML_Writer::FormatDocumentation(docComment, descriptor, m_CppKeywords);
+                if (clTkn.kind == CXCursor_EnumConstantDecl)
+                {
+                    // can possibly yield incorrect results
+                    doc += wxString::Format(wxT("=%d"), static_cast<int>(clang_getEnumConstantDeclValue(clTkn)));
+                }
+                else if (clTkn.kind == CXCursor_TypedefDecl)
+                {
+                    CXString str = clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(clTkn));
+                    wxString type = wxString::FromUTF8(clang_getCString(str));
+                    if (!type.IsEmpty())
+                        doc.Prepend(wxT("typedef ") + type + wxT(" "));
+                }
             }
         }
     }
@@ -862,6 +949,30 @@ wxString ClangProxy::GetCCInsertSuffix(int translId, int tknId, const wxString& 
     return suffix;
 }
 
+void ClangProxy::RefineTokenType(int translId, int tknId, int& tknType)
+{
+    const CXCompletionResult* token = m_TranslUnits[translId].GetCCResult(tknId);
+    if (!token)
+        return;
+    wxString identifier;
+    unsigned tokenHash = HashToken(token->CompletionString, identifier);
+    if (!identifier.IsEmpty())
+    {
+        TokenId tId = m_Database.GetTokenId(identifier, tokenHash);
+        if (tId != wxNOT_FOUND)
+        {
+            const AbstractToken& aTkn = m_Database.GetToken(tId);
+            CXCursor clTkn = m_TranslUnits[translId].GetTokensAt(m_Database.GetFilename(aTkn.fileId), aTkn.line, aTkn.column);
+            if (!clang_Cursor_isNull(clTkn) && !clang_isInvalid(clTkn.kind))
+            {
+                TokenCategory tkCat = GetTokenCategory(token->CursorKind, clang_getCXXAccessSpecifier(clTkn));
+                if (tkCat != tcNone)
+                    tknType = tkCat;
+            }
+        }
+    }
+}
+
 void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int translId, wxStringVec& results)
 {
     CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
@@ -902,7 +1013,23 @@ void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int
         clang_disposeString(str);
     }
     if (!tknStr.IsEmpty())
+    {
+        if (token.kind == CXCursor_EnumConstantDecl)
+        {
+            // can possibly yield incorrect results
+            tknStr += wxString::Format(wxT("=%d"), static_cast<int>(clang_getEnumConstantDeclValue(token)));
+        }
+        else if (token.kind == CXCursor_TypedefDecl)
+        {
+            CXString str = clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(token));
+            wxString type = wxString::FromUTF8(clang_getCString(str));
+            if (!type.IsEmpty())
+                tknStr.Prepend(wxT("typedef ") + type + wxT(" "));
+        }
+        else if (token.kind == CXCursor_Namespace)
+            tknStr.Prepend(wxT("namespace "));
         results.push_back(tknStr);
+    }
 }
 
 void ClangProxy::ResolveTokenAt(wxString& filename, int& line, int& column, int translId)

@@ -2,9 +2,10 @@
  * A clang based plugin
  */
 
+#include <sdk.h>
+
 #include "clangplugin.h"
 
-#include <sdk.h>
 #include <compilercommandgenerator.h>
 #include <cbstyledtextctrl.h>
 #include <editor_hooks.h>
@@ -225,7 +226,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
                 && stc->GetCharAt(tknEnd - 2) != wxT(':') )
             || (   curChar == wxT('>') // '->'
                 && stc->GetCharAt(tknEnd - 2) != wxT('-') )
-            || (   wxString(wxT("<\"/")).Find(curChar) != wxNOT_FOUND // #include directive
+            || (   wxString(wxT("<\"/")).Find(curChar) != wxNOT_FOUND // #include directive (TODO: enumerate completable include files)
                 && !stc->IsPreprocessor(style) ) )
         {
             return tokens;
@@ -257,9 +258,10 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
     bool includeCtors = true; // sometimes we get a lot of these
     for (int i = tknStart - 1; i > 0; --i)
     {
-        if (!wxIsspace(stc->GetCharAt(i)))
+        wxChar chr = stc->GetCharAt(i);
+        if (!wxIsspace(chr))
         {
-            if (stc->GetCharAt(i) == wxT(';') || stc->GetCharAt(i) == wxT('}')) // last non-whitespace character
+            if (chr == wxT(';') || chr == wxT('}')) // last non-whitespace character
                 includeCtors = false; // filter out ctors (they are unlikely to be wanted in this situation)
             break;
         }
@@ -308,12 +310,28 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
              tknIt != tokens.end(); ++tknIt)
         {
             usedWeights.insert(tknIt->weight);
-            if (tknIt->category != -1)
-                continue;
-            if (isPP)
-                tknIt->category = tcPreprocessor;
-            else if (std::binary_search(m_CppKeywords.begin(), m_CppKeywords.end(), GetActualName(tknIt->name)))
-                tknIt->category = tcLangKeyword;
+            switch (tknIt->category)
+            {
+                case tcNone:
+                    if (isPP)
+                        tknIt->category = tcPreprocessor;
+                    else if (std::binary_search(m_CppKeywords.begin(), m_CppKeywords.end(), GetActualName(tknIt->name)))
+                        tknIt->category = tcLangKeyword;
+                    break;
+
+                case tcClass:
+                case tcCtorPublic:
+                case tcDtorPublic:
+                case tcFuncPublic:
+                case tcVarPublic:
+                case tcEnum:
+                case tcTypedef:
+                    m_Proxy.RefineTokenType(m_TranslUnitId, tknIt->id, tknIt->category);
+                    break;
+
+                default:
+                    break;
+            }
         }
         // Clang sometimes gives many weight values, which can make completion more difficult
         // because results are less alphabetical. Use a compression map on the lower priority
