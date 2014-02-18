@@ -45,6 +45,7 @@ class TranslationUnit
             Reparse(0, nullptr); // seems to improve performance for some reason?
 
             clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, database);
+            database->Shrink();
         }
 
         // move ctor
@@ -617,11 +618,18 @@ ClangProxy::~ClangProxy()
 void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands)
 {
     wxStringTokenizer tokenizer(commands);
+    std::vector<wxString> unknownOptions;
+    unknownOptions.push_back(wxT("-Wno-unused-local-typedefs"));
+    unknownOptions.push_back(wxT("-Wzero-as-null-pointer-constant"));
+    std::sort(unknownOptions.begin(), unknownOptions.end());
     std::vector<wxCharBuffer> argsBuffer;
     std::vector<const char*> args;
     while (tokenizer.HasMoreTokens())
     {
-        argsBuffer.push_back(tokenizer.GetNextToken().ToUTF8());
+        const wxString& compilerSwitch = tokenizer.GetNextToken();
+        if (std::binary_search(unknownOptions.begin(), unknownOptions.end(), compilerSwitch))
+            continue;
+        argsBuffer.push_back(compilerSwitch.ToUTF8());
         args.push_back(argsBuffer.back().data());
     }
     m_TranslUnits.push_back(TranslationUnit(filename, args, m_ClIndex, &m_Database));
@@ -969,6 +977,188 @@ void ClangProxy::RefineTokenType(int translId, int tknId, int& tknType)
                 if (tkCat != tcNone)
                     tknType = tkCat;
             }
+        }
+    }
+}
+
+static CXChildVisitResult ClCallTipCtorAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data)
+{
+    switch (cursor.kind)
+    {
+        case CXCursor_Constructor:
+        {
+            std::vector<CXCursor>* tokenSet = static_cast<std::vector<CXCursor>*>(client_data);
+            tokenSet->push_back(cursor);
+            break;
+        }
+
+        case CXCursor_FunctionDecl:
+        case CXCursor_CXXMethod:
+        case CXCursor_FunctionTemplate:
+        {
+            CXString str = clang_getCursorSpelling(cursor);
+            if (strcmp(clang_getCString(str), "operator()") == 0)
+            {
+                std::vector<CXCursor>* tokenSet = static_cast<std::vector<CXCursor>*>(client_data);
+                tokenSet->push_back(cursor);
+            }
+            clang_disposeString(str);
+            break;
+        }
+
+        default:
+            break;
+    }
+    return CXChildVisit_Continue;
+}
+
+void ClangProxy::GetCallTipsAt(const wxString& filename, int line, int column, int translId, const wxString& tokenStr, std::vector<wxStringVec>& results)
+{
+    std::vector<CXCursor> tokenSet;
+    if (column > static_cast<int>(tokenStr.Length()))
+    {
+        column -= tokenStr.Length() / 2;
+        CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
+        if (!clang_Cursor_isNull(token))
+        {
+            CXCursor resolve = clang_getCursorDefinition(token);
+            if (clang_Cursor_isNull(resolve) || clang_isInvalid(token.kind))
+            {
+                resolve = clang_getCursorReferenced(token);
+                if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(token.kind))
+                    token = resolve;
+            }
+            else
+                token = resolve;
+            tokenSet.push_back(token);
+        }
+    }
+    // TODO: searching the database is very inexact, but necessary, as clang
+    // does not resolve the token when the code is invalid (incomplete)
+    std::vector<TokenId> tknIds = m_Database.GetTokenMatches(tokenStr);
+    for (std::vector<TokenId>::const_iterator itr = tknIds.begin(); itr != tknIds.end(); ++itr)
+    {
+        const AbstractToken& aTkn = m_Database.GetToken(*itr);
+        CXCursor token = m_TranslUnits[translId].GetTokensAt(m_Database.GetFilename(aTkn.fileId), aTkn.line, aTkn.column);
+        if (!clang_Cursor_isNull(token) && !clang_isInvalid(token.kind))
+            tokenSet.push_back(token);
+    }
+    std::set<wxString> uniqueTips;
+    for (size_t tknIdx = 0; tknIdx < tokenSet.size(); ++tknIdx)
+    {
+        CXCursor token = tokenSet[tknIdx];
+        switch (GetTokenCategory(token.kind, CX_CXXPublic))
+        {
+            case tcVarPublic:
+            {
+                token = clang_getTypeDeclaration(clang_getCursorResultType(token));
+                if (!clang_Cursor_isNull(token) && !clang_isInvalid(token.kind))
+                    tokenSet.push_back(token);
+                break;
+            }
+
+            case tcTypedefPublic:
+            {
+                token = clang_getTypeDeclaration(clang_getTypedefDeclUnderlyingType(token));
+                if (!clang_Cursor_isNull(token) && !clang_isInvalid(token.kind))
+                    tokenSet.push_back(token);
+                break;
+            }
+
+            case tcClassPublic:
+            {
+                // search for constructors and 'operator()'
+                clang_visitChildren(token, &ClCallTipCtorAST_Visitor, &tokenSet);
+                break;
+            }
+
+            case tcCtorPublic:
+            {
+                if (clang_getCXXAccessSpecifier(token) == CX_CXXPrivate)
+                    break;
+                // fall through
+            }
+            case tcFuncPublic:
+            {
+                const CXCompletionString& clCompStr = clang_getCursorCompletionString(token);
+                wxStringVec entry;
+                int upperBound = clang_getNumCompletionChunks(clCompStr);
+                entry.push_back(wxEmptyString);
+                for (int chunkIdx = 0; chunkIdx < upperBound; ++chunkIdx)
+                {
+                    CXCompletionChunkKind kind = clang_getCompletionChunkKind(clCompStr, chunkIdx);
+                    if (kind == CXCompletionChunk_TypedText)
+                    {
+                        CXString str = clang_getCompletionParent(clCompStr, nullptr);
+                        wxString parent = wxString::FromUTF8(clang_getCString(str));
+                        if (!parent.IsEmpty())
+                            entry[0] += parent + wxT("::");
+                        clang_disposeString(str);
+                    }
+                    else if (kind == CXCompletionChunk_LeftParen)
+                    {
+                        if (entry[0].IsEmpty() || !entry[0].EndsWith(wxT("operator")))
+                            break;
+                    }
+                    CXString str = clang_getCompletionChunkText(clCompStr, chunkIdx);
+                    entry[0] += wxString::FromUTF8(clang_getCString(str));
+                    if (kind == CXCompletionChunk_ResultType)
+                    {
+                        if (entry[0].Length() > 2 && entry[0][entry[0].Length() - 2] == wxT(' '))
+                            entry[0].RemoveLast(2) += entry[0].Last();
+                        entry[0] += wxT(' ');
+                    }
+                    clang_disposeString(str);
+                }
+                entry[0] += wxT('(');
+                int numArgs = clang_Cursor_getNumArguments(token);
+                for (int argIdx = 0; argIdx < numArgs; ++argIdx)
+                {
+                    CXCursor arg = clang_Cursor_getArgument(token, argIdx);
+
+                    wxString tknStr;
+                    const CXCompletionString& argStr = clang_getCursorCompletionString(arg);
+                    upperBound = clang_getNumCompletionChunks(argStr);
+                    for (int chunkIdx = 0; chunkIdx < upperBound; ++chunkIdx)
+                    {
+                        CXCompletionChunkKind kind = clang_getCompletionChunkKind(argStr, chunkIdx);
+                        if (kind == CXCompletionChunk_TypedText)
+                        {
+                            CXString str = clang_getCompletionParent(argStr, nullptr);
+                            wxString parent = wxString::FromUTF8(clang_getCString(str));
+                            if (!parent.IsEmpty())
+                                tknStr += parent + wxT("::");
+                            clang_disposeString(str);
+                        }
+                        CXString str = clang_getCompletionChunkText(argStr, chunkIdx);
+                        tknStr += wxString::FromUTF8(clang_getCString(str));
+                        if (kind == CXCompletionChunk_ResultType)
+                        {
+                            if (tknStr.Length() > 2 && tknStr[tknStr.Length() - 2] == wxT(' '))
+                                tknStr.RemoveLast(2) += tknStr.Last();
+                            tknStr += wxT(' ');
+                        }
+                        clang_disposeString(str);
+                    }
+
+                    entry.push_back(tknStr.Trim());
+                }
+                entry.push_back(wxT(')'));
+                wxString composit;
+                for (wxStringVec::const_iterator itr = entry.begin();
+                     itr != entry.end(); ++itr)
+                {
+                    composit += *itr;
+                }
+                if (uniqueTips.find(composit) != uniqueTips.end())
+                    break;
+                uniqueTips.insert(composit);
+                results.push_back(entry);
+                break;
+            }
+
+            default:
+                break;
         }
     }
 }

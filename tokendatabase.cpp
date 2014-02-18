@@ -61,3 +61,14 @@ AbstractToken& TokenDatabase::GetToken(TokenId tId) const
 {
     return m_pTokens->GetValue(tId);
 }
+
+std::vector<TokenId> TokenDatabase::GetTokenMatches(const wxString& identifier) const
+{
+    return m_pTokens->GetIdSet(identifier);
+}
+
+void TokenDatabase::Shrink()
+{
+    m_pFilenames->Shrink();
+    m_pTokens->Shrink();
+}

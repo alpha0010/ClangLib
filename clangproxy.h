@@ -83,6 +83,8 @@ class ClangProxy
         wxString GetCCInsertSuffix(int translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets);
         void RefineTokenType(int translId, int tknId, int& tknType); // TODO: cache TokenId (if resolved) for DocumentCCToken()
 
+        void GetCallTipsAt(const wxString& filename, int line, int column, int translId, const wxString& tokenStr, std::vector<wxStringVec>& results);
+
         void GetTokensAt(const wxString& filename, int line, int column, int translId, std::vector<wxString>& results);
         void ResolveTokenAt(wxString& filename, int& line, int& column, int translId);
 

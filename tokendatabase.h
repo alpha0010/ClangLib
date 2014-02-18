@@ -1,6 +1,8 @@
 #ifndef TOKENDATABASE_H
 #define TOKENDATABASE_H
 
+#include <vector>
+
 template<typename _Tp> class TreeMap;
 class wxString;
 typedef int FileId;
@@ -29,6 +31,9 @@ class TokenDatabase
         TokenId InsertToken(const wxString& identifier, const AbstractToken& token); // duplicate tokens are discarded
         TokenId GetTokenId(const wxString& identifier, unsigned tokenHash) const; // returns wxNOT_FOUND on failure
         AbstractToken& GetToken(TokenId tId) const;
+        std::vector<TokenId> GetTokenMatches(const wxString& identifier) const;
+
+        void Shrink();
 
     private:
         TreeMap<AbstractToken>* m_pTokens;

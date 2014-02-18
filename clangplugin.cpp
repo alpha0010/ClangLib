@@ -365,7 +365,90 @@ wxString ClangPlugin::GetDocumentation(const CCToken& token)
 
 std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int style, cbEditor* ed, int& argsPos)
 {
-    return std::vector<CCCallTip>();
+    std::vector<CCCallTip> tips;
+    if (ed != m_pLastEditor)
+    {
+        m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
+        m_pLastEditor = ed;
+    }
+    if (m_TranslUnitId == wxNOT_FOUND)
+        return tips;
+
+    cbStyledTextCtrl* stc = ed->GetControl();
+
+    int nest = 0;
+    int commas = 0;
+
+    while (--pos > 0)
+    {
+        const int curStyle = stc->GetStyleAt(pos);
+        if (   stc->IsString(curStyle)
+            || stc->IsCharacter(curStyle)
+            || stc->IsComment(curStyle) )
+        {
+            continue;
+        }
+
+        const wxChar ch = stc->GetCharAt(pos);
+        if (ch == wxT(';'))
+            return tips; // error?
+        else if (ch == wxT(','))
+        {
+            if (nest == 0)
+                ++commas;
+        }
+        else if (ch == wxT(')'))
+            --nest;
+        else if (ch == wxT('('))
+        {
+            ++nest;
+            if (nest > 0)
+                break;
+        }
+    }
+    while (--pos > 0)
+    {
+        if (   stc->GetCharAt(pos) <= wxT(' ')
+            || stc->IsComment(stc->GetStyleAt(pos)) )
+        {
+            continue;
+        }
+        break;
+    }
+    argsPos = stc->WordEndPosition(pos, true);
+    if (argsPos != m_LastCallTipPos)
+    {
+        m_LastCallTips.clear();
+        const int line = stc->LineFromPosition(pos);
+        const int column = pos - stc->PositionFromLine(line);
+        const wxString& tknText = stc->GetTextRange(stc->WordStartPosition(pos, true), argsPos);
+        if (!tknText.IsEmpty())
+            m_Proxy.GetCallTipsAt(ed->GetFilename(), line + 1, column + 1, m_TranslUnitId, tknText, m_LastCallTips);
+    }
+    m_LastCallTipPos = argsPos;
+    for (std::vector<wxStringVec>::const_iterator strVecItr = m_LastCallTips.begin(); strVecItr != m_LastCallTips.end(); ++strVecItr)
+    {
+        int strVecSz = strVecItr->size();
+        if (commas != 0 && strVecSz < commas + 3)
+            continue;
+        wxString tip;
+        int hlStart = wxSCI_INVALID_POSITION;
+        int hlEnd = wxSCI_INVALID_POSITION;
+        for (int i = 0; i < strVecSz; ++i)
+        {
+            if (i == commas + 1 && strVecSz > 2)
+            {
+                hlStart = tip.Length();
+                hlEnd = hlStart + (*strVecItr)[i].Length();
+            }
+            tip += (*strVecItr)[i];
+            if (i > 0 && i < (strVecSz - 2))
+                tip += wxT(", ");
+        }
+        tips.push_back(CCCallTip(tip, hlStart, hlEnd));
+    }
+
+    return tips;
 }
 
 std::vector<ClangPlugin::CCToken> ClangPlugin::GetTokenAt(int pos, cbEditor* ed, bool& allowCallTip)
@@ -436,6 +519,11 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
         stc->ReplaceTarget(tknText);
     stc->SetSelectionVoid(moveToPos + offsets.first, moveToPos + offsets.second);
     stc->ChooseCaretX();
+    if (token.category != tcLangKeyword && offsets.first != offsets.second)
+    {
+        CodeBlocksEvent evt(cbEVT_SHOW_CALL_TIP);
+        Manager::Get()->ProcessEvent(evt);
+    }
 }
 
 void ClangPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, const FileTreeData* data)
@@ -684,7 +772,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         Compiler* comp = nullptr;
         if (pf)
         {
-            target = pf->GetParentProject()->GetBuildTarget(pf->GetbuildTargets()[0]);
+            target = pf->GetParentProject()->GetBuildTarget(pf->GetBuildTargets()[0]);
             comp = CompilerFactory::GetCompiler(target->GetCompilerID());
             if (pf->GetUseCustomBuildCommand(target->GetCompilerID()))
             {

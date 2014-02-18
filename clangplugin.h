@@ -61,6 +61,8 @@ class ClangPlugin : public cbCodeCompletionPlugin
         cbEditor* m_pLastEditor;
         int m_TranslUnitId;
         int m_EditorHookId;
+        int m_LastCallTipPos;
+        std::vector<wxStringVec> m_LastCallTips;
 };
 
 #endif // CLANGPLUGIN_H
