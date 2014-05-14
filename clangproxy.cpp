@@ -728,7 +728,7 @@ static TokenCategory GetTokenCategory(CXCursorKind kind, CX_CXXAccessSpecifier a
             }
 
         case CXCursor_MacroDefinition:
-            return tcPreprocessor;
+            return tcMacroDef;
 
         case CXCursor_EnumDecl:
             switch (access)
@@ -763,10 +763,6 @@ static TokenCategory GetTokenCategory(CXCursorKind kind, CX_CXXAccessSpecifier a
                 case CX_CXXInvalidAccessSpecifier:
                     return tcTypedef;
             }
-
-        // TODO: what is this?
-//        case:
-//            return tcMacroPublic;
 
         default:
             return tcNone;

@@ -103,8 +103,8 @@ void ClangPlugin::OnAttach()
     m_ImageList.Add(bmp); // PARSER_IMG_VAR_PROTECTED
     bmp = cbLoadBitmap(prefix + wxT("var_public.png"),        wxBITMAP_TYPE_PNG);
     m_ImageList.Add(bmp); // PARSER_IMG_VAR_PUBLIC
-    bmp = cbLoadBitmap(prefix + wxT("preproc.png"),           wxBITMAP_TYPE_PNG);
-    m_ImageList.Add(bmp); // PARSER_IMG_PREPROCESSOR
+    bmp = cbLoadBitmap(prefix + wxT("macro_def.png"),         wxBITMAP_TYPE_PNG);
+    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_DEF
     bmp = cbLoadBitmap(prefix + wxT("enum.png"),              wxBITMAP_TYPE_PNG);
     m_ImageList.Add(bmp); // PARSER_IMG_ENUM
     bmp = cbLoadBitmap(prefix + wxT("enum_private.png"),      wxBITMAP_TYPE_PNG);
@@ -133,22 +133,22 @@ void ClangPlugin::OnAttach()
     m_ImageList.Add(bmp); // PARSER_IMG_FUNCS_FOLDER
     bmp = cbLoadBitmap(prefix + wxT("enums_folder.png"),      wxBITMAP_TYPE_PNG);
     m_ImageList.Add(bmp); // PARSER_IMG_ENUMS_FOLDER
-    bmp = cbLoadBitmap(prefix + wxT("preproc_folder.png"),    wxBITMAP_TYPE_PNG);
-    m_ImageList.Add(bmp); // PARSER_IMG_PREPROC_FOLDER
+    bmp = cbLoadBitmap(prefix + wxT("macro_def_folder.png"),  wxBITMAP_TYPE_PNG);
+    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_DEF_FOLDER
     bmp = cbLoadBitmap(prefix + wxT("others_folder.png"),     wxBITMAP_TYPE_PNG);
     m_ImageList.Add(bmp); // PARSER_IMG_OTHERS_FOLDER
     bmp = cbLoadBitmap(prefix + wxT("typedefs_folder.png"),   wxBITMAP_TYPE_PNG);
     m_ImageList.Add(bmp); // PARSER_IMG_TYPEDEF_FOLDER
-    bmp = cbLoadBitmap(prefix + wxT("macro.png"),             wxBITMAP_TYPE_PNG);
-    m_ImageList.Add(bmp); // PARSER_IMG_MACRO
-    bmp = cbLoadBitmap(prefix + wxT("macro_private.png"),     wxBITMAP_TYPE_PNG);
-    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_PRIVATE
-    bmp = cbLoadBitmap(prefix + wxT("macro_protected.png"),   wxBITMAP_TYPE_PNG);
-    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_PROTECTED
-    bmp = cbLoadBitmap(prefix + wxT("macro_public.png"),      wxBITMAP_TYPE_PNG);
-    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_PUBLIC
-    bmp = cbLoadBitmap(prefix + wxT("macro_folder.png"),      wxBITMAP_TYPE_PNG);
-    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_FOLDER
+    bmp = cbLoadBitmap(prefix + wxT("macro_use.png"),         wxBITMAP_TYPE_PNG);
+    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_USE
+    bmp = cbLoadBitmap(prefix + wxT("macro_use_private.png"), wxBITMAP_TYPE_PNG);
+    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_USE_PRIVATE
+    bmp = cbLoadBitmap(prefix + wxT("macro_use_protected.png"), wxBITMAP_TYPE_PNG);
+    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_USE_PROTECTED
+    bmp = cbLoadBitmap(prefix + wxT("macro_use_public.png"),  wxBITMAP_TYPE_PNG);
+    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_USE_PUBLIC
+    bmp = cbLoadBitmap(prefix + wxT("macro_use_folder.png"),  wxBITMAP_TYPE_PNG);
+    m_ImageList.Add(bmp); // PARSER_IMG_MACRO_USE_FOLDER
     bmp = cbLoadBitmap(prefix + wxT("cpp_lang.png"),          wxBITMAP_TYPE_PNG);
     m_ImageList.Add(bmp); // tcLangKeyword
 
@@ -314,7 +314,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
             {
                 case tcNone:
                     if (isPP)
-                        tknIt->category = tcPreprocessor;
+                        tknIt->category = tcMacroDef;
                     else if (std::binary_search(m_CppKeywords.begin(), m_CppKeywords.end(), GetActualName(tknIt->name)))
                         tknIt->category = tcLangKeyword;
                     break;
@@ -519,7 +519,7 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
         stc->ReplaceTarget(tknText);
     stc->SetSelectionVoid(moveToPos + offsets.first, moveToPos + offsets.second);
     stc->ChooseCaretX();
-    if (token.category != tcLangKeyword && offsets.first != offsets.second)
+    if (token.category != tcLangKeyword && (offsets.first != offsets.second || offsets.first == 1))
     {
         CodeBlocksEvent evt(cbEVT_SHOW_CALL_TIP);
         Manager::Get()->ProcessEvent(evt);

@@ -23,7 +23,7 @@ enum TokenCategory
     tcFuncPublic,
     tcVarPrivate,       tcVarProtected,
     tcVarPublic,
-    tcPreprocessor,
+    tcMacroDef,
     tcEnum,             tcEnumPrivate,
     tcEnumProtected,    tcEnumPublic,
     tcEnumerator,
@@ -37,7 +37,7 @@ enum TokenCategory
     tcPreprocFolder,
     tcOthersFolder,
     tcTypedefFolder,
-    tcMacro,            tcMacroPrivate,
+    tkMacroUse,         tcMacroPrivate,
     tcMacroProtected,   tcMacroPublic,
     tcMacroFolder,
     tcLangKeyword, // added
@@ -92,7 +92,6 @@ class ClangProxy
 
         void GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnostics);
 
-    protected:
     private:
         TokenDatabase& m_Database;
         const std::vector<wxString>& m_CppKeywords;
