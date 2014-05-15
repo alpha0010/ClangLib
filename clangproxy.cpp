@@ -220,7 +220,7 @@ class TranslationUnit
         } m_LastPos;
 };
 
-static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack, unsigned include_len, CXClientData client_data)
+static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* WXUNUSED(inclusion_stack), unsigned WXUNUSED(include_len), CXClientData client_data)
 {
     CXString filename = clang_getFileName(included_file);
     wxFileName inclFile(wxString::FromUTF8(clang_getCString(filename)));
@@ -252,7 +252,7 @@ static unsigned HashToken(CXCompletionString token, wxString& identifier)
     return hVal;
 }
 
-static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data)
+static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(parent), CXClientData client_data)
 {
     CXChildVisitResult ret = CXChildVisit_Break; // should never happen
     switch (cursor.kind)
@@ -819,7 +819,6 @@ void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename, int line,
             }
             else if (kind == CXCompletionChunk_TypedText)
             {
-                CXString completeTxt = clang_getCompletionChunkText(token.CompletionString, chunkIdx);
                 if (type.Length() > 40)
                 {
                     type.Truncate(35);
@@ -849,6 +848,7 @@ void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename, int line,
                     }
                     type += wxT("...");
                 }
+                CXString completeTxt = clang_getCompletionChunkText(token.CompletionString, chunkIdx);
                 results.push_back(ClToken(wxString::FromUTF8(clang_getCString(completeTxt)) + type,// + F(wxT("%d"), token.CursorKind),
                                           resIdx, clang_getCompletionPriority(token.CompletionString), GetTokenCategory(token.CursorKind)));
                 clang_disposeString(completeTxt);
@@ -916,6 +916,7 @@ wxString ClangProxy::DocumentCCToken(int translId, int tknId)
                     wxString type = wxString::FromUTF8(clang_getCString(str));
                     if (!type.IsEmpty())
                         doc.Prepend(wxT("typedef ") + type + wxT(" "));
+                    clang_disposeString(str);
                 }
             }
         }
@@ -1010,7 +1011,7 @@ void ClangProxy::RefineTokenType(int translId, int tknId, int& tknType)
     }
 }
 
-static CXChildVisitResult ClCallTipCtorAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data)
+static CXChildVisitResult ClCallTipCtorAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(parent), CXClientData client_data)
 {
     switch (cursor.kind)
     {
@@ -1192,6 +1193,16 @@ void ClangProxy::GetCallTipsAt(const wxString& filename, int line, int column, i
     }
 }
 
+static CXChildVisitResult ClInheritance_Visitor(CXCursor cursor, CXCursor WXUNUSED(parent), CXClientData client_data)
+{
+    if (cursor.kind != CXCursor_CXXBaseSpecifier)
+        return CXChildVisit_Break;
+    CXString str = clang_getTypeSpelling(clang_getCursorType(cursor));
+    static_cast<wxStringVec*>(client_data)->push_back(wxString::FromUTF8(clang_getCString(str)));
+    clang_disposeString(str);
+    return CXChildVisit_Continue;
+}
+
 void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int translId, wxStringVec& results)
 {
     CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
@@ -1233,20 +1244,64 @@ void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int
     }
     if (!tknStr.IsEmpty())
     {
-        if (token.kind == CXCursor_EnumConstantDecl)
+        switch (token.kind)
         {
-            // can possibly yield incorrect results
-            tknStr += wxString::Format(wxT("=%d"), static_cast<int>(clang_getEnumConstantDeclValue(token)));
+            case CXCursor_StructDecl:
+            case CXCursor_ClassDecl:
+            case CXCursor_ClassTemplate:
+            case CXCursor_ClassTemplatePartialSpecialization:
+            {
+                if (token.kind == CXCursor_StructDecl)
+                    tknStr.Prepend(wxT("struct "));
+                else
+                    tknStr.Prepend(wxT("class "));
+                wxStringVec directAncestors;
+                clang_visitChildren(token, &ClInheritance_Visitor, &directAncestors);
+                for (wxStringVec::const_iterator daItr = directAncestors.begin();
+                     daItr != directAncestors.end(); ++daItr)
+                {
+                    if (daItr == directAncestors.begin())
+                        tknStr += wxT(" : ");
+                    else
+                        tknStr += wxT(", ");
+                    tknStr += *daItr;
+                }
+                break;
+            }
+
+            case CXCursor_UnionDecl:
+                tknStr.Prepend(wxT("union "));
+                break;
+
+            case CXCursor_EnumDecl:
+                tknStr.Prepend(wxT("enum "));
+                break;
+
+            case CXCursor_EnumConstantDecl:
+                tknStr += wxString::Format(wxT("=%d"), static_cast<int>(clang_getEnumConstantDeclValue(token)));
+                break;
+
+            case CXCursor_TypedefDecl:
+            {
+                CXString str = clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(token));
+                wxString type = wxString::FromUTF8(clang_getCString(str));
+                clang_disposeString(str);
+                if (!type.IsEmpty())
+                    tknStr.Prepend(wxT("typedef ") + type + wxT(" "));
+                break;
+            }
+
+            case CXCursor_Namespace:
+                tknStr.Prepend(wxT("namespace "));
+                break;
+
+            case CXCursor_MacroDefinition:
+                tknStr.Prepend(wxT("#define ")); // TODO: show (partial) definition
+                break;
+
+            default:
+                break;
         }
-        else if (token.kind == CXCursor_TypedefDecl)
-        {
-            CXString str = clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(token));
-            wxString type = wxString::FromUTF8(clang_getCString(str));
-            if (!type.IsEmpty())
-                tknStr.Prepend(wxT("typedef ") + type + wxT(" "));
-        }
-        else if (token.kind == CXCursor_Namespace)
-            tknStr.Prepend(wxT("namespace "));
         results.push_back(tknStr);
     }
 }

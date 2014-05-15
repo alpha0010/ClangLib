@@ -563,7 +563,7 @@ void ClangPlugin::OnEditorActivate(CodeBlocksEvent& event)
     event.Skip();
 }
 
-void ClangPlugin::OnGotoDeclaration(wxCommandEvent& event)
+void ClangPlugin::OnGotoDeclaration(wxCommandEvent& WXUNUSED(event))
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed || m_TranslUnitId == wxNOT_FOUND)
