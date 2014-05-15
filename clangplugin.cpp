@@ -253,7 +253,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
             break;
         }
     }
-    m_Proxy.CodeCompleteAt(ed->GetFilename(), line + 1, column + 1, m_TranslUnitId, unsavedFiles, tknResults);
+    m_Proxy.CodeCompleteAt(isAuto, ed->GetFilename(), line + 1, column + 1, m_TranslUnitId, unsavedFiles, tknResults);
     const wxString& prefix = stc->GetTextRange(tknStart, tknEnd).Lower();
     bool includeCtors = true; // sometimes we get a lot of these
     for (int i = tknStart - 1; i > 0; --i)

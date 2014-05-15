@@ -769,7 +769,7 @@ static TokenCategory GetTokenCategory(CXCursorKind kind, CX_CXXAccessSpecifier a
     }
 }
 
-void ClangProxy::CodeCompleteAt(const wxString& filename, int line, int column, int translId, const std::map<wxString, wxString>& unsavedFiles, std::vector<ClToken>& results)
+void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename, int line, int column, int translId, const std::map<wxString, wxString>& unsavedFiles, std::vector<ClToken>& results)
 {
     wxCharBuffer chName = filename.ToUTF8();
     std::vector<CXUnsavedFile> clUnsavedFiles;
@@ -792,21 +792,25 @@ void ClangProxy::CodeCompleteAt(const wxString& filename, int line, int column, 
     CXCodeCompleteResults* clResults = m_TranslUnits[translId].CodeCompleteAt(chName.data(), line, column, clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size());
     if (!clResults)
         return;
+
+    if (isAuto && clang_codeCompleteGetContexts(clResults) == CXCompletionContext_Unknown)
+        return;
+
     const int numResults = clResults->NumResults;
     results.reserve(numResults);
-    for (int i = 0; i < numResults; ++i)
+    for (int resIdx = 0; resIdx < numResults; ++resIdx)
     {
-        const CXCompletionResult& token = clResults->Results[i];
+        const CXCompletionResult& token = clResults->Results[resIdx];
         if (CXAvailability_Available != clang_getCompletionAvailability(token.CompletionString))
             continue;
         const int numChunks = clang_getNumCompletionChunks(token.CompletionString);
         wxString type;
-        for (int j = 0; j < numChunks; ++j)
+        for (int chunkIdx = 0; chunkIdx < numChunks; ++chunkIdx)
         {
-            CXCompletionChunkKind kind = clang_getCompletionChunkKind(token.CompletionString, j);
+            CXCompletionChunkKind kind = clang_getCompletionChunkKind(token.CompletionString, chunkIdx);
             if (kind == CXCompletionChunk_ResultType)
             {
-                CXString str = clang_getCompletionChunkText(token.CompletionString, j);
+                CXString str = clang_getCompletionChunkText(token.CompletionString, chunkIdx);
                 type = wxT(": ") + wxString::FromUTF8(clang_getCString(str));
                 wxString prefix;
                 if (type.EndsWith(wxT(" *"), &prefix) || type.EndsWith(wxT(" &"), &prefix))
@@ -815,9 +819,38 @@ void ClangProxy::CodeCompleteAt(const wxString& filename, int line, int column, 
             }
             else if (kind == CXCompletionChunk_TypedText)
             {
-                CXString completeTxt = clang_getCompletionChunkText(token.CompletionString, j);
+                CXString completeTxt = clang_getCompletionChunkText(token.CompletionString, chunkIdx);
+                if (type.Length() > 40)
+                {
+                    type.Truncate(35);
+                    if (wxIsspace(type.Last()))
+                        type.Trim();
+                    else if (wxIspunct(type.Last()))
+                    {
+                        for (int i = type.Length() - 2; i > 10; --i)
+                        {
+                            if (!wxIspunct(type[i]))
+                            {
+                                type.Truncate(i + 1);
+                                break;
+                            }
+                        }
+                    }
+                    else if (wxIsalnum(type.Last()) || type.Last() == wxT('_'))
+                    {
+                        for (int i = type.Length() - 2; i > 10; --i)
+                        {
+                            if (!( wxIsalnum(type[i]) || type[i] == wxT('_') ))
+                            {
+                                type.Truncate(i + 1);
+                                break;
+                            }
+                        }
+                    }
+                    type += wxT("...");
+                }
                 results.push_back(ClToken(wxString::FromUTF8(clang_getCString(completeTxt)) + type,// + F(wxT("%d"), token.CursorKind),
-                                          i, clang_getCompletionPriority(token.CompletionString), GetTokenCategory(token.CursorKind)));
+                                          resIdx, clang_getCompletionPriority(token.CompletionString), GetTokenCategory(token.CursorKind)));
                 clang_disposeString(completeTxt);
                 type.Empty();
                 break;
