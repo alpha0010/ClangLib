@@ -526,6 +526,15 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
     }
 }
 
+void ClangPlugin::BuildMenu(wxMenuBar* menuBar)
+{
+    int idx = menuBar->FindMenu(_("Sea&rch"));
+    if (idx != wxNOT_FOUND)
+    {
+        menuBar->GetMenu(idx)->Append(idGotoDeclaration, _("Resolve token (clang)"));
+    }
+}
+
 void ClangPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu, const FileTreeData* data)
 {
     if (type != mtEditorManager)
@@ -755,6 +764,8 @@ bool ClangPlugin::IsSourceOf(const wxFileName& candidateFile, const wxFileName& 
 
 void ClangPlugin::OnTimer(wxTimerEvent& event)
 {
+    if (!IsAttached())
+        return;
     const int evId = event.GetId();
     if (evId == idEdOpenTimer)
     {

@@ -29,6 +29,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
         // Callback for inserting the selected autocomplete entry into the editor.
         virtual void DoAutocomplete(const CCToken& token, cbEditor* ed);
 
+        virtual void BuildMenu(wxMenuBar* menuBar);
         virtual void BuildModuleMenu(const ModuleType type, wxMenu* menu, const FileTreeData* data = nullptr);
 
     protected:
