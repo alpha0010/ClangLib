@@ -838,6 +838,8 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
     {
         EditorManager* edMgr = Manager::Get()->GetEditorManager();
         cbEditor* ed = edMgr->GetBuiltinActiveEditor();
+        if (!ed)
+            return;
         if (ed != m_pLastEditor)
         {
             m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
@@ -858,6 +860,8 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
     else if (evId == idDiagnosticTimer)
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+        if (!ed)
+            return;
         if (ed != m_pLastEditor)
         {
             m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
