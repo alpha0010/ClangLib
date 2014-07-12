@@ -118,7 +118,7 @@ void TreeNode::AddLeaf(TreeNode& leaf)
         size_t len = leaves.size();
         leaves.insert(leaves.end(), leaf.leaves.begin(), leaf.leaves.end());
         std::inplace_merge(leaves.begin(), leaves.begin() + len, leaves.end());
-        std::unique(leaves.begin(), leaves.end());
+        leaves.erase(std::unique(leaves.begin(), leaves.end()), leaves.end());
     }
     else
     {
