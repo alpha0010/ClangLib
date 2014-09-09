@@ -781,7 +781,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         ProjectFile* pf = ed->GetProjectFile();
         ProjectBuildTarget* target = nullptr;
         Compiler* comp = nullptr;
-        if (pf)
+        if (pf && pf->GetParentProject() && !pf->GetBuildTargets().IsEmpty() )
         {
             target = pf->GetParentProject()->GetBuildTarget(pf->GetBuildTargets()[0]);
             comp = CompilerFactory::GetCompiler(target->GetCompilerID());
