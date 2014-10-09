@@ -618,6 +618,8 @@ ClangProxy::~ClangProxy()
 void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands)
 {
     wxStringTokenizer tokenizer(commands);
+    if (!filename.EndsWith(wxT(".c"))) // force language reduces chance of error on STL headers
+        tokenizer.SetString(commands + wxT(" -x c++"));
     std::vector<wxString> unknownOptions;
     unknownOptions.push_back(wxT("-Wno-unused-local-typedefs"));
     unknownOptions.push_back(wxT("-Wzero-as-null-pointer-constant"));
