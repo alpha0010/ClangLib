@@ -6,8 +6,8 @@
 
 #include "clangproxy.h"
 
-#include <clang-c/Index.h>
 #include <wx/tokenzr.h>
+#include <cbstyledtextctrl.h>
 
 #ifndef CB_PRECOMP
     #include <cbexception.h> // for cbThrow()
@@ -127,6 +127,10 @@ class TranslationUnit
             ExpandDiagnosticSet(diagSet, diagnostics);
             clang_disposeDiagnosticSet(diagSet);
         }
+        
+        CXFile GetFile(const char* filename) const{
+          return clang_getFile(m_ClTranslUnit, filename);
+        }
 
     private:
 #if __cplusplus >= 201103L
@@ -194,7 +198,7 @@ class TranslationUnit
                 clang_disposeDiagnostic(diag);
             }
         }
-
+        
         std::vector<FileId> m_Files;
         CXTranslationUnit m_ClTranslUnit;
         CXCodeCompleteResults* m_LastCC;
@@ -1203,20 +1207,51 @@ static CXChildVisitResult ClInheritance_Visitor(CXCursor cursor, CXCursor WXUNUS
     return CXChildVisit_Continue;
 }
 
+static bool ResolveCursorFromToken(CXCursor inOutToken){
+  if (clang_Cursor_isNull(inOutToken))
+        return false;
+    CXCursor resolve = clang_getCursorDefinition(inOutToken);
+    if (clang_Cursor_isNull(resolve) || clang_isInvalid(inOutToken.kind))
+    {
+        resolve = clang_getCursorReferenced(inOutToken);
+        if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(inOutToken.kind))
+            inOutToken = resolve;
+    }
+    else
+        inOutToken = resolve;
+    return true;
+}
+
+CXCursor ClangProxy::GetTokenAt(const wxString& filename, int line, int column, int translId)
+{  
+  CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
+  ResolveCursorFromToken(token);
+  return token;
+}
+
+CXCursor ClangProxy::GetTokenAt(int pos, cbEditor* ed)
+{
+    CXCursor out;
+    
+    int translUnitId = GetTranslationUnitId(ed->GetFilename());
+    
+    if (translUnitId == wxNOT_FOUND)
+        return out;
+
+    cbStyledTextCtrl* stc = ed->GetControl();
+    if (stc->GetTextRange(pos - 1, pos + 1).Strip().IsEmpty())
+        return out;
+    const int line = stc->LineFromPosition(pos);
+    const int column = pos - stc->PositionFromLine(line);
+    return GetTokenAt(ed->GetFilename(), line + 1, column + 1, translUnitId);
+}
+
 void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int translId, wxStringVec& results)
 {
     CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
-    if (clang_Cursor_isNull(token))
-        return;
-    CXCursor resolve = clang_getCursorDefinition(token);
-    if (clang_Cursor_isNull(resolve) || clang_isInvalid(token.kind))
-    {
-        resolve = clang_getCursorReferenced(token);
-        if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(token.kind))
-            token = resolve;
+    if(!ResolveCursorFromToken(token)){
+      return;
     }
-    else
-        token = resolve;
 
     wxString tknStr;
     const CXCompletionString& clCompStr = clang_getCursorCompletionString(token);
@@ -1309,17 +1344,9 @@ void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int
 void ClangProxy::ResolveTokenAt(wxString& filename, int& line, int& column, int translId)
 {
     CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
-    if (clang_Cursor_isNull(token))
-        return;
-    CXCursor resolve = clang_getCursorDefinition(token);
-    if (clang_Cursor_isNull(resolve) || clang_isInvalid(token.kind))
-    {
-        resolve = clang_getCursorReferenced(token);
-        if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(token.kind))
-            token = resolve;
+    if(!ResolveCursorFromToken(token)){
+      return;
     }
-    else
-        token = resolve;
     CXFile file;
     if (token.kind == CXCursor_InclusionDirective)
     {
@@ -1338,6 +1365,12 @@ void ClangProxy::ResolveTokenAt(wxString& filename, int& line, int& column, int 
     CXString str = clang_getFileName(file);
     filename = wxString::FromUTF8(clang_getCString(str));
     clang_disposeString(str);
+}
+
+CXFile ClangProxy::GetFile(const wxString& filename)
+{
+    int translUnitId = GetTranslationUnitId(filename);
+    return m_TranslUnits[translUnitId].GetFile(filename.ToUTF8().data());
 }
 
 void ClangProxy::Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles)

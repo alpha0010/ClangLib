@@ -58,6 +58,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
         wxTimer m_EdOpenTimer;
         wxTimer m_ReparseTimer;
         wxTimer m_DiagnosticTimer;
+        wxTimer m_HightlightTimer;
         std::map<wxString, wxString> m_compInclDirs;
         cbEditor* m_pLastEditor;
         int m_TranslUnitId;
