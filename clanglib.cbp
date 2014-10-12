@@ -75,6 +75,8 @@
 		<Unit filename="resources/manifest.xml" />
 		<Unit filename="tokendatabase.cpp" />
 		<Unit filename="tokendatabase.h" />
+		<Unit filename="translationunit.cpp" />
+		<Unit filename="translationunit.h" />
 		<Unit filename="treemap.cpp" />
 		<Unit filename="treemap.h" />
 		<Extensions>
