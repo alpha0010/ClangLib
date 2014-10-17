@@ -769,6 +769,24 @@ bool ClangPlugin::IsSourceOf(const wxFileName& candidateFile, const wxFileName& 
     return false;
 }
 
+static
+void RangeToOffsets(CXSourceRange range, unsigned int& start, unsigned int& end){
+    CXSourceLocation rgLoc = clang_getRangeStart(range);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &start);
+    rgLoc = clang_getRangeEnd(range);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &end);
+}
+
+enum CXVisitorResult HightlighterVisitoAction(void *context, CXCursor cursor, CXSourceRange range){
+  cbStyledTextCtrl *control = static_cast<cbStyledTextCtrl *>(context);
+  unsigned int start, end;
+  RangeToOffsets(range, start, end);
+  if(start != end){
+      control->IndicatorFillRange(start, end-start);
+  }
+  return CXVisit_Continue;
+};
+
 void HightlightOccurences(cbEditor* ctrl, CXCursor definition, ClangProxy& clangProxy, wxString selectedText)  {
     // chosen a high value for indicator, hoping not to interfere with the indicators used by some lexers
     // if they get updated from deprecated oldstyle indicators somedays.
@@ -805,22 +823,9 @@ void HightlightOccurences(cbEditor* ctrl, CXCursor definition, ClangProxy& clang
 #endif
     }
 
-    const int flag = wxSCI_FIND_MATCHCASE | wxSCI_FIND_WHOLEWORD;
-
     // search for every occurence
-    int lengthFound = 0; // we need this to work properly with multibyte characters
-    for ( int pos = control->FindText(0, eof, selectedText, flag, &lengthFound);
-        pos != wxSCI_INVALID_POSITION ;
-        pos = control->FindText(pos+=selectedText.Len(), eof, selectedText, flag, &lengthFound) )
-    {
-        CXCursor found = clangProxy.GetTokenAt(pos, ctrl);
-        found = clang_getCursorReferenced(found);
-        
-        if(clang_equalCursors(found, definition)){
-            // cursor refer to given declaration - highlight it
-            control->IndicatorFillRange(pos, lengthFound);
-        }
-    }
+    clang_findReferencesInFile(definition, clangProxy.GetFile(ctrl->GetFilename()),
+                               CXCursorAndRangeVisitor {control, HightlighterVisitoAction});
 }
 
 static 
@@ -947,7 +952,6 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         cbStyledTextCtrl* control = ed->GetControl();
         const int pos = control->GetCurrentPos();
         CXCursor definition = m_Proxy.GetTokenAt(pos, ed);
-        definition = clang_getCursorReferenced(definition);
         HightlightOccurences(ed, definition, m_Proxy, GetWordAtPos(pos, control));
     }
     else
