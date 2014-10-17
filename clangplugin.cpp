@@ -787,7 +787,7 @@ enum CXVisitorResult HightlighterVisitoAction(void *context, CXCursor cursor, CX
   return CXVisit_Continue;
 };
 
-void HightlightOccurences(cbEditor* ctrl, CXCursor definition, ClangProxy& clangProxy, wxString selectedText)  {
+void HightlightOccurences(cbEditor* ctrl, CXCursor definition, ClangProxy& clangProxy)  {
     // chosen a high value for indicator, hoping not to interfere with the indicators used by some lexers
     // if they get updated from deprecated oldstyle indicators somedays.
     cbStyledTextCtrl *control = ctrl->GetControl();
@@ -824,8 +824,9 @@ void HightlightOccurences(cbEditor* ctrl, CXCursor definition, ClangProxy& clang
     }
 
     // search for every occurence
+    CXCursorAndRangeVisitor visitor = {control, HightlighterVisitoAction};
     clang_findReferencesInFile(definition, clangProxy.GetFile(ctrl->GetFilename()),
-                               CXCursorAndRangeVisitor {control, HightlighterVisitoAction});
+                               visitor);
 }
 
 static 
@@ -951,8 +952,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
             return;
         cbStyledTextCtrl* control = ed->GetControl();
         const int pos = control->GetCurrentPos();
-        CXCursor definition = m_Proxy.GetTokenAt(pos, ed);
-        HightlightOccurences(ed, definition, m_Proxy, GetWordAtPos(pos, control));
+        HightlightOccurences(ed, m_Proxy.GetTokenAt(pos, ed), m_Proxy);
     }
     else
         event.Skip();
