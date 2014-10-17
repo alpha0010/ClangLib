@@ -807,20 +807,13 @@ void HightlightOccurences(cbEditor* ctrl, CXCursor definition, ClangProxy& clang
     {
         ctrl->GetLeftSplitViewControl()->IndicatorSetStyle(theIndicator, wxSCI_INDIC_HIGHLIGHT);
         ctrl->GetLeftSplitViewControl()->IndicatorSetForeground(theIndicator, highlightColour );
-#ifndef wxHAVE_RAW_BITMAP
-        // If wxWidgets is build without rawbitmap-support, the indicators become opaque
-        // and hide the text, so we show them under the text.
-        // Not enabled as default, because the readability is a little bit worse.
         ctrl->GetLeftSplitViewControl()->IndicatorSetUnder(theIndicator,true);
-#endif
     }
     if ( ctrl->GetRightSplitViewControl() )
     {
         ctrl->GetRightSplitViewControl()->IndicatorSetStyle(theIndicator, wxSCI_INDIC_HIGHLIGHT);
         ctrl->GetRightSplitViewControl()->IndicatorSetForeground(theIndicator, highlightColour );
-#ifndef wxHAVE_RAW_BITMAP
         ctrl->GetRightSplitViewControl()->IndicatorSetUnder(theIndicator,true);
-#endif
     }
 
     // search for every occurence
