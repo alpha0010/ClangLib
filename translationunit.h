@@ -29,6 +29,10 @@ class TranslationUnit
         CXCursor GetTokensAt(const wxString& filename, int line, int column);
         void Reparse(unsigned num_unsaved_files, struct CXUnsavedFile* unsaved_files);
         void GetDiagnostics(std::vector<ClDiagnostic>& diagnostics);
+        CXFile GetFile(const char* filename) const
+        {
+            return clang_getFile(m_ClTranslUnit, filename);
+        }
 
     private:
 #if __cplusplus >= 201103L

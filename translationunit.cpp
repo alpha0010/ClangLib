@@ -125,6 +125,14 @@ void TranslationUnit::GetDiagnostics(std::vector<ClDiagnostic>& diagnostics)
     clang_disposeDiagnosticSet(diagSet);
 }
 
+static void RangeToColumns(CXSourceRange range, unsigned& start, unsigned& end)
+{
+    CXSourceLocation rgLoc = clang_getRangeStart(range);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, &start, nullptr);
+    rgLoc = clang_getRangeEnd(range);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, &end, nullptr);
+}
+
 void TranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<ClDiagnostic>& diagnostics)
 {
     size_t numDiags = clang_getNumDiagnosticsInSet(diagSet);
@@ -137,12 +145,8 @@ void TranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<C
         unsigned rgEnd = 0;
         for (size_t j = 0; j < numRnges; ++j) // often no range data (clang bug?)
         {
-            CXSourceRange range = clang_getDiagnosticRange(diag, j);
-            CXSourceLocation loc = clang_getRangeStart(range);
-            clang_getSpellingLocation(loc, nullptr, nullptr, &rgStart, nullptr);
-            loc = clang_getRangeEnd(range);
-            clang_getSpellingLocation(loc, nullptr, nullptr, &rgEnd, nullptr);
-            if (rgStart != rgEnd)
+            RangeToColumns(clang_getDiagnosticRange(diag, j), rgStart, rgEnd);
+            if(rgStart != rgEnd)
                 break;
         }
         if (rgStart == rgEnd) // check if there is FixIt data for the range
@@ -152,10 +156,7 @@ void TranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<C
             {
                 CXSourceRange range;
                 clang_getDiagnosticFixIt(diag, j, &range);
-                CXSourceLocation loc = clang_getRangeStart(range);
-                clang_getSpellingLocation(loc, nullptr, nullptr, &rgStart, nullptr);
-                loc = clang_getRangeEnd(range);
-                clang_getSpellingLocation(loc, nullptr, nullptr, &rgEnd, nullptr);
+                RangeToColumns(range, rgStart, rgEnd);
                 if (rgStart != rgEnd)
                     break;
             }
@@ -165,10 +166,7 @@ void TranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<C
         {
             CXCursor token = clang_getCursor(m_ClTranslUnit, loc);
             CXSourceRange range = clang_getCursorExtent(token);
-            CXSourceLocation rgLoc = clang_getRangeStart(range);
-            clang_getSpellingLocation(rgLoc, nullptr, nullptr, &rgStart, nullptr);
-            rgLoc = clang_getRangeEnd(range);
-            clang_getSpellingLocation(rgLoc, nullptr, nullptr, &rgEnd, nullptr);
+            RangeToColumns(range, rgStart, rgEnd);
         }
         unsigned line;
         unsigned column;

@@ -7,6 +7,7 @@
 #include "clangproxy.h"
 
 #include <wx/tokenzr.h>
+#include <cbstyledtextctrl.h>
 
 #ifndef CB_PRECOMP
     #include <algorithm>
@@ -915,6 +916,45 @@ static CXChildVisitResult ClInheritance_Visitor(CXCursor cursor, CXCursor WXUNUS
     return CXChildVisit_Continue;
 }
 
+static bool ResolveCursorFromToken(CXCursor& inOutToken){
+  if (clang_Cursor_isNull(inOutToken))
+        return false;
+    CXCursor resolve = clang_getCursorDefinition(inOutToken);
+    if (clang_Cursor_isNull(resolve) || clang_isInvalid(inOutToken.kind))
+    {
+        resolve = clang_getCursorReferenced(inOutToken);
+        if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(inOutToken.kind))
+            inOutToken = resolve;
+    }
+    else
+        inOutToken = resolve;
+    return true;
+}
+
+CXCursor ClangProxy::GetTokenAt(const wxString& filename, int line, int column, int translId)
+{
+  CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
+  ResolveCursorFromToken(token);
+  return token;
+}
+
+CXCursor ClangProxy::GetTokenAt(int pos, cbEditor* ed)
+{
+    CXCursor out = clang_getNullCursor();
+
+    int translUnitId = GetTranslationUnitId(ed->GetFilename());
+
+    if (translUnitId == wxNOT_FOUND)
+        return out;
+
+    cbStyledTextCtrl* stc = ed->GetControl();
+    if (stc->GetTextRange(pos - 1, pos + 1).Strip().IsEmpty())
+        return out;
+    const int line = stc->LineFromPosition(pos);
+    const int column = pos - stc->PositionFromLine(line);
+    return GetTokenAt(ed->GetFilename(), line + 1, column + 1, translUnitId);
+}
+
 void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int translId, wxStringVec& results)
 {
     CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
@@ -1050,6 +1090,12 @@ void ClangProxy::ResolveTokenAt(wxString& filename, int& line, int& column, int 
     CXString str = clang_getFileName(file);
     filename = wxString::FromUTF8(clang_getCString(str));
     clang_disposeString(str);
+}
+
+CXFile ClangProxy::GetFile(const wxString& filename)
+{
+    int translUnitId = GetTranslationUnitId(filename);
+    return m_TranslUnits[translUnitId].GetFile(filename.ToUTF8().data());
 }
 
 void ClangProxy::Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles)

@@ -10,6 +10,8 @@
 #include <cbstyledtextctrl.h>
 #include <editor_hooks.h>
 
+#include <cbcolourmanager.h>
+
 #include <wx/tokenzr.h>
 
 #ifndef CB_PRECOMP
@@ -38,6 +40,7 @@ static const wxString g_InvalidStr(wxT("invalid"));
 const int idEdOpenTimer     = wxNewId();
 const int idReparseTimer    = wxNewId();
 const int idDiagnosticTimer = wxNewId();
+const int idHightlightTimer = wxNewId();
 
 const int idGotoDeclaration = wxNewId();
 
@@ -46,6 +49,7 @@ const int idGotoDeclaration = wxNewId();
 #define ED_ACTIVATE_DELAY 150
 #define REPARSE_DELAY 900
 #define DIAGNOSTIC_DELAY 3000
+#define HIGHTLIGHT_DELAY 1700
 
 ClangPlugin::ClangPlugin() :
     m_Proxy(m_Database, m_CppKeywords),
@@ -53,6 +57,7 @@ ClangPlugin::ClangPlugin() :
     m_EdOpenTimer(this, idEdOpenTimer),
     m_ReparseTimer(this, idReparseTimer),
     m_DiagnosticTimer(this, idDiagnosticTimer),
+    m_HightlightTimer(this, idHightlightTimer),
     m_pLastEditor(nullptr),
     m_TranslUnitId(wxNOT_FOUND)
 {
@@ -165,6 +170,7 @@ void ClangPlugin::OnAttach()
     Connect(idEdOpenTimer,     wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     Connect(idReparseTimer,    wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     Connect(idDiagnosticTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idHightlightTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     Connect(idGotoDeclaration, wxEVT_COMMAND_MENU_SELECTED, /*wxMenuEventHandler*/wxCommandEventHandler(ClangPlugin::OnGotoDeclaration), nullptr, this);
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangPlugin>(this, &ClangPlugin::OnEditorHook));
 }
@@ -173,6 +179,7 @@ void ClangPlugin::OnRelease(bool appShutDown)
 {
     EditorHooks::UnregisterHook(m_EditorHookId);
     Disconnect(idGotoDeclaration);
+    Disconnect(idHightlightTimer);
     Disconnect(idDiagnosticTimer);
     Disconnect(idReparseTimer);
     Disconnect(idEdOpenTimer);
@@ -762,6 +769,60 @@ bool ClangPlugin::IsSourceOf(const wxFileName& candidateFile, const wxFileName& 
     return false;
 }
 
+static void RangeToOffsets(CXSourceRange range, unsigned int& start, unsigned int& end)
+{
+    CXSourceLocation rgLoc = clang_getRangeStart(range);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &start);
+    rgLoc = clang_getRangeEnd(range);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &end);
+}
+
+CXVisitorResult HightlighterVisitoAction(void* context, CXCursor cursor, CXSourceRange range)
+{
+  cbStyledTextCtrl* stc = static_cast<cbStyledTextCtrl *>(context);
+  unsigned int start, end;
+  RangeToOffsets(range, start, end);
+  if(start != end)
+      stc->IndicatorFillRange(start, end-start);
+  return CXVisit_Continue;
+};
+
+void HightlightOccurences(cbEditor* ed, CXCursor definition, ClangProxy& clangProxy)
+{
+    // chosen a high value for indicator, hoping not to interfere with the indicators used by some lexers
+    // if they get updated from deprecated old style indicators someday.
+    cbStyledTextCtrl* stc = ed->GetControl();
+    const int theIndicator = 16;
+
+    stc->SetIndicatorCurrent(theIndicator);
+    int eof = stc->GetLength();
+
+    // Set Styling:
+    // clear all style indications set in a previous run (is also done once after text gets unselected)
+    stc->IndicatorClearRange(0, eof);
+
+    // todo: use independent key
+    wxColour highlightColour(Manager::Get()->GetColourManager()->GetColour(wxT("editor_highlight_occurrence")));
+
+    if ( ed->GetLeftSplitViewControl() )
+    {
+        ed->GetLeftSplitViewControl()->IndicatorSetStyle(theIndicator, wxSCI_INDIC_HIGHLIGHT);
+        ed->GetLeftSplitViewControl()->IndicatorSetForeground(theIndicator, highlightColour );
+        ed->GetLeftSplitViewControl()->IndicatorSetUnder(theIndicator,true);
+    }
+    if ( ed->GetRightSplitViewControl() )
+    {
+        ed->GetRightSplitViewControl()->IndicatorSetStyle(theIndicator, wxSCI_INDIC_HIGHLIGHT);
+        ed->GetRightSplitViewControl()->IndicatorSetForeground(theIndicator, highlightColour );
+        ed->GetRightSplitViewControl()->IndicatorSetUnder(theIndicator,true);
+    }
+
+    // search for every occurence
+    CXCursorAndRangeVisitor visitor = {stc, HightlighterVisitoAction};
+    clang_findReferencesInFile(definition, clangProxy.GetFile(ed->GetFilename()),
+                               visitor);
+}
+
 void ClangPlugin::OnTimer(wxTimerEvent& event)
 {
     if (!IsAttached())
@@ -871,6 +932,22 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
             return;
         DiagnoseEd(ed, dlFull);
     }
+    else if(evId == idHightlightTimer)
+    {
+        cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+        if (!ed)
+            return;
+        cbStyledTextCtrl* stc = ed->GetControl();
+        int pos = stc->GetCurrentPos();
+        const wxChar ch = stc->GetCharAt(pos);
+        if (   pos > 0
+            && (wxIsspace(ch) || (ch != wxT('_') && wxIspunct(ch)))
+            && !wxIsspace(stc->GetCharAt(pos - 1)) )
+        {
+            --pos;
+        }
+        HightlightOccurences(ed, m_Proxy.GetTokenAt(pos, ed), m_Proxy);
+    }
     else
         event.Skip();
 }
@@ -886,6 +963,14 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
         {
             m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
             m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
+        }
+    }
+    else if (event.GetEventType() == wxEVT_SCI_UPDATEUI)
+    {
+        if (event.GetUpdated() & wxSCI_UPDATE_SELECTION)
+        {
+            m_HightlightTimer.Stop();
+            m_HightlightTimer.Start(HIGHTLIGHT_DELAY, wxTIMER_ONE_SHOT);
         }
     }
 }
