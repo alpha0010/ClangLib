@@ -50,6 +50,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
 
         enum DiagnosticLevel { dlMinimal, dlFull };
         void DiagnoseEd(cbEditor* ed, DiagnosticLevel diagLv);
+        void HighlightOccurrences(cbEditor* ed);
 
         TokenDatabase m_Database;
         wxStringVec m_CppKeywords;

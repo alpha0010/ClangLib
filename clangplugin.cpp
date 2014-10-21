@@ -6,11 +6,10 @@
 
 #include "clangplugin.h"
 
-#include <compilercommandgenerator.h>
-#include <cbstyledtextctrl.h>
-#include <editor_hooks.h>
-
 #include <cbcolourmanager.h>
+#include <cbstyledtextctrl.h>
+#include <compilercommandgenerator.h>
+#include <editor_hooks.h>
 
 #include <wx/tokenzr.h>
 
@@ -769,60 +768,6 @@ bool ClangPlugin::IsSourceOf(const wxFileName& candidateFile, const wxFileName& 
     return false;
 }
 
-static void RangeToOffsets(CXSourceRange range, unsigned int& start, unsigned int& end)
-{
-    CXSourceLocation rgLoc = clang_getRangeStart(range);
-    clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &start);
-    rgLoc = clang_getRangeEnd(range);
-    clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &end);
-}
-
-CXVisitorResult HightlighterVisitoAction(void* context, CXCursor cursor, CXSourceRange range)
-{
-  cbStyledTextCtrl* stc = static_cast<cbStyledTextCtrl *>(context);
-  unsigned int start, end;
-  RangeToOffsets(range, start, end);
-  if(start != end)
-      stc->IndicatorFillRange(start, end-start);
-  return CXVisit_Continue;
-};
-
-void HightlightOccurences(cbEditor* ed, CXCursor definition, ClangProxy& clangProxy)
-{
-    // chosen a high value for indicator, hoping not to interfere with the indicators used by some lexers
-    // if they get updated from deprecated old style indicators someday.
-    cbStyledTextCtrl* stc = ed->GetControl();
-    const int theIndicator = 16;
-
-    stc->SetIndicatorCurrent(theIndicator);
-    int eof = stc->GetLength();
-
-    // Set Styling:
-    // clear all style indications set in a previous run (is also done once after text gets unselected)
-    stc->IndicatorClearRange(0, eof);
-
-    // todo: use independent key
-    wxColour highlightColour(Manager::Get()->GetColourManager()->GetColour(wxT("editor_highlight_occurrence")));
-
-    if ( ed->GetLeftSplitViewControl() )
-    {
-        ed->GetLeftSplitViewControl()->IndicatorSetStyle(theIndicator, wxSCI_INDIC_HIGHLIGHT);
-        ed->GetLeftSplitViewControl()->IndicatorSetForeground(theIndicator, highlightColour );
-        ed->GetLeftSplitViewControl()->IndicatorSetUnder(theIndicator,true);
-    }
-    if ( ed->GetRightSplitViewControl() )
-    {
-        ed->GetRightSplitViewControl()->IndicatorSetStyle(theIndicator, wxSCI_INDIC_HIGHLIGHT);
-        ed->GetRightSplitViewControl()->IndicatorSetForeground(theIndicator, highlightColour );
-        ed->GetRightSplitViewControl()->IndicatorSetUnder(theIndicator,true);
-    }
-
-    // search for every occurence
-    CXCursorAndRangeVisitor visitor = {stc, HightlighterVisitoAction};
-    clang_findReferencesInFile(definition, clangProxy.GetFile(ed->GetFilename()),
-                               visitor);
-}
-
 void ClangPlugin::OnTimer(wxTimerEvent& event)
 {
     if (!IsAttached())
@@ -918,7 +863,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         m_Proxy.Reparse(m_TranslUnitId, unsavedFiles);
         DiagnoseEd(m_pLastEditor, dlMinimal);
     }
-    else if (evId == idDiagnosticTimer)
+    else if (evId == idDiagnosticTimer || evId == idHightlightTimer)
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
         if (!ed)
@@ -930,23 +875,10 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         }
         if (m_TranslUnitId == wxNOT_FOUND)
             return;
-        DiagnoseEd(ed, dlFull);
-    }
-    else if(evId == idHightlightTimer)
-    {
-        cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
-        if (!ed)
-            return;
-        cbStyledTextCtrl* stc = ed->GetControl();
-        int pos = stc->GetCurrentPos();
-        const wxChar ch = stc->GetCharAt(pos);
-        if (   pos > 0
-            && (wxIsspace(ch) || (ch != wxT('_') && wxIspunct(ch)))
-            && !wxIsspace(stc->GetCharAt(pos - 1)) )
-        {
-            --pos;
-        }
-        HightlightOccurences(ed, m_Proxy.GetTokenAt(pos, ed), m_Proxy);
+        if (evId == idDiagnosticTimer)
+            DiagnoseEd(ed, dlFull);
+        else
+            HighlightOccurrences(ed);
     }
     else
         event.Skip();
@@ -1026,4 +958,46 @@ void ClangPlugin::DiagnoseEd(cbEditor* ed, DiagnosticLevel diagLv)
     }
     if (diagLv == dlFull)
         stc->AnnotationSetVisible(wxSCI_ANNOTATION_BOXED);
+}
+
+void ClangPlugin::HighlightOccurrences(cbEditor* ed)
+{
+    cbStyledTextCtrl* stc = ed->GetControl();
+    int pos = stc->GetCurrentPos();
+    const wxChar ch = stc->GetCharAt(pos);
+    if (   pos > 0
+        && (wxIsspace(ch) || (ch != wxT('_') && wxIspunct(ch)))
+        && !wxIsspace(stc->GetCharAt(pos - 1)) )
+    {
+        --pos;
+    }
+
+    // chosen a high value for indicator, hoping not to interfere with the indicators used by some lexers
+    // if they get updated from deprecated old style indicators someday.
+    const int theIndicator = 16;
+    stc->SetIndicatorCurrent(theIndicator);
+
+    // Set Styling:
+    // clear all style indications set in a previous run (is also done once after text gets unselected)
+    stc->IndicatorClearRange(0, stc->GetLength());
+
+    if (stc->GetTextRange(pos - 1, pos + 1).Strip().IsEmpty())
+        return;
+
+    // TODO: use independent key
+    wxColour highlightColour(Manager::Get()->GetColourManager()->GetColour(wxT("editor_highlight_occurrence")));
+
+    stc->IndicatorSetStyle(theIndicator, wxSCI_INDIC_HIGHLIGHT);
+    stc->IndicatorSetForeground(theIndicator, highlightColour);
+    stc->IndicatorSetUnder(theIndicator, true);
+
+    const int line = stc->LineFromPosition(pos);
+    const int column = pos - stc->PositionFromLine(line);
+    std::vector< std::pair<int, int> > occurrences;
+    m_Proxy.GetOccurrencesOf(ed->GetFilename(), line + 1, column + 1, m_TranslUnitId, occurrences);
+    for (std::vector< std::pair<int, int> >::const_iterator tkn = occurrences.begin();
+         tkn != occurrences.end(); ++tkn)
+    {
+        stc->IndicatorFillRange(tkn->first, tkn->second);
+    }
 }

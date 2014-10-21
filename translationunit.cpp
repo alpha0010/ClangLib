@@ -109,7 +109,7 @@ const CXCompletionResult* TranslationUnit::GetCCResult(unsigned index)
 
 CXCursor TranslationUnit::GetTokensAt(const wxString& filename, int line, int column)
 {
-    return clang_getCursor(m_ClTranslUnit, clang_getLocation(m_ClTranslUnit, clang_getFile(m_ClTranslUnit, filename.ToUTF8().data()), line, column));
+    return clang_getCursor(m_ClTranslUnit, clang_getLocation(m_ClTranslUnit, GetFileHandle(filename), line, column));
 }
 
 void TranslationUnit::Reparse(unsigned num_unsaved_files, struct CXUnsavedFile* unsaved_files)
@@ -125,12 +125,17 @@ void TranslationUnit::GetDiagnostics(std::vector<ClDiagnostic>& diagnostics)
     clang_disposeDiagnosticSet(diagSet);
 }
 
-static void RangeToColumns(CXSourceRange range, unsigned& start, unsigned& end)
+CXFile TranslationUnit::GetFileHandle(const wxString& filename) const
+{
+    return clang_getFile(m_ClTranslUnit, filename.ToUTF8().data());
+}
+
+static void RangeToColumns(CXSourceRange range, unsigned& rgStart, unsigned& rgEnd)
 {
     CXSourceLocation rgLoc = clang_getRangeStart(range);
-    clang_getSpellingLocation(rgLoc, nullptr, nullptr, &start, nullptr);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, &rgStart, nullptr);
     rgLoc = clang_getRangeEnd(range);
-    clang_getSpellingLocation(rgLoc, nullptr, nullptr, &end, nullptr);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, &rgEnd, nullptr);
 }
 
 void TranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<ClDiagnostic>& diagnostics)
@@ -165,8 +170,7 @@ void TranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<C
         if (rgEnd == 0) // still no range -> use the range of the current token
         {
             CXCursor token = clang_getCursor(m_ClTranslUnit, loc);
-            CXSourceRange range = clang_getCursorExtent(token);
-            RangeToColumns(range, rgStart, rgEnd);
+            RangeToColumns(clang_getCursorExtent(token), rgStart, rgEnd);
         }
         unsigned line;
         unsigned column;

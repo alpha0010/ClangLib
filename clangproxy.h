@@ -4,7 +4,6 @@
 #include <map>
 #include <vector>
 #include <wx/string.h>
-#include <clang-c/Index.h>
 
 class TranslationUnit;
 class TokenDatabase;
@@ -86,13 +85,9 @@ class ClangProxy
 
         void GetCallTipsAt(const wxString& filename, int line, int column, int translId, const wxString& tokenStr, std::vector<wxStringVec>& results);
 
-        CXCursor GetTokenAt(const wxString& filename, int line, int column, int translId);
-        CXCursor GetTokenAt(int pos, cbEditor* ed);
-
         void GetTokensAt(const wxString& filename, int line, int column, int translId, std::vector<wxString>& results);
+        void GetOccurrencesOf(const wxString& filename, int line, int column, int translId, std::vector< std::pair<int, int> >& results);
         void ResolveTokenAt(wxString& filename, int& line, int& column, int translId);
-
-        CXFile GetFile(const wxString& filename);
 
         void Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles);
 
