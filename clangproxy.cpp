@@ -618,10 +618,7 @@ wxString ClangProxy::DocumentCCToken(int translId, int tknId)
                 CXComment docComment = clang_Cursor_getParsedComment(clTkn);
                 HTML_Writer::FormatDocumentation(docComment, descriptor, m_CppKeywords);
                 if (clTkn.kind == CXCursor_EnumConstantDecl)
-                {
-                    // can possibly yield incorrect results
-                    doc += wxString::Format(wxT("=%d"), static_cast<int>(clang_getEnumConstantDeclValue(clTkn)));
-                }
+                    doc += wxT("=") + wxLongLong(clang_getEnumConstantDeclValue(clTkn)).ToString();
                 else if (clTkn.kind == CXCursor_TypedefDecl)
                 {
                     CXString str = clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(clTkn));
@@ -995,7 +992,7 @@ void ClangProxy::GetTokensAt(const wxString& filename, int line, int column, int
                 break;
 
             case CXCursor_EnumConstantDecl:
-                tknStr += wxString::Format(wxT("=%d"), static_cast<int>(clang_getEnumConstantDeclValue(token)));
+                tknStr += wxT("=") + wxLongLong(clang_getEnumConstantDeclValue(token)).ToString();
                 break;
 
             case CXCursor_TypedefDecl:
