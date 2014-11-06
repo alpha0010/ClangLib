@@ -773,7 +773,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
     if (!IsAttached())
         return;
     const int evId = event.GetId();
-    if (evId == idEdOpenTimer)
+    if (evId == idEdOpenTimer) // m_EdOpenTimer
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
         if (!ed || !IsProviderFor(ed))
@@ -840,7 +840,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         m_Proxy.CreateTranslationUnit(ed->GetFilename(), compileCommand);
         m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
     }
-    else if (evId == idReparseTimer)
+    else if (evId == idReparseTimer) // m_ReparseTimer
     {
         EditorManager* edMgr = Manager::Get()->GetEditorManager();
         cbEditor* ed = edMgr->GetBuiltinActiveEditor();
@@ -863,6 +863,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         m_Proxy.Reparse(m_TranslUnitId, unsavedFiles);
         DiagnoseEd(m_pLastEditor, dlMinimal);
     }
+    // m_DiagnosticTimer, m_HightlightTime
     else if (evId == idDiagnosticTimer || evId == idHightlightTimer)
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();

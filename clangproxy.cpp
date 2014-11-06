@@ -217,8 +217,7 @@ namespace HTML_Writer
                         argText += Escape(wxString::FromUTF8(clang_getCString(str)));
                         clang_disposeString(str);
                     }
-                    CXCommentInlineCommandRenderKind cmtFont = clang_InlineCommandComment_getRenderKind(cmt);
-                    switch (cmtFont)
+                    switch (clang_InlineCommandComment_getRenderKind(cmt))
                     {
                         default:
                         case CXCommentInlineCommandRenderKind_Normal:
