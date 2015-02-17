@@ -5,9 +5,12 @@
  */
 
 #include "treemap.h"
-
-#include <algorithm>
 #include <wx/string.h>
+
+//#define USE_TREE_MAP // TODO: see if we actually get a performance change
+
+#ifdef USE_TREE_MAP
+#include <algorithm>
 
 struct TreeNode
 {
@@ -144,7 +147,50 @@ std::vector<int> TreeNode::GetLeaves(const wxString& key) const
         return std::vector<int>();
     return itr->GetLeaves(suffix);
 }
+#else
+#include <map>
 
+struct TreeNode
+{
+    std::multimap<wxString, int> leaves;
+    typedef std::multimap<wxString, int>::const_iterator constLeafItr;
+
+    TreeNode() {}
+    TreeNode(const wxString& key, int id)
+    {
+        leaves.insert(std::make_pair(key, id));
+    }
+
+    void AddLeaf(TreeNode& leaf)
+    {
+        for (constLeafItr itr = leaf.leaves.begin();
+             itr != leaf.leaves.end(); ++itr)
+        {
+            leaves.insert(*itr);
+        }
+    }
+
+    std::vector<int> GetLeaves(const wxString& key) const
+    {
+        std::pair<constLeafItr, constLeafItr> rg = leaves.equal_range(key);
+        std::vector<int> out;
+        for (constLeafItr itr = rg.first; itr != rg.second; ++itr)
+            out.push_back(itr->second);
+        return out;
+    }
+
+    struct
+    {
+        static size_t size() { return 1; }
+        struct NullTp
+        {
+            void Freeze() {}
+        };
+        static NullTp front() { return NullTp(); }
+    } children;
+    void Freeze() {}
+};
+#endif // USE_TREE_MAP
 
 
 TreeMap<int>::TreeMap() :
