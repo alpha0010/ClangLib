@@ -14,17 +14,22 @@
 
 #include "tokendatabase.h"
 
-static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack, unsigned include_len, CXClientData client_data);
+static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack,
+                               unsigned include_len, CXClientData client_data);
 
 static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data);
 
-TranslationUnit::TranslationUnit(const wxString& filename, const std::vector<const char*>& args, CXIndex clIndex, TokenDatabase* database) :
+TranslationUnit::TranslationUnit(const wxString& filename, const std::vector<const char*>& args,
+                                 CXIndex clIndex, TokenDatabase* database) :
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
 {
     // TODO: check and handle error conditions
-    m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0], args.size(), nullptr, 0,
-                                                 clang_defaultEditingTranslationUnitOptions() | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion | CXTranslationUnit_DetailedPreprocessingRecord );
+    m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
+                                                 args.size(), nullptr, 0,
+                                                   clang_defaultEditingTranslationUnitOptions()
+                                                 | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
+                                                 | CXTranslationUnit_DetailedPreprocessingRecord );
     std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, database);
     clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
     m_Files.reserve(1024);
@@ -94,8 +99,11 @@ CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_fil
         return m_LastCC;
     if (m_LastCC)
         clang_disposeCodeCompleteResults(m_LastCC);
-    m_LastCC = clang_codeCompleteAt(m_ClTranslUnit, complete_filename, complete_line, complete_column, unsaved_files,
-                                    num_unsaved_files, clang_defaultCodeCompleteOptions() | CXCodeComplete_IncludeCodePatterns | CXCodeComplete_IncludeBriefComments);
+    m_LastCC = clang_codeCompleteAt(m_ClTranslUnit, complete_filename, complete_line, complete_column,
+                                    unsaved_files, num_unsaved_files,
+                                      clang_defaultCodeCompleteOptions()
+                                    | CXCodeComplete_IncludeCodePatterns
+                                    | CXCodeComplete_IncludeBriefComments);
     m_LastPos.Set(complete_line, complete_column);
     return m_LastCC;
 }
@@ -115,7 +123,8 @@ CXCursor TranslationUnit::GetTokensAt(const wxString& filename, int line, int co
 void TranslationUnit::Reparse(unsigned num_unsaved_files, struct CXUnsavedFile* unsaved_files)
 {
     // TODO: check and handle error conditions
-    clang_reparseTranslationUnit(m_ClTranslUnit, num_unsaved_files, unsaved_files, clang_defaultReparseOptions(m_ClTranslUnit));
+    clang_reparseTranslationUnit(m_ClTranslUnit, num_unsaved_files,
+                                 unsaved_files, clang_defaultReparseOptions(m_ClTranslUnit));
 }
 
 void TranslationUnit::GetDiagnostics(std::vector<ClDiagnostic>& diagnostics)
@@ -182,7 +191,9 @@ void TranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<C
         wxString flName = wxString::FromUTF8(clang_getCString(str));
         clang_disposeString(str);
         str = clang_formatDiagnostic(diag, 0);
-        diagnostics.push_back(ClDiagnostic(line, rgStart, rgEnd, (clang_getDiagnosticSeverity(diag) >= CXDiagnostic_Error ? sError : sWarning), flName, wxString::FromUTF8(clang_getCString(str))));
+        diagnostics.push_back(ClDiagnostic( line, rgStart, rgEnd,
+                                            clang_getDiagnosticSeverity(diag) >= CXDiagnostic_Error ? sError : sWarning,
+                                            flName, wxString::FromUTF8(clang_getCString(str)) ));
         clang_disposeString(str);
         clang_disposeDiagnostic(diag);
     }
@@ -208,13 +219,15 @@ unsigned HashToken(CXCompletionString token, wxString& identifier)
     return hVal;
 }
 
-static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* WXUNUSED(inclusion_stack), unsigned WXUNUSED(include_len), CXClientData client_data)
+static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* WXUNUSED(inclusion_stack),
+                               unsigned WXUNUSED(include_len), CXClientData client_data)
 {
     CXString filename = clang_getFileName(included_file);
     wxFileName inclFile(wxString::FromUTF8(clang_getCString(filename)));
     if (inclFile.MakeAbsolute())
     {
-        std::pair<TranslationUnit*, TokenDatabase*>* clTranslUnit = static_cast<std::pair<TranslationUnit*, TokenDatabase*>*>(client_data);
+        std::pair<TranslationUnit*, TokenDatabase*>* clTranslUnit
+            = static_cast<std::pair<TranslationUnit*, TokenDatabase*>*>(client_data);
         clTranslUnit->first->AddInclude(clTranslUnit->second->GetFilenameId(inclFile.GetFullPath()));
     }
     clang_disposeString(filename);

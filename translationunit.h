@@ -9,7 +9,8 @@ unsigned HashToken(CXCompletionString token, wxString& identifier);
 class TranslationUnit
 {
     public:
-        TranslationUnit(const wxString& filename, const std::vector<const char*>& args, CXIndex clIndex, TokenDatabase* database);
+        TranslationUnit(const wxString& filename, const std::vector<const char*>& args,
+                        CXIndex clIndex, TokenDatabase* database);
         // move ctor
 #if __cplusplus >= 201103L
         TranslationUnit(TranslationUnit&& other);

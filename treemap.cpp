@@ -127,7 +127,8 @@ void TreeNode::AddLeaf(TreeNode& leaf)
     {
         const wxString& suffix = leaf.value.Mid(1);
         leaf.value = leaf.value[0];
-        std::vector<TreeNode>::iterator itr = std::lower_bound(children.begin(), children.end(), leaf, TreeNodeLess());
+        std::vector<TreeNode>::iterator itr = std::lower_bound(children.begin(), children.end(),
+                                                               leaf, TreeNodeLess());
         if (itr == children.end() || itr->value[0] != leaf.value)
             itr = children.insert(itr, TreeNode(leaf.value));
         else if (itr->value.Length() > 1)
@@ -141,7 +142,8 @@ std::vector<int> TreeNode::GetLeaves(const wxString& key) const
 {
     if (key.IsEmpty())
         return leaves;
-    std::vector<TreeNode>::const_iterator itr = std::lower_bound(children.begin(), children.end(), TreeNode(key[0]), TreeNodeLess());
+    std::vector<TreeNode>::const_iterator itr = std::lower_bound(children.begin(), children.end(),
+                                                                 TreeNode(key[0]), TreeNodeLess());
     wxString suffix;
     if (itr == children.end() || !key.StartsWith(itr->value, &suffix))
         return std::vector<int>();
@@ -153,42 +155,6 @@ std::vector<int> TreeNode::GetLeaves(const wxString& key) const
 struct TreeNode
 {
     std::multimap<wxString, int> leaves;
-    typedef std::multimap<wxString, int>::const_iterator constLeafItr;
-
-    TreeNode() {}
-    TreeNode(const wxString& key, int id)
-    {
-        leaves.insert(std::make_pair(key, id));
-    }
-
-    void AddLeaf(TreeNode& leaf)
-    {
-        for (constLeafItr itr = leaf.leaves.begin();
-             itr != leaf.leaves.end(); ++itr)
-        {
-            leaves.insert(*itr);
-        }
-    }
-
-    std::vector<int> GetLeaves(const wxString& key) const
-    {
-        std::pair<constLeafItr, constLeafItr> rg = leaves.equal_range(key);
-        std::vector<int> out;
-        for (constLeafItr itr = rg.first; itr != rg.second; ++itr)
-            out.push_back(itr->second);
-        return out;
-    }
-
-    struct
-    {
-        static size_t size() { return 1; }
-        struct NullTp
-        {
-            void Freeze() {}
-        };
-        static NullTp front() { return NullTp(); }
-    } children;
-    void Freeze() {}
 };
 #endif // USE_TREE_MAP
 
@@ -205,22 +171,37 @@ TreeMap<int>::~TreeMap()
 
 int TreeMap<int>::Insert(const wxString& key, int value)
 {
+#ifdef USE_TREE_MAP
     TreeNode leaf(key, value);
     m_Root->AddLeaf(leaf);
+#else
+    m_Root->leaves.insert(std::make_pair(key, value));
+#endif // USE_TREE_MAP
     return value;
 }
 
 void TreeMap<int>::Shrink()
 {
+#ifdef USE_TREE_MAP
     if (m_Root->children.size() == 1) // do not let the root node gain a value
         m_Root->children.front().Freeze();
     else
         m_Root->Freeze();
+#endif // USE_TREE_MAP
 }
 
 std::vector<int> TreeMap<int>::GetIdSet(const wxString& key) const
 {
+#ifdef USE_TREE_MAP
     return m_Root->GetLeaves(key);
+#else
+    typedef std::multimap<wxString, int>::const_iterator constLeafItr;
+    std::pair<constLeafItr, constLeafItr> rg = m_Root->leaves.equal_range(key);
+    std::vector<int> out;
+    for (constLeafItr itr = rg.first; itr != rg.second; ++itr)
+        out.push_back(itr->second);
+    return out;
+#endif // USE_TREE_MAP
 }
 
 int TreeMap<int>::GetValue(int id) const

@@ -3,6 +3,8 @@ ClangLib
 
 Code::Blocks plugin integrating various features of LLVM Clang.
 
+    apt-get install libclang-dev llvm
+
 ========
 ### Wish/todo list
 - [ ] Threaded parsing

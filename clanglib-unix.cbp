@@ -21,11 +21,7 @@
 					<Add option="$(#CB_RELEASE_TYPE)" />
 					<Add option="-DBUILDING_PLUGIN" />
 					<Add directory="." />
-					<Add directory="/usr/lib/llvm-3.4/include" />
 				</Compiler>
-				<Linker>
-					<Add directory="/usr/lib/llvm-3.4/lib" />
-				</Linker>
 				<ExtraCommands>
 					<Add after="zip -j9 ../../devel/share/codeblocks/clanglib.zip resources/manifest.xml" />
 				</ExtraCommands>
@@ -39,7 +35,8 @@
 			<Add option="-Wall" />
 			<Add option="-ansi" />
 			<Add option="$(#CB_RELEASE_TYPE)" />
-			<Add option="`wx-config --cflags`" />
+			<Add option="`wx-config --version=2.8 --cflags`" />
+			<Add option="-I`llvm-config --includedir`" />
 			<Add option="-fmessage-length=0" />
 			<Add option="-fexceptions" />
 			<Add option="-Winvalid-pch" />
@@ -51,12 +48,14 @@
 			<Add directory="../../sdk/wxscintilla/include" />
 		</Compiler>
 		<Linker>
-			<Add option="`wx-config --libs`" />
+			<Add option="`wx-config --version=2.8 --libs`" />
+			<Add option="-L`llvm-config --libdir`" />
 			<Add option="-Wl,--no-undefined" />
 			<Add library="codeblocks" />
 			<Add library="clang" />
 			<Add directory="../../devel" />
 		</Linker>
+		<Unit filename="README.md" />
 		<Unit filename="clangplugin.cpp" />
 		<Unit filename="clangplugin.h" />
 		<Unit filename="clangproxy.cpp" />
