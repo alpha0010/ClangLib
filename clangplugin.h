@@ -78,6 +78,8 @@ class ClangPlugin : public cbCodeCompletionPlugin
         void OnEditorOpen(CodeBlocksEvent& event);
         /// Start up parsing timers
         void OnEditorActivate(CodeBlocksEvent& event);
+        /// Make project-dependent setup
+        void OnProjectActivate(CodeBlocksEvent& event);
         /// Generic handler for various timers
         void OnTimer(wxTimerEvent& event);
         /// Start re-parse and highlight timers
@@ -101,6 +103,10 @@ class ClangPlugin : public cbCodeCompletionPlugin
          */
         void HighlightOccurrences(cbEditor* ed);
 
+private: // Internal utility functions
+        void UpdateCompileCommand(cbEditor* ed);
+private: // Members
+
         TokenDatabase m_Database;
         wxStringVec m_CppKeywords;
         ClangProxy m_Proxy;
@@ -115,6 +121,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
         int m_EditorHookId;
         int m_LastCallTipPos;
         std::vector<wxStringVec> m_LastCallTips;
+        wxString m_CompileCommand;
 };
 
 #endif // CLANGPLUGIN_H
