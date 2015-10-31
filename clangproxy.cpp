@@ -9,7 +9,7 @@
 #include <wx/tokenzr.h>
 
 #ifndef CB_PRECOMP
-    #include <algorithm>
+#include <algorithm>
 #endif // CB_PRECOMP
 
 #include "tokendatabase.h"
@@ -17,539 +17,575 @@
 
 namespace ProxyHelper
 {
-    static TokenCategory GetTokenCategory(CXCursorKind kind, CX_CXXAccessSpecifier access = CX_CXXInvalidAccessSpecifier)
+static TokenCategory GetTokenCategory(CXCursorKind kind, CX_CXXAccessSpecifier access = CX_CXXInvalidAccessSpecifier)
+{
+    switch (kind)
     {
-        switch (kind)
+    case CXCursor_StructDecl:
+    case CXCursor_UnionDecl:
+    case CXCursor_ClassDecl:
+    case CXCursor_ClassTemplate:
+        switch (access)
         {
-            case CXCursor_StructDecl:
-            case CXCursor_UnionDecl:
-            case CXCursor_ClassDecl:
-            case CXCursor_ClassTemplate:
-                switch (access)
-                {
-                    case CX_CXXPublic:
-                        return tcClassPublic;
-                    case CX_CXXProtected:
-                        return tcClassProtected;
-                    case CX_CXXPrivate:
-                        return tcClassPrivate;
-                    default:
-                    case CX_CXXInvalidAccessSpecifier:
-                        return tcClass;
-                }
-
-            case CXCursor_Constructor:
-                switch (access)
-                {
-                    default:
-                    case CX_CXXInvalidAccessSpecifier:
-                    case CX_CXXPublic:
-                        return tcCtorPublic;
-                    case CX_CXXProtected:
-                        return tcCtorProtected;
-                    case CX_CXXPrivate:
-                        return tcCtorPrivate;
-                }
-
-            case CXCursor_Destructor:
-                switch (access)
-                {
-                    default:
-                    case CX_CXXInvalidAccessSpecifier:
-                    case CX_CXXPublic:
-                        return tcDtorPublic;
-                    case CX_CXXProtected:
-                        return tcDtorProtected;
-                    case CX_CXXPrivate:
-                        return tcDtorPrivate;
-                }
-
-            case CXCursor_FunctionDecl:
-            case CXCursor_CXXMethod:
-            case CXCursor_FunctionTemplate:
-                switch (access)
-                {
-                    default:
-                    case CX_CXXInvalidAccessSpecifier:
-                    case CX_CXXPublic:
-                        return tcFuncPublic;
-                    case CX_CXXProtected:
-                        return tcFuncProtected;
-                    case CX_CXXPrivate:
-                        return tcFuncPrivate;
-                }
-
-            case CXCursor_FieldDecl:
-            case CXCursor_VarDecl:
-            case CXCursor_ParmDecl:
-                switch (access)
-                {
-                    default:
-                    case CX_CXXInvalidAccessSpecifier:
-                    case CX_CXXPublic:
-                        return tcVarPublic;
-                    case CX_CXXProtected:
-                        return tcVarProtected;
-                    case CX_CXXPrivate:
-                        return tcVarPrivate;
-                }
-
-            case CXCursor_MacroDefinition:
-                return tcMacroDef;
-
-            case CXCursor_EnumDecl:
-                switch (access)
-                {
-                    case CX_CXXPublic:
-                        return tcEnumPublic;
-                    case CX_CXXProtected:
-                        return tcEnumProtected;
-                    case CX_CXXPrivate:
-                        return tcEnumPrivate;
-                    default:
-                    case CX_CXXInvalidAccessSpecifier:
-                        return tcEnum;
-                }
-
-            case CXCursor_EnumConstantDecl:
-                return tcEnumerator;
-
-            case CXCursor_Namespace:
-                return tcNamespace;
-
-            case CXCursor_TypedefDecl:
-                switch (access)
-                {
-                    case CX_CXXPublic:
-                        return tcTypedefPublic;
-                    case CX_CXXProtected:
-                        return tcTypedefProtected;
-                    case CX_CXXPrivate:
-                        return tcTypedefPrivate;
-                    default:
-                    case CX_CXXInvalidAccessSpecifier:
-                        return tcTypedef;
-                }
-
-            default:
-                return tcNone;
+        case CX_CXXPublic:
+            return tcClassPublic;
+        case CX_CXXProtected:
+            return tcClassProtected;
+        case CX_CXXPrivate:
+            return tcClassPrivate;
+        default:
+        case CX_CXXInvalidAccessSpecifier:
+            return tcClass;
         }
+
+    case CXCursor_Constructor:
+        switch (access)
+        {
+        default:
+        case CX_CXXInvalidAccessSpecifier:
+        case CX_CXXPublic:
+            return tcCtorPublic;
+        case CX_CXXProtected:
+            return tcCtorProtected;
+        case CX_CXXPrivate:
+            return tcCtorPrivate;
+        }
+
+    case CXCursor_Destructor:
+        switch (access)
+        {
+        default:
+        case CX_CXXInvalidAccessSpecifier:
+        case CX_CXXPublic:
+            return tcDtorPublic;
+        case CX_CXXProtected:
+            return tcDtorProtected;
+        case CX_CXXPrivate:
+            return tcDtorPrivate;
+        }
+
+    case CXCursor_FunctionDecl:
+    case CXCursor_CXXMethod:
+    case CXCursor_FunctionTemplate:
+        switch (access)
+        {
+        default:
+        case CX_CXXInvalidAccessSpecifier:
+        case CX_CXXPublic:
+            return tcFuncPublic;
+        case CX_CXXProtected:
+            return tcFuncProtected;
+        case CX_CXXPrivate:
+            return tcFuncPrivate;
+        }
+
+    case CXCursor_FieldDecl:
+    case CXCursor_VarDecl:
+    case CXCursor_ParmDecl:
+        switch (access)
+        {
+        default:
+        case CX_CXXInvalidAccessSpecifier:
+        case CX_CXXPublic:
+            return tcVarPublic;
+        case CX_CXXProtected:
+            return tcVarProtected;
+        case CX_CXXPrivate:
+            return tcVarPrivate;
+        }
+
+    case CXCursor_MacroDefinition:
+        return tcMacroDef;
+
+    case CXCursor_EnumDecl:
+        switch (access)
+        {
+        case CX_CXXPublic:
+            return tcEnumPublic;
+        case CX_CXXProtected:
+            return tcEnumProtected;
+        case CX_CXXPrivate:
+            return tcEnumPrivate;
+        default:
+        case CX_CXXInvalidAccessSpecifier:
+            return tcEnum;
+        }
+
+    case CXCursor_EnumConstantDecl:
+        return tcEnumerator;
+
+    case CXCursor_Namespace:
+        return tcNamespace;
+
+    case CXCursor_TypedefDecl:
+        switch (access)
+        {
+        case CX_CXXPublic:
+            return tcTypedefPublic;
+        case CX_CXXProtected:
+            return tcTypedefProtected;
+        case CX_CXXPrivate:
+            return tcTypedefPrivate;
+        default:
+        case CX_CXXInvalidAccessSpecifier:
+            return tcTypedef;
+        }
+
+    default:
+        return tcNone;
+    }
+}
+
+static CXChildVisitResult ClCallTipCtorAST_Visitor(CXCursor cursor,
+        CXCursor WXUNUSED(parent),
+        CXClientData client_data)
+{
+    switch (cursor.kind)
+    {
+    case CXCursor_Constructor:
+    {
+        std::vector<CXCursor>* tokenSet
+            = static_cast<std::vector<CXCursor>*>(client_data);
+        tokenSet->push_back(cursor);
+        break;
     }
 
-    static CXChildVisitResult ClCallTipCtorAST_Visitor(CXCursor cursor,
-                                                       CXCursor WXUNUSED(parent),
-                                                       CXClientData client_data)
+    case CXCursor_FunctionDecl:
+    case CXCursor_CXXMethod:
+    case CXCursor_FunctionTemplate:
     {
-        switch (cursor.kind)
+        CXString str = clang_getCursorSpelling(cursor);
+        if (strcmp(clang_getCString(str), "operator()") == 0)
         {
-            case CXCursor_Constructor:
-            {
-                std::vector<CXCursor>* tokenSet
-                    = static_cast<std::vector<CXCursor>*>(client_data);
-                tokenSet->push_back(cursor);
-                break;
-            }
-
-            case CXCursor_FunctionDecl:
-            case CXCursor_CXXMethod:
-            case CXCursor_FunctionTemplate:
-            {
-                CXString str = clang_getCursorSpelling(cursor);
-                if (strcmp(clang_getCString(str), "operator()") == 0)
-                {
-                    std::vector<CXCursor>* tokenSet
-                        = static_cast<std::vector<CXCursor>*>(client_data);
-                    tokenSet->push_back(cursor);
-                }
-                clang_disposeString(str);
-                break;
-            }
-
-            default:
-                break;
+            std::vector<CXCursor>* tokenSet
+                = static_cast<std::vector<CXCursor>*>(client_data);
+            tokenSet->push_back(cursor);
         }
-        return CXChildVisit_Continue;
-    }
-
-    static CXChildVisitResult ClInheritance_Visitor(CXCursor cursor,
-                                                    CXCursor WXUNUSED(parent),
-                                                    CXClientData client_data)
-    {
-        if (cursor.kind != CXCursor_CXXBaseSpecifier)
-            return CXChildVisit_Break;
-        CXString str = clang_getTypeSpelling(clang_getCursorType(cursor));
-        static_cast<wxStringVec*>(client_data)->push_back(wxString::FromUTF8(clang_getCString(str)));
         clang_disposeString(str);
-        return CXChildVisit_Continue;
+        break;
     }
 
-    static CXChildVisitResult ClEnum_Visitor(CXCursor cursor,
-                                             CXCursor WXUNUSED(parent),
-                                             CXClientData client_data)
-    {
-        if (cursor.kind != CXCursor_EnumConstantDecl)
-            return CXChildVisit_Break;
-        int* counts = static_cast<int*>(client_data);
-        long long val = clang_getEnumConstantDeclValue(cursor);
-        if (val > 0 && !((val - 1) & val)) // is power of 2
-            ++counts[0];
-        ++counts[1];
-        counts[2] = std::max(counts[2], static_cast<int>(val));
-        return CXChildVisit_Continue;
+    default:
+        break;
     }
+    return CXChildVisit_Continue;
+}
 
-    static void ResolveCursorDecl(CXCursor& token)
+static CXChildVisitResult ClInheritance_Visitor(CXCursor cursor,
+        CXCursor WXUNUSED(parent),
+        CXClientData client_data)
+{
+    if (cursor.kind != CXCursor_CXXBaseSpecifier)
+        return CXChildVisit_Break;
+    CXString str = clang_getTypeSpelling(clang_getCursorType(cursor));
+    static_cast<wxStringVec*>(client_data)->push_back(wxString::FromUTF8(clang_getCString(str)));
+    clang_disposeString(str);
+    return CXChildVisit_Continue;
+}
+
+static CXChildVisitResult ClEnum_Visitor(CXCursor cursor,
+        CXCursor WXUNUSED(parent),
+        CXClientData client_data)
+{
+    if (cursor.kind != CXCursor_EnumConstantDecl)
+        return CXChildVisit_Break;
+    int* counts = static_cast<int*>(client_data);
+    long long val = clang_getEnumConstantDeclValue(cursor);
+    if (val > 0 && !((val - 1) & val)) // is power of 2
+        ++counts[0];
+    ++counts[1];
+    counts[2] = std::max(counts[2], static_cast<int>(val));
+    return CXChildVisit_Continue;
+}
+
+static void ResolveCursorDecl(CXCursor& token)
+{
+    CXCursor resolve = clang_getCursorDefinition(token);
+    if (clang_Cursor_isNull(resolve) || clang_isInvalid(token.kind))
     {
-        CXCursor resolve = clang_getCursorDefinition(token);
-        if (clang_Cursor_isNull(resolve) || clang_isInvalid(token.kind))
-        {
-            resolve = clang_getCursorReferenced(token);
-            if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(token.kind))
-                token = resolve;
-        }
-        else
+        resolve = clang_getCursorReferenced(token);
+        if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(token.kind))
             token = resolve;
     }
+    else
+        token = resolve;
+}
 
-    static CXVisitorResult ReferencesVisitor(CXClientData context,
-                                             CXCursor WXUNUSED(cursor),
-                                             CXSourceRange range)
+static void ResolveCursorImpl(CXCursor& token)
+{
+    CXCursor resolve = clang_getCursorReferenced(token);
+    if (clang_Cursor_isNull(resolve) || clang_isInvalid(token.kind))
     {
-        unsigned rgStart, rgEnd;
-        CXSourceLocation rgLoc = clang_getRangeStart(range);
-        clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &rgStart);
-        rgLoc = clang_getRangeEnd(range);
-        clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &rgEnd);
-        if (rgStart != rgEnd)
-        {
-            static_cast<std::vector< std::pair<int, int> >*>(context)
-                ->push_back(std::make_pair<int, int>(rgStart, rgEnd - rgStart));
-        }
-        return CXVisit_Continue;
+        resolve = clang_getCursorDefinition(token);
+        if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(token.kind))
+            token = resolve;
     }
+    else
+        token = resolve;
+}
 
-    static wxString GetEnumValStr(CXCursor token)
+static CXVisitorResult ReferencesVisitor(CXClientData context,
+        CXCursor WXUNUSED(cursor),
+        CXSourceRange range)
+{
+    unsigned rgStart, rgEnd;
+    CXSourceLocation rgLoc = clang_getRangeStart(range);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &rgStart);
+    rgLoc = clang_getRangeEnd(range);
+    clang_getSpellingLocation(rgLoc, nullptr, nullptr, nullptr, &rgEnd);
+    if (rgStart != rgEnd)
     {
-        int counts[] = {0, 0, 0}; // (numPowerOf2, numTotal, maxVal)
-        clang_visitChildren(clang_getCursorSemanticParent(token), &ProxyHelper::ClEnum_Visitor, counts);
-        wxLongLong val(clang_getEnumConstantDeclValue(token));
-        if ((   (counts[0] == counts[1])
-             || (counts[1] > 5 && counts[0] * 2 >= counts[1]) ) && val >= 0)
-        {
-            // lots of 2^n enum constants, probably bitmask -> display in hexadecimal
-            wxString formatStr
-                = wxString::Format(wxT("0x%%0%ulX"),
-                                   wxString::Format(wxT("%X"), // count max width for 0-padding
-                                                    static_cast<unsigned>(counts[2])).Length());
-            return wxString::Format(formatStr, static_cast<unsigned long>(val.GetValue()));
-        }
-        else
-            return val.ToString();
+        static_cast<std::vector< std::pair<int, int> >*>(context)
+        ->push_back(std::make_pair<int, int>(rgStart, rgEnd - rgStart));
     }
+    return CXVisit_Continue;
+}
+
+static wxString GetEnumValStr(CXCursor token)
+{
+    int counts[] = {0, 0, 0}; // (numPowerOf2, numTotal, maxVal)
+    clang_visitChildren(clang_getCursorSemanticParent(token), &ProxyHelper::ClEnum_Visitor, counts);
+    wxLongLong val(clang_getEnumConstantDeclValue(token));
+    if ((   (counts[0] == counts[1])
+            || (counts[1] > 5 && counts[0] * 2 >= counts[1]) ) && val >= 0)
+    {
+        // lots of 2^n enum constants, probably bitmask -> display in hexadecimal
+        wxString formatStr
+            = wxString::Format(wxT("0x%%0%ulX"),
+                    wxString::Format(wxT("%X"), // count max width for 0-padding
+                            static_cast<unsigned>(counts[2])).Length());
+        return wxString::Format(formatStr, static_cast<unsigned long>(val.GetValue()));
+    }
+    else
+        return val.ToString();
+}
 }
 
 namespace HTML_Writer
 {
-    static wxString Escape(const wxString& text)
+static wxString Escape(const wxString& text)
+{
+    wxString html;
+    html.reserve(text.size());
+    for (wxString::const_iterator itr = text.begin();
+            itr != text.end(); ++itr)
     {
-        wxString html;
-        html.reserve(text.size());
-        for (wxString::const_iterator itr = text.begin();
-             itr != text.end(); ++itr)
+        switch (*itr)
         {
-            switch (*itr)
-            {
-                case wxT('&'):  html += wxT("&amp;");  break;
-                case wxT('\"'): html += wxT("&quot;"); break;
-                case wxT('\''): html += wxT("&apos;"); break;
-                case wxT('<'):  html += wxT("&lt;");   break;
-                case wxT('>'):  html += wxT("&gt;");   break;
-                case wxT('\n'): html += wxT("<br>");   break;
-                default:        html += *itr;          break;
-            }
+        case wxT('&'):
+            html += wxT("&amp;");
+            break;
+        case wxT('\"'):
+            html += wxT("&quot;");
+            break;
+        case wxT('\''):
+            html += wxT("&apos;");
+            break;
+        case wxT('<'):
+            html += wxT("&lt;");
+            break;
+        case wxT('>'):
+            html += wxT("&gt;");
+            break;
+        case wxT('\n'):
+            html += wxT("<br>");
+            break;
+        default:
+            html += *itr;
+            break;
         }
-        return html;
     }
+    return html;
+}
 
-    static wxString Colourise(const wxString& text, const wxString& colour)
-    {
-        return wxT("<font color=\"") + colour + wxT("\">") + text + wxT("</font>");
-    }
+static wxString Colourise(const wxString& text, const wxString& colour)
+{
+    return wxT("<font color=\"") + colour + wxT("\">") + text + wxT("</font>");
+}
 
-    static wxString SyntaxHl(const wxString& code, const std::vector<wxString>& cppKeywords) // C++ style (ish)
+static wxString SyntaxHl(const wxString& code, const std::vector<wxString>& cppKeywords) // C++ style (ish)
+{
+    wxString html;
+    html.reserve(code.size());
+    int stRg = 0;
+    int style = wxSCI_C_DEFAULT;
+    const int codeLen = code.Length();
+    for (int enRg = 0; enRg <= codeLen; ++enRg)
     {
-        wxString html;
-        html.reserve(code.size());
-        int stRg = 0;
-        int style = wxSCI_C_DEFAULT;
-        const int codeLen = code.Length();
-        for (int enRg = 0; enRg <= codeLen; ++enRg)
+        wxChar ch = (enRg < codeLen ? code[enRg] : wxT('\0'));
+        wxChar nextCh = (enRg < codeLen - 1 ? code[enRg + 1] : wxT('\0'));
+        switch (style)
         {
-            wxChar ch = (enRg < codeLen ? code[enRg] : wxT('\0'));
-            wxChar nextCh = (enRg < codeLen - 1 ? code[enRg + 1] : wxT('\0'));
-            switch (style)
+        default:
+        case wxSCI_C_DEFAULT:
+        {
+            if (wxIsalpha(ch) || ch == wxT('_'))
+                style = wxSCI_C_IDENTIFIER;
+            else if (wxIsdigit(ch))
+                style = wxSCI_C_NUMBER;
+            else if (ch == wxT('"'))
+                style = wxSCI_C_STRING;
+            else if (ch == wxT('\''))
+                style = wxSCI_C_CHARACTER;
+            else if (ch == wxT('/') && nextCh == wxT('/'))
+                style = wxSCI_C_COMMENTLINE;
+            else if (wxIspunct(ch))
+                style = wxSCI_C_OPERATOR;
+            else
+                break;
+            if (stRg != enRg)
             {
-                default:
-                case wxSCI_C_DEFAULT:
-                {
-                    if (wxIsalpha(ch) || ch == wxT('_'))
-                        style = wxSCI_C_IDENTIFIER;
-                    else if (wxIsdigit(ch))
-                        style = wxSCI_C_NUMBER;
-                    else if (ch == wxT('"'))
-                        style = wxSCI_C_STRING;
-                    else if (ch == wxT('\''))
-                        style = wxSCI_C_CHARACTER;
-                    else if (ch == wxT('/') && nextCh == wxT('/'))
-                        style = wxSCI_C_COMMENTLINE;
-                    else if (wxIspunct(ch))
-                        style = wxSCI_C_OPERATOR;
-                    else
-                        break;
-                    if (stRg != enRg)
-                    {
-                        html += Escape(code.Mid(stRg, enRg - stRg));
-                        stRg = enRg;
-                    }
-                    break;
-                }
-
-                case wxSCI_C_IDENTIFIER:
-                {
-                    if (wxIsalnum(ch) || ch == wxT('_'))
-                        break;
-                    if (stRg != enRg)
-                    {
-                        const wxString& tkn = code.Mid(stRg, enRg - stRg);
-                        if (std::binary_search(cppKeywords.begin(), cppKeywords.end(), tkn))
-                            html += wxT("<b>") + Colourise(Escape(tkn), wxT("#00008b")) + wxT("</b>"); // DarkBlue
-                        else
-                            html += Escape(tkn);
-                        stRg = enRg;
-                        --enRg;
-                    }
-                    style = wxSCI_C_DEFAULT;
-                    break;
-                }
-
-                case wxSCI_C_NUMBER:
-                {
-                    if (wxIsalnum(ch))
-                        break;
-                    if (stRg != enRg)
-                    {
-                        html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("Magenta"));
-                        stRg = enRg;
-                        --enRg;
-                    }
-                    style = wxSCI_C_DEFAULT;
-                    break;
-                }
-
-                case wxSCI_C_STRING:
-                {
-                    if (ch == wxT('\\'))
-                    {
-                        if (nextCh != wxT('\n'))
-                            ++enRg;
-                        break;
-                    }
-                    else if (ch && ch != wxT('"') && ch != wxT('\n'))
-                        break;
-                    if (stRg != enRg)
-                    {
-                        if (ch == wxT('"'))
-                            ++enRg;
-                        html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("#0000cd")); // MediumBlue
-                        stRg = enRg;
-                        --enRg;
-                    }
-                    style = wxSCI_C_DEFAULT;
-                    break;
-                }
-
-                case wxSCI_C_CHARACTER:
-                {
-                    if (ch == wxT('\\'))
-                    {
-                        if (nextCh != wxT('\n'))
-                            ++enRg;
-                        break;
-                    }
-                    else if (ch && ch != wxT('\'') && ch != wxT('\n'))
-                        break;
-                    if (stRg != enRg)
-                    {
-                        if (ch == wxT('\''))
-                            ++enRg;
-                        html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("GoldenRod"));
-                        stRg = enRg;
-                        --enRg;
-                    }
-                    style = wxSCI_C_DEFAULT;
-                    break;
-                }
-
-                case wxSCI_C_COMMENTLINE:
-                {
-                    if (ch && ch != wxT('\n'))
-                        break;
-                    if (stRg != enRg)
-                    {
-                        html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("#778899")); // LightSlateGray
-                        stRg = enRg;
-                    }
-                    style = wxSCI_C_DEFAULT;
-                    break;
-                }
-
-                case wxSCI_C_OPERATOR:
-                {
-                    if (wxIspunct(ch) && ch != wxT('"') && ch != wxT('\'') && ch != wxT('_'))
-                        break;
-                    if (stRg != enRg)
-                    {
-                        html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("Red"));
-                        stRg = enRg;
-                        --enRg;
-                    }
-                    style = wxSCI_C_DEFAULT;
-                    break;
-                }
+                html += Escape(code.Mid(stRg, enRg - stRg));
+                stRg = enRg;
             }
+            break;
         }
-        return html;
-    }
 
-    static void FormatDocumentation(CXComment comment, wxString& doc, const std::vector<wxString>& cppKeywords)
-    {
-        size_t numChildren = clang_Comment_getNumChildren(comment);
-        for (size_t childIdx = 0; childIdx < numChildren; ++childIdx)
+        case wxSCI_C_IDENTIFIER:
         {
-            CXComment cmt = clang_Comment_getChild(comment, childIdx);
-            switch (clang_Comment_getKind(cmt))
+            if (wxIsalnum(ch) || ch == wxT('_'))
+                break;
+            if (stRg != enRg)
             {
-                case CXComment_Null:
-                    break;
+                const wxString& tkn = code.Mid(stRg, enRg - stRg);
+                if (std::binary_search(cppKeywords.begin(), cppKeywords.end(), tkn))
+                    html += wxT("<b>") + Colourise(Escape(tkn), wxT("#00008b")) + wxT("</b>"); // DarkBlue
+                else
+                    html += Escape(tkn);
+                stRg = enRg;
+                --enRg;
+            }
+            style = wxSCI_C_DEFAULT;
+            break;
+        }
 
-                case CXComment_Text:
+        case wxSCI_C_NUMBER:
+        {
+            if (wxIsalnum(ch))
+                break;
+            if (stRg != enRg)
+            {
+                html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("Magenta"));
+                stRg = enRg;
+                --enRg;
+            }
+            style = wxSCI_C_DEFAULT;
+            break;
+        }
+
+        case wxSCI_C_STRING:
+        {
+            if (ch == wxT('\\'))
+            {
+                if (nextCh != wxT('\n'))
+                    ++enRg;
+                break;
+            }
+            else if (ch && ch != wxT('"') && ch != wxT('\n'))
+                break;
+            if (stRg != enRg)
+            {
+                if (ch == wxT('"'))
+                    ++enRg;
+                html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("#0000cd")); // MediumBlue
+                stRg = enRg;
+                --enRg;
+            }
+            style = wxSCI_C_DEFAULT;
+            break;
+        }
+
+        case wxSCI_C_CHARACTER:
+        {
+            if (ch == wxT('\\'))
+            {
+                if (nextCh != wxT('\n'))
+                    ++enRg;
+                break;
+            }
+            else if (ch && ch != wxT('\'') && ch != wxT('\n'))
+                break;
+            if (stRg != enRg)
+            {
+                if (ch == wxT('\''))
+                    ++enRg;
+                html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("GoldenRod"));
+                stRg = enRg;
+                --enRg;
+            }
+            style = wxSCI_C_DEFAULT;
+            break;
+        }
+
+        case wxSCI_C_COMMENTLINE:
+        {
+            if (ch && ch != wxT('\n'))
+                break;
+            if (stRg != enRg)
+            {
+                html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("#778899")); // LightSlateGray
+                stRg = enRg;
+            }
+            style = wxSCI_C_DEFAULT;
+            break;
+        }
+
+        case wxSCI_C_OPERATOR:
+        {
+            if (wxIspunct(ch) && ch != wxT('"') && ch != wxT('\'') && ch != wxT('_'))
+                break;
+            if (stRg != enRg)
+            {
+                html += Colourise(Escape(code.Mid(stRg, enRg - stRg)), wxT("Red"));
+                stRg = enRg;
+                --enRg;
+            }
+            style = wxSCI_C_DEFAULT;
+            break;
+        }
+        }
+    }
+    return html;
+}
+
+static void FormatDocumentation(CXComment comment, wxString& doc, const std::vector<wxString>& cppKeywords)
+{
+    size_t numChildren = clang_Comment_getNumChildren(comment);
+    for (size_t childIdx = 0; childIdx < numChildren; ++childIdx)
+    {
+        CXComment cmt = clang_Comment_getChild(comment, childIdx);
+        switch (clang_Comment_getKind(cmt))
+        {
+        case CXComment_Null:
+            break;
+
+        case CXComment_Text:
+        {
+            CXString str = clang_TextComment_getText(cmt);
+            doc += Escape(wxString::FromUTF8(clang_getCString(str)));
+            clang_disposeString(str);
+            break;
+        }
+
+        case CXComment_InlineCommand:
+        {
+            size_t numArgs = clang_InlineCommandComment_getNumArgs(cmt);
+            wxString argText;
+            for (size_t argIdx = 0; argIdx < numArgs; ++argIdx)
+            {
+                CXString str = clang_InlineCommandComment_getArgText(cmt, argIdx);
+                argText += Escape(wxString::FromUTF8(clang_getCString(str)));
+                clang_disposeString(str);
+            }
+            switch (clang_InlineCommandComment_getRenderKind(cmt))
+            {
+            default:
+            case CXCommentInlineCommandRenderKind_Normal:
+                doc += argText;
+                break;
+
+            case CXCommentInlineCommandRenderKind_Bold:
+                doc += wxT("<b>") + argText + wxT("</b>");
+                break;
+
+            case CXCommentInlineCommandRenderKind_Monospaced:
+                doc += wxT("<tt>") + argText + wxT("</tt>");
+                break;
+
+            case CXCommentInlineCommandRenderKind_Emphasized:
+                doc += wxT("<em>") + argText + wxT("</em>");
+                break;
+            }
+            break;
+        }
+
+        case CXComment_HTMLStartTag:
+        case CXComment_HTMLEndTag:
+        {
+            CXString str = clang_HTMLTagComment_getAsString(cmt);
+            doc += wxString::FromUTF8(clang_getCString(str));
+            clang_disposeString(str);
+            break;
+        }
+
+        case CXComment_Paragraph:
+            if (!clang_Comment_isWhitespace(cmt))
+            {
+                doc += wxT("<p>");
+                FormatDocumentation(cmt, doc, cppKeywords);
+                doc += wxT("</p>");
+            }
+            break;
+
+        case CXComment_BlockCommand: // TODO: follow the command's instructions
+            FormatDocumentation(cmt, doc, cppKeywords);
+            break;
+
+        case CXComment_ParamCommand:  // TODO
+        case CXComment_TParamCommand: // TODO
+            break;
+
+        case CXComment_VerbatimBlockCommand:
+            doc += wxT("<table cellspacing=\"0\" cellpadding=\"1\" bgcolor=\"black\" width=\"100%\"><tr><td>"
+                    "<table bgcolor=\"white\" width=\"100%\"><tr><td><pre>");
+            FormatDocumentation(cmt, doc, cppKeywords);
+            doc += wxT("</pre></td></tr></table></td></tr></table>");
+            break;
+
+        case CXComment_VerbatimBlockLine:
+        {
+            CXString str = clang_VerbatimBlockLineComment_getText(cmt);
+            wxString codeLine = wxString::FromUTF8(clang_getCString(str));
+            clang_disposeString(str);
+            int endIdx = codeLine.Find(wxT("*/")); // clang will throw in the rest of the file when this happens
+            if (endIdx != wxNOT_FOUND)
+            {
+                endIdx = codeLine.Truncate(endIdx).Find(wxT("\\endcode")); // try to save a bit of grace, and recover what we can
+                if (endIdx == wxNOT_FOUND)
                 {
-                    CXString str = clang_TextComment_getText(cmt);
-                    doc += Escape(wxString::FromUTF8(clang_getCString(str)));
-                    clang_disposeString(str);
-                    break;
-                }
-
-                case CXComment_InlineCommand:
-                {
-                    size_t numArgs = clang_InlineCommandComment_getNumArgs(cmt);
-                    wxString argText;
-                    for (size_t argIdx = 0; argIdx < numArgs; ++argIdx)
-                    {
-                        CXString str = clang_InlineCommandComment_getArgText(cmt, argIdx);
-                        argText += Escape(wxString::FromUTF8(clang_getCString(str)));
-                        clang_disposeString(str);
-                    }
-                    switch (clang_InlineCommandComment_getRenderKind(cmt))
-                    {
-                        default:
-                        case CXCommentInlineCommandRenderKind_Normal:
-                            doc += argText;
-                            break;
-
-                        case CXCommentInlineCommandRenderKind_Bold:
-                            doc += wxT("<b>") + argText + wxT("</b>");
-                            break;
-
-                        case CXCommentInlineCommandRenderKind_Monospaced:
-                            doc += wxT("<tt>") + argText + wxT("</tt>");
-                            break;
-
-                        case CXCommentInlineCommandRenderKind_Emphasized:
-                            doc += wxT("<em>") + argText + wxT("</em>");
-                            break;
-                    }
-                    break;
-                }
-
-                case CXComment_HTMLStartTag:
-                case CXComment_HTMLEndTag:
-                {
-                    CXString str = clang_HTMLTagComment_getAsString(cmt);
-                    doc += wxString::FromUTF8(clang_getCString(str));
-                    clang_disposeString(str);
-                    break;
-                }
-
-                case CXComment_Paragraph:
-                    if (!clang_Comment_isWhitespace(cmt))
-                    {
-                        doc += wxT("<p>");
-                        FormatDocumentation(cmt, doc, cppKeywords);
-                        doc += wxT("</p>");
-                    }
-                    break;
-
-                case CXComment_BlockCommand: // TODO: follow the command's instructions
-                    FormatDocumentation(cmt, doc, cppKeywords);
-                    break;
-
-                case CXComment_ParamCommand:  // TODO
-                case CXComment_TParamCommand: // TODO
-                    break;
-
-                case CXComment_VerbatimBlockCommand:
-                    doc += wxT("<table cellspacing=\"0\" cellpadding=\"1\" bgcolor=\"black\" width=\"100%\"><tr><td>"
-                               "<table bgcolor=\"white\" width=\"100%\"><tr><td><pre>");
-                    FormatDocumentation(cmt, doc, cppKeywords);
-                    doc += wxT("</pre></td></tr></table></td></tr></table>");
-                    break;
-
-                case CXComment_VerbatimBlockLine:
-                {
-                    CXString str = clang_VerbatimBlockLineComment_getText(cmt);
-                    wxString codeLine = wxString::FromUTF8(clang_getCString(str));
-                    clang_disposeString(str);
-                    int endIdx = codeLine.Find(wxT("*/")); // clang will throw in the rest of the file when this happens
+                    endIdx = codeLine.Find(wxT("@endcode"));
                     if (endIdx != wxNOT_FOUND)
-                    {
-                        endIdx = codeLine.Truncate(endIdx).Find(wxT("\\endcode")); // try to save a bit of grace, and recover what we can
-                        if (endIdx == wxNOT_FOUND)
-                        {
-                            endIdx = codeLine.Find(wxT("@endcode"));
-                            if (endIdx != wxNOT_FOUND)
-                                codeLine.Truncate(endIdx);
-                        }
-                        else
-                            codeLine.Truncate(endIdx);
-                        doc += SyntaxHl(codeLine, cppKeywords) + wxT("<br><font color=\"red\"><em>__clang_doxygen_parsing_error__</em></font><br>");
-                        return; // abort
-                    }
-                    doc += SyntaxHl(codeLine, cppKeywords) + wxT("<br>");
-                    break;
+                        codeLine.Truncate(endIdx);
                 }
-
-                case CXComment_VerbatimLine:
-                {
-                    CXString str = clang_VerbatimLineComment_getText(cmt);
-                    doc += wxT("<pre>") + Escape(wxString::FromUTF8(clang_getCString(str))) + wxT("</pre>"); // TODO: syntax highlight
-                    clang_disposeString(str);
-                    break;
-                }
-
-                case CXComment_FullComment: // ignore?
-                default:
-                    break;
+                else
+                    codeLine.Truncate(endIdx);
+                doc += SyntaxHl(codeLine, cppKeywords) + wxT("<br><font color=\"red\"><em>__clang_doxygen_parsing_error__</em></font><br>");
+                return; // abort
             }
+            doc += SyntaxHl(codeLine, cppKeywords) + wxT("<br>");
+            break;
+        }
+
+        case CXComment_VerbatimLine:
+        {
+            CXString str = clang_VerbatimLineComment_getText(cmt);
+            doc += wxT("<pre>") + Escape(wxString::FromUTF8(clang_getCString(str))) + wxT("</pre>"); // TODO: syntax highlight
+            clang_disposeString(str);
+            break;
+        }
+
+        case CXComment_FullComment: // ignore?
+        default:
+            break;
         }
     }
 }
+}
 
-ClangProxy::ClangProxy(TokenDatabase& database, const std::vector<wxString>& cppKeywords):
+ClangProxy::ClangProxy( wxEvtHandler* pEvtCallbackHandler, TokenDatabase& database, const std::vector<wxString>& cppKeywords):
+    m_Mutex(),
     m_Database(database),
-    m_CppKeywords(cppKeywords)
+    m_CppKeywords(cppKeywords),
+    m_TaskQueueMutex(),
+    m_pEventCallbackHandler(pEvtCallbackHandler),
+    m_ConditionQueueNotEmpty(m_TaskQueueMutex)
 {
     m_ClIndex = clang_createIndex(0, 0);
+#if CLANGPROXY_USE_THREAD
+    m_pThread = new TaskThread(this);
+    m_pThread->Create();
+    m_pThread->Run();
+#endif
 }
 
 ClangProxy::~ClangProxy()
@@ -560,6 +596,7 @@ ClangProxy::~ClangProxy()
 
 void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands)
 {
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     wxStringTokenizer tokenizer(commands);
     if (!filename.EndsWith(wxT(".c"))) // force language reduces chance of error on STL headers
         tokenizer.SetString(commands + wxT(" -x c++"));
@@ -577,16 +614,23 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
         argsBuffer.push_back(compilerSwitch.ToUTF8());
         args.push_back(argsBuffer.back().data());
     }
-    m_TranslUnits.push_back(TranslationUnit(filename, args, m_ClIndex, &m_Database));
+    TranslationUnit TU(filename, args, m_ClIndex, &m_Database);
+    wxMutexLocker lock(m_Mutex);
+    m_TranslUnits.push_back(TU);
+    fprintf(stdout,"%s done.\n", __PRETTY_FUNCTION__);
 }
 
 int ClangProxy::GetTranslationUnitId(FileId fId)
 {
+    wxMutexLocker locker(m_Mutex);
     for (size_t i = 0; i < m_TranslUnits.size(); ++i)
     {
-        if (m_TranslUnits[i].Contains(fId))
+        if (m_TranslUnits[i].Contains(fId)){
+            //std::cout<<"TranslUnits index "<<i<<" has file id "<<fId<<std::endl;
             return i;
+        }
     }
+    //std::cout<<"file id "<<fId<<" not found in translUnits"<<std::endl;
     return wxNOT_FOUND;
 }
 
@@ -596,15 +640,16 @@ int ClangProxy::GetTranslationUnitId(const wxString& filename)
 }
 
 void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename,
-                                int line, int column, int translId,
-                                const std::map<wxString, wxString>& unsavedFiles,
-                                std::vector<ClToken>& results)
+        int line, int column, int translId,
+        const std::map<wxString, wxString>& unsavedFiles,
+        std::vector<ClToken>& results)
 {
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     wxCharBuffer chName = filename.ToUTF8();
     std::vector<CXUnsavedFile> clUnsavedFiles;
     std::vector<wxCharBuffer> clFileBuffer;
     for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
-         fileIt != unsavedFiles.end(); ++fileIt)
+            fileIt != unsavedFiles.end(); ++fileIt)
     {
         CXUnsavedFile unit;
         clFileBuffer.push_back(fileIt->first.ToUTF8());
@@ -618,15 +663,21 @@ void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename,
 #endif
         clUnsavedFiles.push_back(unit);
     }
-    CXCodeCompleteResults* clResults
-        = m_TranslUnits[translId].CodeCompleteAt(chName.data(), line, column,
-                                                 clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
-                                                 clUnsavedFiles.size());
+    wxMutexLocker locker(m_Mutex);
+    CXCodeCompleteResults* clResults = m_TranslUnits[translId].CodeCompleteAt(chName.data(), line, column,
+                clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
+                clUnsavedFiles.size());
     if (!clResults)
+    {
+        fprintf(stdout,"%s No results...\n", __PRETTY_FUNCTION__);
         return;
+    }
 
     if (isAuto && clang_codeCompleteGetContexts(clResults) == CXCompletionContext_Unknown)
+    {
+        fprintf(stdout,"%s unknown context\n", __PRETTY_FUNCTION__);
         return;
+    }
 
     const int numResults = clResults->NumResults;
     results.reserve(numResults);
@@ -682,18 +733,21 @@ void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename,
                 }
                 CXString completeTxt = clang_getCompletionChunkText(token.CompletionString, chunkIdx);
                 results.push_back(ClToken(wxString::FromUTF8(clang_getCString(completeTxt)) + type,
-                                          resIdx, clang_getCompletionPriority(token.CompletionString),
-                                          ProxyHelper::GetTokenCategory(token.CursorKind)));
+                        resIdx, clang_getCompletionPriority(token.CompletionString),
+                        ProxyHelper::GetTokenCategory(token.CursorKind)));
                 clang_disposeString(completeTxt);
                 type.Empty();
                 break;
             }
         }
     }
+    fprintf(stdout,"%s done\n", __PRETTY_FUNCTION__);
+
 }
 
 wxString ClangProxy::DocumentCCToken(int translId, int tknId)
 {
+    wxMutexLocker  lock(m_Mutex);
     const CXCompletionResult* token = m_TranslUnits[translId].GetCCResult(tknId);
     if (!token)
         return wxEmptyString;
@@ -734,7 +788,7 @@ wxString ClangProxy::DocumentCCToken(int translId, int tknId)
         {
             const AbstractToken& aTkn = m_Database.GetToken(tId);
             CXCursor clTkn = m_TranslUnits[translId].GetTokensAt(m_Database.GetFilename(aTkn.fileId),
-                                                                 aTkn.line, aTkn.column);
+                    aTkn.line, aTkn.column);
             if (!clang_Cursor_isNull(clTkn) && !clang_isInvalid(clTkn.kind))
             {
                 CXComment docComment = clang_Cursor_getParsedComment(clTkn);
@@ -761,11 +815,12 @@ wxString ClangProxy::DocumentCCToken(int translId, int tknId)
     }
 
     return wxT("<html><body><br><tt>") + HTML_Writer::SyntaxHl(doc, m_CppKeywords)
-         + wxT("</tt>") + descriptor + wxT("</body></html>");
+            + wxT("</tt>") + descriptor + wxT("</body></html>");
 }
 
 wxString ClangProxy::GetCCInsertSuffix(int translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets)
 {
+    wxMutexLocker lock(m_Mutex);
     const CXCompletionResult* token = m_TranslUnits[translId].GetCCResult(tknId);
     if (!token)
         return wxEmptyString;
@@ -779,39 +834,39 @@ wxString ClangProxy::GetCCInsertSuffix(int translId, int tknId, const wxString& 
     {
         switch (clang_getCompletionChunkKind(clCompStr, i))
         {
-            case CXCompletionChunk_TypedText:
-                if (state == init)
-                    state = store;
-                break;
+        case CXCompletionChunk_TypedText:
+            if (state == init)
+                state = store;
+            break;
 
-            case CXCompletionChunk_Placeholder:
-                if (state == store)
-                {
-                    CXString str = clang_getCompletionChunkText(clCompStr, i);
-                    const wxString& param = wxT("/*! ") + wxString::FromUTF8(clang_getCString(str)) + wxT(" !*/");
-                    offsets = std::make_pair(suffix.Length(), suffix.Length() + param.Length());
-                    suffix += param;
-                    clang_disposeString(str);
-                    state = exit;
-                }
-                break;
+        case CXCompletionChunk_Placeholder:
+            if (state == store)
+            {
+                CXString str = clang_getCompletionChunkText(clCompStr, i);
+                const wxString& param = wxT("/*! ") + wxString::FromUTF8(clang_getCString(str)) + wxT(" !*/");
+                offsets = std::make_pair(suffix.Length(), suffix.Length() + param.Length());
+                suffix += param;
+                clang_disposeString(str);
+                state = exit;
+            }
+            break;
 
-            case CXCompletionChunk_Informative:
-                break;
+        case CXCompletionChunk_Informative:
+            break;
 
-            case CXCompletionChunk_VerticalSpace:
-                if (state != init)
-                    suffix += newLine;
-                break;
+        case CXCompletionChunk_VerticalSpace:
+            if (state != init)
+                suffix += newLine;
+            break;
 
-            default:
-                if (state != init)
-                {
-                    CXString str = clang_getCompletionChunkText(clCompStr, i);
-                    suffix += wxString::FromUTF8(clang_getCString(str));
-                    clang_disposeString(str);
-                }
-                break;
+        default:
+            if (state != init)
+            {
+                CXString str = clang_getCompletionChunkText(clCompStr, i);
+                suffix += wxString::FromUTF8(clang_getCString(str));
+                clang_disposeString(str);
+            }
+            break;
         }
     }
     if (state != exit)
@@ -821,6 +876,7 @@ wxString ClangProxy::GetCCInsertSuffix(int translId, int tknId, const wxString& 
 
 void ClangProxy::RefineTokenType(int translId, int tknId, int& tknType)
 {
+    wxMutexLocker lock(m_Mutex);
     const CXCompletionResult* token = m_TranslUnits[translId].GetCCResult(tknId);
     if (!token)
         return;
@@ -833,7 +889,7 @@ void ClangProxy::RefineTokenType(int translId, int tknId, int& tknType)
         {
             const AbstractToken& aTkn = m_Database.GetToken(tId);
             CXCursor clTkn = m_TranslUnits[translId].GetTokensAt(m_Database.GetFilename(aTkn.fileId),
-                                                                 aTkn.line, aTkn.column);
+                    aTkn.line, aTkn.column);
             if (!clang_Cursor_isNull(clTkn) && !clang_isInvalid(clTkn.kind))
             {
                 TokenCategory tkCat
@@ -846,9 +902,10 @@ void ClangProxy::RefineTokenType(int translId, int tknId, int& tknType)
 }
 
 void ClangProxy::GetCallTipsAt(const wxString& filename, int line, int column,
-                               int translId, const wxString& tokenStr,
-                               std::vector<wxStringVec>& results)
+        int translId, const wxString& tokenStr,
+        std::vector<wxStringVec>& results)
 {
+    wxMutexLocker lock(m_Mutex);
     std::vector<CXCursor> tokenSet;
     if (column > static_cast<int>(tokenStr.Length()))
     {
@@ -875,7 +932,7 @@ void ClangProxy::GetCallTipsAt(const wxString& filename, int line, int column,
     {
         const AbstractToken& aTkn = m_Database.GetToken(*itr);
         CXCursor token = m_TranslUnits[translId].GetTokensAt(m_Database.GetFilename(aTkn.fileId),
-                                                             aTkn.line, aTkn.column);
+                aTkn.line, aTkn.column);
         if (!clang_Cursor_isNull(token) && !clang_isInvalid(token.kind))
             tokenSet.push_back(token);
     }
@@ -885,123 +942,124 @@ void ClangProxy::GetCallTipsAt(const wxString& filename, int line, int column,
         CXCursor token = tokenSet[tknIdx];
         switch (ProxyHelper::GetTokenCategory(token.kind, CX_CXXPublic))
         {
-            case tcVarPublic:
-            {
-                token = clang_getTypeDeclaration(clang_getCursorResultType(token));
-                if (!clang_Cursor_isNull(token) && !clang_isInvalid(token.kind))
-                    tokenSet.push_back(token);
-                break;
-            }
+        case tcVarPublic:
+        {
+            token = clang_getTypeDeclaration(clang_getCursorResultType(token));
+            if (!clang_Cursor_isNull(token) && !clang_isInvalid(token.kind))
+                tokenSet.push_back(token);
+            break;
+        }
 
-            case tcTypedefPublic:
-            {
-                token = clang_getTypeDeclaration(clang_getTypedefDeclUnderlyingType(token));
-                if (!clang_Cursor_isNull(token) && !clang_isInvalid(token.kind))
-                    tokenSet.push_back(token);
-                break;
-            }
+        case tcTypedefPublic:
+        {
+            token = clang_getTypeDeclaration(clang_getTypedefDeclUnderlyingType(token));
+            if (!clang_Cursor_isNull(token) && !clang_isInvalid(token.kind))
+                tokenSet.push_back(token);
+            break;
+        }
 
-            case tcClassPublic:
-            {
-                // search for constructors and 'operator()'
-                clang_visitChildren(token, &ProxyHelper::ClCallTipCtorAST_Visitor, &tokenSet);
-                break;
-            }
+        case tcClassPublic:
+        {
+            // search for constructors and 'operator()'
+            clang_visitChildren(token, &ProxyHelper::ClCallTipCtorAST_Visitor, &tokenSet);
+            break;
+        }
 
-            case tcCtorPublic:
+        case tcCtorPublic:
+        {
+            if (clang_getCXXAccessSpecifier(token) == CX_CXXPrivate)
+                break;
+            // fall through
+        }
+        case tcFuncPublic:
+        {
+            const CXCompletionString& clCompStr = clang_getCursorCompletionString(token);
+            wxStringVec entry;
+            int upperBound = clang_getNumCompletionChunks(clCompStr);
+            entry.push_back(wxEmptyString);
+            for (int chunkIdx = 0; chunkIdx < upperBound; ++chunkIdx)
             {
-                if (clang_getCXXAccessSpecifier(token) == CX_CXXPrivate)
-                    break;
-                // fall through
+                CXCompletionChunkKind kind = clang_getCompletionChunkKind(clCompStr, chunkIdx);
+                if (kind == CXCompletionChunk_TypedText)
+                {
+                    CXString str = clang_getCompletionParent(clCompStr, nullptr);
+                    wxString parent = wxString::FromUTF8(clang_getCString(str));
+                    if (!parent.IsEmpty())
+                        entry[0] += parent + wxT("::");
+                    clang_disposeString(str);
+                }
+                else if (kind == CXCompletionChunk_LeftParen)
+                {
+                    if (entry[0].IsEmpty() || !entry[0].EndsWith(wxT("operator")))
+                        break;
+                }
+                CXString str = clang_getCompletionChunkText(clCompStr, chunkIdx);
+                entry[0] += wxString::FromUTF8(clang_getCString(str));
+                if (kind == CXCompletionChunk_ResultType)
+                {
+                    if (entry[0].Length() > 2 && entry[0][entry[0].Length() - 2] == wxT(' '))
+                        entry[0].RemoveLast(2) += entry[0].Last();
+                    entry[0] += wxT(' ');
+                }
+                clang_disposeString(str);
             }
-            case tcFuncPublic:
+            entry[0] += wxT('(');
+            int numArgs = clang_Cursor_getNumArguments(token);
+            for (int argIdx = 0; argIdx < numArgs; ++argIdx)
             {
-                const CXCompletionString& clCompStr = clang_getCursorCompletionString(token);
-                wxStringVec entry;
-                int upperBound = clang_getNumCompletionChunks(clCompStr);
-                entry.push_back(wxEmptyString);
+                CXCursor arg = clang_Cursor_getArgument(token, argIdx);
+
+                wxString tknStr;
+                const CXCompletionString& argStr = clang_getCursorCompletionString(arg);
+                upperBound = clang_getNumCompletionChunks(argStr);
                 for (int chunkIdx = 0; chunkIdx < upperBound; ++chunkIdx)
                 {
-                    CXCompletionChunkKind kind = clang_getCompletionChunkKind(clCompStr, chunkIdx);
+                    CXCompletionChunkKind kind = clang_getCompletionChunkKind(argStr, chunkIdx);
                     if (kind == CXCompletionChunk_TypedText)
                     {
-                        CXString str = clang_getCompletionParent(clCompStr, nullptr);
+                        CXString str = clang_getCompletionParent(argStr, nullptr);
                         wxString parent = wxString::FromUTF8(clang_getCString(str));
                         if (!parent.IsEmpty())
-                            entry[0] += parent + wxT("::");
+                            tknStr += parent + wxT("::");
                         clang_disposeString(str);
                     }
-                    else if (kind == CXCompletionChunk_LeftParen)
-                    {
-                        if (entry[0].IsEmpty() || !entry[0].EndsWith(wxT("operator")))
-                            break;
-                    }
-                    CXString str = clang_getCompletionChunkText(clCompStr, chunkIdx);
-                    entry[0] += wxString::FromUTF8(clang_getCString(str));
+                    CXString str = clang_getCompletionChunkText(argStr, chunkIdx);
+                    tknStr += wxString::FromUTF8(clang_getCString(str));
                     if (kind == CXCompletionChunk_ResultType)
                     {
-                        if (entry[0].Length() > 2 && entry[0][entry[0].Length() - 2] == wxT(' '))
-                            entry[0].RemoveLast(2) += entry[0].Last();
-                        entry[0] += wxT(' ');
+                        if (tknStr.Length() > 2 && tknStr[tknStr.Length() - 2] == wxT(' '))
+                            tknStr.RemoveLast(2) += tknStr.Last();
+                        tknStr += wxT(' ');
                     }
                     clang_disposeString(str);
                 }
-                entry[0] += wxT('(');
-                int numArgs = clang_Cursor_getNumArguments(token);
-                for (int argIdx = 0; argIdx < numArgs; ++argIdx)
-                {
-                    CXCursor arg = clang_Cursor_getArgument(token, argIdx);
 
-                    wxString tknStr;
-                    const CXCompletionString& argStr = clang_getCursorCompletionString(arg);
-                    upperBound = clang_getNumCompletionChunks(argStr);
-                    for (int chunkIdx = 0; chunkIdx < upperBound; ++chunkIdx)
-                    {
-                        CXCompletionChunkKind kind = clang_getCompletionChunkKind(argStr, chunkIdx);
-                        if (kind == CXCompletionChunk_TypedText)
-                        {
-                            CXString str = clang_getCompletionParent(argStr, nullptr);
-                            wxString parent = wxString::FromUTF8(clang_getCString(str));
-                            if (!parent.IsEmpty())
-                                tknStr += parent + wxT("::");
-                            clang_disposeString(str);
-                        }
-                        CXString str = clang_getCompletionChunkText(argStr, chunkIdx);
-                        tknStr += wxString::FromUTF8(clang_getCString(str));
-                        if (kind == CXCompletionChunk_ResultType)
-                        {
-                            if (tknStr.Length() > 2 && tknStr[tknStr.Length() - 2] == wxT(' '))
-                                tknStr.RemoveLast(2) += tknStr.Last();
-                            tknStr += wxT(' ');
-                        }
-                        clang_disposeString(str);
-                    }
-
-                    entry.push_back(tknStr.Trim());
-                }
-                entry.push_back(wxT(')'));
-                wxString composit;
-                for (wxStringVec::const_iterator itr = entry.begin();
-                     itr != entry.end(); ++itr)
-                {
-                    composit += *itr;
-                }
-                if (uniqueTips.find(composit) != uniqueTips.end())
-                    break;
-                uniqueTips.insert(composit);
-                results.push_back(entry);
-                break;
+                entry.push_back(tknStr.Trim());
             }
-
-            default:
+            entry.push_back(wxT(')'));
+            wxString composit;
+            for (wxStringVec::const_iterator itr = entry.begin();
+                    itr != entry.end(); ++itr)
+            {
+                composit += *itr;
+            }
+            if (uniqueTips.find(composit) != uniqueTips.end())
                 break;
+            uniqueTips.insert(composit);
+            results.push_back(entry);
+            break;
+        }
+
+        default:
+            break;
         }
     }
 }
 
 void ClangProxy::GetTokensAt(const wxString& filename, int line, int column,
-                             int translId, wxStringVec& results)
+        int translId, wxStringVec& results)
 {
+    wxMutexLocker lock(m_Mutex);
     CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
     if (clang_Cursor_isNull(token))
         return;
@@ -1035,69 +1093,74 @@ void ClangProxy::GetTokensAt(const wxString& filename, int line, int column,
     {
         switch (token.kind)
         {
-            case CXCursor_StructDecl:
-            case CXCursor_ClassDecl:
-            case CXCursor_ClassTemplate:
-            case CXCursor_ClassTemplatePartialSpecialization:
+        case CXCursor_StructDecl:
+        case CXCursor_ClassDecl:
+        case CXCursor_ClassTemplate:
+        case CXCursor_ClassTemplatePartialSpecialization:
+        {
+            if (token.kind == CXCursor_StructDecl)
+                tknStr.Prepend(wxT("struct "));
+            else
+                tknStr.Prepend(wxT("class "));
+            wxStringVec directAncestors;
+            clang_visitChildren(token, &ProxyHelper::ClInheritance_Visitor, &directAncestors);
+            for (wxStringVec::const_iterator daItr = directAncestors.begin();
+                    daItr != directAncestors.end(); ++daItr)
             {
-                if (token.kind == CXCursor_StructDecl)
-                    tknStr.Prepend(wxT("struct "));
+                if (daItr == directAncestors.begin())
+                    tknStr += wxT(" : ");
                 else
-                    tknStr.Prepend(wxT("class "));
-                wxStringVec directAncestors;
-                clang_visitChildren(token, &ProxyHelper::ClInheritance_Visitor, &directAncestors);
-                for (wxStringVec::const_iterator daItr = directAncestors.begin();
-                     daItr != directAncestors.end(); ++daItr)
-                {
-                    if (daItr == directAncestors.begin())
-                        tknStr += wxT(" : ");
-                    else
-                        tknStr += wxT(", ");
-                    tknStr += *daItr;
-                }
-                break;
+                    tknStr += wxT(", ");
+                tknStr += *daItr;
             }
+            break;
+        }
 
-            case CXCursor_UnionDecl:
-                tknStr.Prepend(wxT("union "));
-                break;
+        case CXCursor_UnionDecl:
+            tknStr.Prepend(wxT("union "));
+            break;
 
-            case CXCursor_EnumDecl:
-                tknStr.Prepend(wxT("enum "));
-                break;
+        case CXCursor_EnumDecl:
+            tknStr.Prepend(wxT("enum "));
+            break;
 
-            case CXCursor_EnumConstantDecl:
-                tknStr += wxT("=") + ProxyHelper::GetEnumValStr(token);
-                break;
+        case CXCursor_EnumConstantDecl:
+            tknStr += wxT("=") + ProxyHelper::GetEnumValStr(token);
+            break;
 
-            case CXCursor_TypedefDecl:
-            {
-                CXString str = clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(token));
-                wxString type = wxString::FromUTF8(clang_getCString(str));
-                clang_disposeString(str);
-                if (!type.IsEmpty())
-                    tknStr.Prepend(wxT("typedef ") + type + wxT(" "));
-                break;
-            }
+        case CXCursor_TypedefDecl:
+        {
+            CXString str = clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(token));
+            wxString type = wxString::FromUTF8(clang_getCString(str));
+            clang_disposeString(str);
+            if (!type.IsEmpty())
+                tknStr.Prepend(wxT("typedef ") + type + wxT(" "));
+            break;
+        }
 
-            case CXCursor_Namespace:
-                tknStr.Prepend(wxT("namespace "));
-                break;
+        case CXCursor_Namespace:
+            tknStr.Prepend(wxT("namespace "));
+            break;
 
-            case CXCursor_MacroDefinition:
-                tknStr.Prepend(wxT("#define ")); // TODO: show (partial) definition
-                break;
+        case CXCursor_MacroDefinition:
+            tknStr.Prepend(wxT("#define ")); // TODO: show (partial) definition
+            break;
 
-            default:
-                break;
+        default:
+            break;
         }
         results.push_back(tknStr);
     }
 }
 
+/**
+ * Get all occurences of the token under the supplied cursor.
+ */
+
 void ClangProxy::GetOccurrencesOf(const wxString& filename, int line, int column,
-                                  int translId, std::vector< std::pair<int, int> >& results)
+        int translId, std::vector< std::pair<int, int> >& results)
 {
+    wxMutexLocker lock(m_Mutex);
     CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
     if (clang_Cursor_isNull(token))
         return;
@@ -1106,8 +1169,9 @@ void ClangProxy::GetOccurrencesOf(const wxString& filename, int line, int column
     clang_findReferencesInFile(token, m_TranslUnits[translId].GetFileHandle(filename), visitor);
 }
 
-void ClangProxy::ResolveTokenAt(wxString& filename, int& line, int& column, int translId)
+void ClangProxy::ResolveDeclTokenAt(wxString& filename, int& line, int& column, int translId)
 {
+    wxMutexLocker lock(m_Mutex);
     CXCursor token = m_TranslUnits[translId].GetTokensAt(filename, line, column);
     if (clang_Cursor_isNull(token))
         return;
@@ -1137,7 +1201,7 @@ void ClangProxy::Reparse(int translId, const std::map<wxString, wxString>& unsav
     std::vector<CXUnsavedFile> clUnsavedFiles;
     std::vector<wxCharBuffer> clFileBuffer;
     for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
-         fileIt != unsavedFiles.end(); ++fileIt)
+            fileIt != unsavedFiles.end(); ++fileIt)
     {
         CXUnsavedFile unit;
         clFileBuffer.push_back(fileIt->first.ToUTF8());
@@ -1151,10 +1215,64 @@ void ClangProxy::Reparse(int translId, const std::map<wxString, wxString>& unsav
 #endif
         clUnsavedFiles.push_back(unit);
     }
+
+    wxMutexLocker lock(m_Mutex);
     m_TranslUnits[translId].Reparse(clUnsavedFiles.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0]);
 }
 
 void ClangProxy::GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnostics)
 {
+    wxMutexLocker lock(m_Mutex);
     m_TranslUnits[translId].GetDiagnostics(diagnostics);
 }
+
+void ClangProxy::AddPendingTask( ClangProxy::Task& task )
+{
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    ClangProxy::Task* pTask = task.Clone();
+    wxMutexLocker locker(m_TaskQueueMutex);
+    m_TaskQueue.push(pTask);
+    m_ConditionQueueNotEmpty.Signal();
+    fprintf(stdout,"%s done\n", __PRETTY_FUNCTION__);
+}
+
+wxThread::ExitCode ClangProxy::TaskThread::Entry()
+{
+    while(m_pClangProxy->m_pThread != NULL)
+    {
+        Task* pTask = NULL;
+        {
+            wxMutexLocker lock(m_pClangProxy->m_TaskQueueMutex);
+            while(m_pClangProxy->m_TaskQueue.empty()){
+                wxCondError err = m_pClangProxy->m_ConditionQueueNotEmpty.Wait();
+                if( err != wxCOND_NO_ERROR )
+                {
+                    m_pClangProxy->m_pThread = NULL;
+                    return (wxThread::ExitCode)-1;
+                }
+            }
+            pTask = m_pClangProxy->m_TaskQueue.front();
+            m_pClangProxy->m_TaskQueue.pop();
+        }
+        if( pTask )
+        {
+            try{
+                (*pTask)(*m_pClangProxy);
+            }catch(...)
+            {
+                fprintf(stdout,"%s: Exception caught\n", __PRETTY_FUNCTION__);
+                continue;
+            }
+            pTask->Completed();
+            if( m_pClangProxy->m_pEventCallbackHandler ){
+                if( pTask->GetCallbackEventType() != 0 )
+                {
+                    ClangProxy::CallbackEvent evt( pTask->GetCallbackEventType(), pTask->GetCallbackEventId(), pTask);
+                    m_pClangProxy->m_pEventCallbackHandler->AddPendingEvent( evt );
+                }
+            }
+        }
+    }
+    return (wxThread::ExitCode)0;
+}
+

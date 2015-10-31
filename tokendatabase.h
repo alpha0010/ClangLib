@@ -2,6 +2,7 @@
 #define TOKENDATABASE_H
 
 #include <vector>
+#include <wx/thread.h>
 
 template<typename _Tp> class TreeMap;
 class wxString;
@@ -38,6 +39,7 @@ class TokenDatabase
     private:
         TreeMap<AbstractToken>* m_pTokens;
         TreeMap<wxString>* m_pFilenames;
+        //mutable wxMutex     m_Mutex;
 };
 
 #endif // TOKENDATABASE_H
