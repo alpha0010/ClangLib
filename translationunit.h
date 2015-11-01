@@ -25,7 +25,6 @@ public:
         swap(first.m_Files, second.m_Files);
         swap(first.m_ClTranslUnit, second.m_ClTranslUnit);
         swap(first.m_LastCC, second.m_LastCC);
-        // nowswap m_Mutex
     }
     TranslationUnit& operator=(TranslationUnit& other)
     {
@@ -46,11 +45,6 @@ public:
     void GetDiagnostics(std::vector<ClDiagnostic>& diagnostics);
     CXFile GetFileHandle(const wxString& filename) const;
 
-    wxMutex* Mutex()
-    {
-        return &m_Mutex;
-    }
-
 private:
 #if __cplusplus >= 201103L
     // copying not allowed (we can move)
@@ -62,7 +56,6 @@ private:
     std::vector<FileId> m_Files;
     CXTranslationUnit m_ClTranslUnit;
     CXCodeCompleteResults* m_LastCC;
-    wxMutex m_Mutex;
 
     struct FilePos
     {

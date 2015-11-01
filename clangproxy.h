@@ -77,7 +77,8 @@ struct ClDiagnostic
 class ClangProxy
 {
 public:
-    /*abstract */class Task : public wxObject
+    /*abstract */
+    class Task : public wxObject
     {
     protected:
         Task( wxEventType evtType, int evtId ) : wxObject(), m_EventType(evtType), m_EventId(evtId)
@@ -90,17 +91,25 @@ public:
         }
 
     public:
+        /// Returns a copy of this task on the heap to make sure the objects lifecycle is guaranteed across threads
         virtual Task* Clone() const = 0;
-        virtual void operator()(ClangProxy& clangproxy) {}
-        virtual void Completed(){}
-        wxEventType GetCallbackEventType() const { return m_EventType; }
-        int GetCallbackEventId() const { return m_EventId; }
+        virtual void operator()(ClangProxy& /*clangproxy*/) {}
+        virtual void Completed() {}
+        wxEventType GetCallbackEventType() const
+        {
+            return m_EventType;
+        }
+        int GetCallbackEventId() const
+        {
+            return m_EventId;
+        }
 
     protected:
         wxEventType m_EventType;
         int         m_EventId;
     };
 
+    /* final */
     class CreateTranslationUnitTask : public Task
     {
     public:
@@ -108,11 +117,10 @@ public:
             Task(evtType, evtId),
             m_Filename(filename),
             m_Commands(commands),
-            m_TranslationUnitId(0){}
+            m_TranslationUnitId(0) {}
         Task* Clone() const
         {
-            CreateTranslationUnitTask* task = new CreateTranslationUnitTask(m_EventType, m_EventId, m_Filename, m_Commands);
-            task->m_TranslationUnitId = m_TranslationUnitId;
+            CreateTranslationUnitTask* task = new CreateTranslationUnitTask(*this);
             return static_cast<Task*>(task);
         }
         void operator()(ClangProxy& clangproxy)
@@ -123,12 +131,19 @@ public:
             clangproxy.CreateTranslationUnit(m_Filename, m_Commands);
             m_TranslationUnitId = clangproxy.GetTranslationUnitId(m_Filename);
         }
+    protected:
+        CreateTranslationUnitTask(const CreateTranslationUnitTask& other):
+            Task(other.m_EventType, other.m_EventId),
+            m_Filename(other.m_Filename),
+            m_Commands(other.m_Commands),
+            m_TranslationUnitId(other.m_TranslationUnitId){}
     public:
         wxString m_Filename;
         wxString m_Commands;
         int m_TranslationUnitId; // Returned value
     };
 
+    /* final */
     class ReparseTask : public Task
     {
     public:
@@ -153,6 +168,7 @@ public:
         std::map<wxString, wxString> m_UnsavedFiles;
     };
 
+    /* final */
     class GetDiagnosticsTask : public Task
     {
     public:
@@ -160,9 +176,10 @@ public:
             Task(evtType, evtId),
             m_TranslId(translId)
         {}
+    public:
         Task* Clone() const
         {
-            GetDiagnosticsTask* pTask = new GetDiagnosticsTask(m_EventType, m_EventId, m_TranslId);
+            GetDiagnosticsTask* pTask = new GetDiagnosticsTask(*this);
             pTask->m_Diagnostics = m_Diagnostics;
             return static_cast<Task*>(pTask);
         }
@@ -173,26 +190,33 @@ public:
 #endif
             clangproxy.GetDiagnostics(m_TranslId, m_Diagnostics);
         }
+    protected:
+        GetDiagnosticsTask( const GetDiagnosticsTask& other ) :
+            Task(other.m_EventType, other.m_EventId),
+            m_TranslId(other.m_TranslId),
+            m_Diagnostics(other.m_Diagnostics){}
     public:
         int m_TranslId;
         std::vector<ClDiagnostic> m_Diagnostics; // Returned value
     };
 
-    // Task designed to be run synchronous
-    /*abstract */class SyncTask : public Task
+    /// Task designed to be run synchronous
+    /*abstract */
+    class SyncTask : public Task
     {
     protected:
         SyncTask(wxEventType evtType, int evtId) :
             Task(evtType, evtId),
             m_bCompleted(false),
             m_pMutex(new wxMutex()),
-            m_pCond(new wxCondition(*m_pMutex)){
-            }
+            m_pCond(new wxCondition(*m_pMutex))
+        {
+        }
         SyncTask(wxEventType evtType, int evtId, wxMutex* pMutex, wxCondition* pCond) :
             Task(evtType, evtId),
             m_bCompleted(false),
             m_pMutex(pMutex),
-            m_pCond(pCond){}
+            m_pCond(pCond) {}
     public:
         // Called on task thread
         virtual void Completed()
@@ -204,19 +228,20 @@ public:
             m_bCompleted = true;
             m_pCond->Signal();
         }
-        // Called on main thread
+        /// Called on main thread to wait for completion of this task.
         wxCondError WaitCompletion( unsigned long milliseconds )
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
             wxMutexLocker lock(*m_pMutex);
-            if( m_bCompleted ){
+            if( m_bCompleted )
+            {
                 return wxCOND_NO_ERROR;
             }
             return m_pCond->WaitTimeout(milliseconds);
         }
-        // Called on main thread
+        /// Called on main thread when the last/final copy of this object will be destroyed.
         virtual void Finalize()
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
@@ -228,18 +253,19 @@ public:
             delete m_pCond;
             m_pCond = NULL;
         }
-protected:
+    protected:
         bool m_bCompleted;
         mutable wxMutex* m_pMutex;
         mutable wxCondition* m_pCond;
     };
 
+    /* final */
     class CodeCompleteAtTask : public SyncTask
     {
     public:
-        CodeCompleteAtTask( wxEventType evtType, int evtId, bool isAuto,
-                const wxString& filename, int line, int column,
-                int translId, const std::map<wxString, wxString>& unsavedFiles ):
+        CodeCompleteAtTask( wxEventType evtType, const int evtId, const bool isAuto,
+                const wxString& filename, const int line, const int column,
+                const int translId, const std::map<wxString, wxString>& unsavedFiles ):
             SyncTask(evtType, evtId),
             m_IsAuto(isAuto),
             m_Filename(filename),
@@ -253,7 +279,7 @@ protected:
 
         Task* Clone() const
         {
-            CodeCompleteAtTask* pTask = new CodeCompleteAtTask(m_EventType, m_EventId, m_IsAuto, m_Filename, m_Line, m_Column, m_TranslId, m_UnsavedFiles, m_pMutex, m_pCond, m_pResults);
+            CodeCompleteAtTask* pTask = new CodeCompleteAtTask(*this);
             return static_cast<Task*>(pTask);
         }
         void operator()(ClangProxy& clangproxy)
@@ -270,21 +296,20 @@ protected:
             SyncTask::Finalize();
             delete m_pResults;
         }
-        const std::vector<ClToken>& GetResults(){ return *m_pResults; }
+        const std::vector<ClToken>& GetResults()
+        {
+            return *m_pResults;
+        }
     protected:
-        CodeCompleteAtTask( wxEventType evtType, int evtId, bool isAuto,
-                const wxString& filename, int line, int column,
-                int translId, const std::map<wxString, wxString>& unsavedFiles,
-                wxMutex* pMutex, wxCondition* pCond,
-                std::vector<ClToken>* pResults ):
-            SyncTask(evtType, evtId, pMutex, pCond),
-            m_IsAuto(isAuto),
-            m_Filename(filename),
-            m_Line(line),
-            m_Column(column),
-            m_TranslId(translId),
-            m_UnsavedFiles(unsavedFiles),
-            m_pResults(pResults){}
+        CodeCompleteAtTask( const CodeCompleteAtTask& other ) :
+            SyncTask(other.m_EventType, other.m_EventId, other.m_pMutex, other.m_pCond),
+            m_IsAuto(other.m_IsAuto),
+            m_Filename(other.m_Filename),
+            m_Line(other.m_Line),
+            m_Column(other.m_Column),
+            m_TranslId(other.m_TranslId),
+            m_UnsavedFiles(other.m_UnsavedFiles),
+            m_pResults(other.m_pResults) {}
         bool m_IsAuto;
         wxString m_Filename;
         int m_Line;
@@ -294,6 +319,7 @@ protected:
         std::vector<ClToken>* m_pResults; // Returned value
     };
 
+    /* final */
     class GetTokensAtTask : public SyncTask
     {
     public:
@@ -302,9 +328,10 @@ protected:
             m_Filename(filename),
             m_Line(line),
             m_Column(column),
-            m_TranslId(translId) {
-                m_pResults = new wxStringVec();
-            }
+            m_TranslId(translId)
+        {
+            m_pResults = new wxStringVec();
+        }
         Task* Clone() const
         {
             GetTokensAtTask* pTask = new GetTokensAtTask(m_EventType, m_EventId, m_Filename, m_Line, m_Column, m_TranslId, m_pMutex, m_pCond, m_pResults);
@@ -317,7 +344,10 @@ protected:
 #endif
             clangproxy.GetTokensAt( m_Filename, m_Line, m_Column, m_TranslId, *m_pResults);
         }
-        const wxStringVec& GetResults(){ return *m_pResults; }
+        const wxStringVec& GetResults()
+        {
+            return *m_pResults;
+        }
     protected:
         GetTokensAtTask( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId,
                 wxMutex* pMutex, wxCondition* pCond,
@@ -327,7 +357,7 @@ protected:
             m_Line(line),
             m_Column(column),
             m_TranslId(translId),
-            m_pResults(pResults){}
+            m_pResults(pResults) {}
         wxString m_Filename;
         int m_Line;
         int m_Column;
@@ -335,6 +365,7 @@ protected:
         wxStringVec* m_pResults;
     };
 
+    /* final */
     class GetCallTipsAtTask : public SyncTask
     {
     public:
@@ -344,9 +375,10 @@ protected:
             m_Line(line),
             m_Column(column),
             m_TranslId(translId),
-            m_TokenStr(tokenStr) {
+            m_TokenStr(tokenStr)
+        {
             m_pResults = new std::vector<wxStringVec>();
-            }
+        }
         Task* Clone() const
         {
             GetCallTipsAtTask* pTask = new GetCallTipsAtTask(m_EventType, m_EventId, m_Filename, m_Line, m_Column, m_TranslId, m_TokenStr, m_pMutex, m_pCond, m_pResults);
@@ -359,7 +391,10 @@ protected:
 #endif
             clangproxy.GetCallTipsAt( m_Filename, m_Line, m_Column, m_TranslId, m_TokenStr, *m_pResults);
         }
-        const std::vector<wxStringVec>& GetResults(){ return *m_pResults; }
+        const std::vector<wxStringVec>& GetResults()
+        {
+            return *m_pResults;
+        }
     protected:
         GetCallTipsAtTask( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId, const wxString& tokenStr,
                 wxMutex* pMutex, wxCondition* pCond,
@@ -370,7 +405,7 @@ protected:
             m_Column(column),
             m_TranslId(translId),
             m_TokenStr(tokenStr),
-            m_pResults(pResults){}
+            m_pResults(pResults) {}
         wxString m_Filename;
         int m_Line;
         int m_Column;
@@ -379,6 +414,7 @@ protected:
         std::vector<wxStringVec>* m_pResults;
     };
 
+    /* final */
     class GetOccurrencesOfTask : public SyncTask
     {
     public:
@@ -387,9 +423,10 @@ protected:
             m_Filename(filename),
             m_Line(line),
             m_Column(column),
-            m_TranslId(translId) {
-                m_pResults = new std::vector< std::pair<int, int> >();
-            }
+            m_TranslId(translId)
+        {
+            m_pResults = new std::vector< std::pair<int, int> >();
+        }
         Task* Clone() const
         {
             GetOccurrencesOfTask* pTask = new GetOccurrencesOfTask(m_EventType, m_EventId, m_Filename, m_Line, m_Column, m_TranslId, m_pMutex, m_pCond, m_pResults);
@@ -402,7 +439,10 @@ protected:
 #endif
             clangproxy.GetOccurrencesOf( m_Filename, m_Line, m_Column, m_TranslId, *m_pResults);
         }
-        const std::vector< std::pair<int, int> >& GetResults(){ return *m_pResults; }
+        const std::vector< std::pair<int, int> >& GetResults()
+        {
+            return *m_pResults;
+        }
     protected:
         GetOccurrencesOfTask( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId,
                 wxMutex* pMutex, wxCondition* pCond,
@@ -412,7 +452,7 @@ protected:
             m_Line(line),
             m_Column(column),
             m_TranslId(translId),
-            m_pResults(pResults){}
+            m_pResults(pResults) {}
         wxString m_Filename;
         int m_Line;
         int m_Column;
@@ -431,9 +471,9 @@ protected:
         {
             SetEventObject(task);
         }
-        CallbackEvent( const CallbackEvent& src )
+        CallbackEvent( const CallbackEvent& other ) : wxEvent(other)
         {
-            ClangProxy::Task* pTask = static_cast<ClangProxy::Task*>(src.GetEventObject());
+            ClangProxy::Task* pTask = static_cast<ClangProxy::Task*>(other.GetEventObject());
             if (pTask)
                 SetEventObject( pTask->Clone() );
         }

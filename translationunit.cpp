@@ -22,8 +22,7 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClie
 TranslationUnit::TranslationUnit(const wxString& filename, const std::vector<const char*>& args,
         CXIndex clIndex, TokenDatabase* database) :
     m_LastCC(nullptr),
-    m_LastPos(-1, -1),
-    m_Mutex()
+    m_LastPos(-1, -1)
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     // TODO: check and handle error conditions
@@ -59,15 +58,13 @@ TranslationUnit::TranslationUnit(TranslationUnit&& other) :
     m_Files(std::move(other.m_Files)),
     m_ClTranslUnit(other.m_ClTranslUnit),
     m_LastCC(nullptr),
-    m_LastPos(-1, -1),
-    m_Mutex()
+    m_LastPos(-1, -1)
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     other.m_ClTranslUnit = nullptr;
 }
 
-TranslationUnit::TranslationUnit(const TranslationUnit& WXUNUSED(other)) :
-    m_Mutex()
+TranslationUnit::TranslationUnit(const TranslationUnit& WXUNUSED(other))
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     cbThrow(wxT("Illegal copy attempted of TranslationUnit object."));
@@ -76,8 +73,7 @@ TranslationUnit::TranslationUnit(const TranslationUnit& WXUNUSED(other)) :
 TranslationUnit::TranslationUnit(const TranslationUnit& other) :
     m_ClTranslUnit(other.m_ClTranslUnit),
     m_LastCC(nullptr),
-    m_LastPos(-1, -1),
-    m_Mutex()
+    m_LastPos(-1, -1)
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     m_Files.swap(const_cast<TranslationUnit&>(other).m_Files);
