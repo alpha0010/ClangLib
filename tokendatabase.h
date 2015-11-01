@@ -2,6 +2,7 @@
 #define TOKENDATABASE_H
 
 #include <vector>
+#include <wx/thread.h>
 
 template<typename _Tp> class TreeMap;
 class wxString;
@@ -21,23 +22,23 @@ struct AbstractToken
 
 class TokenDatabase
 {
-    public:
-        TokenDatabase();
-        ~TokenDatabase();
+public:
+    TokenDatabase();
+    ~TokenDatabase();
 
-        FileId GetFilenameId(const wxString& filename);
-        wxString GetFilename(FileId fId) const;
+    FileId GetFilenameId(const wxString& filename);
+    wxString GetFilename(FileId fId) const;
 
-        TokenId InsertToken(const wxString& identifier, const AbstractToken& token); // duplicate tokens are discarded
-        TokenId GetTokenId(const wxString& identifier, unsigned tokenHash) const; // returns wxNOT_FOUND on failure
-        AbstractToken& GetToken(TokenId tId) const;
-        std::vector<TokenId> GetTokenMatches(const wxString& identifier) const;
+    TokenId InsertToken(const wxString& identifier, const AbstractToken& token); // duplicate tokens are discarded
+    TokenId GetTokenId(const wxString& identifier, unsigned tokenHash) const; // returns wxNOT_FOUND on failure
+    AbstractToken& GetToken(TokenId tId) const;
+    std::vector<TokenId> GetTokenMatches(const wxString& identifier) const;
 
-        void Shrink();
+    void Shrink();
 
-    private:
-        TreeMap<AbstractToken>* m_pTokens;
-        TreeMap<wxString>* m_pFilenames;
+private:
+    TreeMap<AbstractToken>* m_pTokens;
+    TreeMap<wxString>* m_pFilenames;
 };
 
 #endif // TOKENDATABASE_H

@@ -6,6 +6,7 @@
 
 #include <wx/filename.h>
 #include <wx/string.h>
+#include <iostream>
 
 #include "treemap.h"
 
@@ -49,7 +50,7 @@ TokenId TokenDatabase::GetTokenId(const wxString& identifier, unsigned tokenHash
 {
     std::vector<int> ids = m_pTokens->GetIdSet(identifier);
     for (std::vector<int>::const_iterator itr = ids.begin();
-         itr != ids.end(); ++itr)
+            itr != ids.end(); ++itr)
     {
         if (m_pTokens->GetValue(*itr).tokenHash == tokenHash)
             return *itr;

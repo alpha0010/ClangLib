@@ -7,29 +7,31 @@
 #include "translationunit.h"
 
 #ifndef CB_PRECOMP
-    #include <cbexception.h> // for cbThrow()
+#include <cbexception.h> // for cbThrow()
 
-    #include <algorithm>
+#include <algorithm>
 #endif // CB_PRECOMP
 
 #include "tokendatabase.h"
 
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack,
-                               unsigned include_len, CXClientData client_data);
+        unsigned include_len, CXClientData client_data);
 
 static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data);
 
 TranslationUnit::TranslationUnit(const wxString& filename, const std::vector<const char*>& args,
-                                 CXIndex clIndex, TokenDatabase* database) :
+        CXIndex clIndex, TokenDatabase* database) :
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
 {
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     // TODO: check and handle error conditions
     m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
-                                                 args.size(), nullptr, 0,
-                                                   clang_defaultEditingTranslationUnitOptions()
-                                                 | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
-                                                 | CXTranslationUnit_DetailedPreprocessingRecord );
+            args.size(), nullptr, 0,
+            clang_defaultEditingTranslationUnitOptions()
+            | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
+            | CXTranslationUnit_DetailedPreprocessingRecord );
+    fprintf(stdout,"%s clang_parseTranslationUnit done\n", __PRETTY_FUNCTION__);
     std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, database);
     clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
     m_Files.reserve(1024);
@@ -41,10 +43,14 @@ TranslationUnit::TranslationUnit(const wxString& filename, const std::vector<con
 #else
     std::vector<FileId>(m_Files).swap(m_Files);
 #endif
+    fprintf(stdout,"%s calling Reparse()\n", __PRETTY_FUNCTION__);
     Reparse(0, nullptr); // seems to improve performance for some reason?
 
+    fprintf(stdout,"%s calling VisitChildren\n", __PRETTY_FUNCTION__);
     clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, database);
-    database->Shrink();
+    fprintf(stdout,"%s Shrinking database\n", __PRETTY_FUNCTION__);
+    //database->Shrink();
+    fprintf(stdout,"%s Done\n", __PRETTY_FUNCTION__);
 }
 
 #if __cplusplus >= 201103L
@@ -54,11 +60,13 @@ TranslationUnit::TranslationUnit(TranslationUnit&& other) :
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
 {
-     other.m_ClTranslUnit = nullptr;
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    other.m_ClTranslUnit = nullptr;
 }
 
 TranslationUnit::TranslationUnit(const TranslationUnit& WXUNUSED(other))
 {
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     cbThrow(wxT("Illegal copy attempted of TranslationUnit object."));
 }
 #else
@@ -67,6 +75,7 @@ TranslationUnit::TranslationUnit(const TranslationUnit& other) :
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
 {
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     m_Files.swap(const_cast<TranslationUnit&>(other).m_Files);
     const_cast<TranslationUnit&>(other).m_ClTranslUnit = nullptr;
 }
@@ -80,30 +89,43 @@ TranslationUnit::~TranslationUnit()
         clang_disposeTranslationUnit(m_ClTranslUnit);
 }
 
+std::ostream& operator << (std::ostream& str, const std::vector<FileId> files)
+{
+    str<<"[ ";
+    for( std::vector<FileId>::const_iterator it = files.begin(); it != files.end(); ++it )
+    {
+        str<<*it<<", ";
+    }
+    str<<"]";
+    return str;
+}
+
 void TranslationUnit::AddInclude(FileId fId)
 {
     m_Files.push_back(fId);
+    //std::cout<<"Added include file id "<<fId<<" to "<<m_Files<<std::endl;
 }
 
 bool TranslationUnit::Contains(FileId fId)
 {
+    //std::cout<<"Checking file id "<<fId<<" in "<<m_Files<<std::endl;
     //return std::binary_search(m_Files.begin(), m_Files.begin() + std::min(fId + 1, m_Files.size()), fId);
     return std::binary_search(m_Files.begin(), m_Files.end(), fId);
 }
 
 CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_filename, unsigned complete_line,
-                                       unsigned complete_column, struct CXUnsavedFile* unsaved_files,
-                                       unsigned num_unsaved_files )
+        unsigned complete_column, struct CXUnsavedFile* unsaved_files,
+        unsigned num_unsaved_files )
 {
     if (m_LastPos.Equals(complete_line, complete_column))
         return m_LastCC;
     if (m_LastCC)
         clang_disposeCodeCompleteResults(m_LastCC);
     m_LastCC = clang_codeCompleteAt(m_ClTranslUnit, complete_filename, complete_line, complete_column,
-                                    unsaved_files, num_unsaved_files,
-                                      clang_defaultCodeCompleteOptions()
-                                    | CXCodeComplete_IncludeCodePatterns
-                                    | CXCodeComplete_IncludeBriefComments);
+            unsaved_files, num_unsaved_files,
+            clang_defaultCodeCompleteOptions()
+            | CXCodeComplete_IncludeCodePatterns
+            | CXCodeComplete_IncludeBriefComments);
     m_LastPos.Set(complete_line, complete_column);
     return m_LastCC;
 }
@@ -124,7 +146,7 @@ void TranslationUnit::Reparse(unsigned num_unsaved_files, struct CXUnsavedFile* 
 {
     // TODO: check and handle error conditions
     clang_reparseTranslationUnit(m_ClTranslUnit, num_unsaved_files,
-                                 unsaved_files, clang_defaultReparseOptions(m_ClTranslUnit));
+            unsaved_files, clang_defaultReparseOptions(m_ClTranslUnit));
 }
 
 void TranslationUnit::GetDiagnostics(std::vector<ClDiagnostic>& diagnostics)
@@ -192,8 +214,8 @@ void TranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<C
         clang_disposeString(str);
         str = clang_formatDiagnostic(diag, 0);
         diagnostics.push_back(ClDiagnostic( line, rgStart, rgEnd,
-                                            clang_getDiagnosticSeverity(diag) >= CXDiagnostic_Error ? sError : sWarning,
-                                            flName, wxString::FromUTF8(clang_getCString(str)) ));
+                clang_getDiagnosticSeverity(diag) >= CXDiagnostic_Error ? sError : sWarning,
+                flName, wxString::FromUTF8(clang_getCString(str)) ));
         clang_disposeString(str);
         clang_disposeDiagnostic(diag);
     }
@@ -220,7 +242,7 @@ unsigned HashToken(CXCompletionString token, wxString& identifier)
 }
 
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* WXUNUSED(inclusion_stack),
-                               unsigned WXUNUSED(include_len), CXClientData client_data)
+        unsigned WXUNUSED(include_len), CXClientData client_data)
 {
     CXString filename = clang_getFileName(included_file);
     wxFileName inclFile(wxString::FromUTF8(clang_getCString(filename)));
@@ -238,31 +260,31 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
     CXChildVisitResult ret = CXChildVisit_Break; // should never happen
     switch (cursor.kind)
     {
-        case CXCursor_StructDecl:
-        case CXCursor_UnionDecl:
-        case CXCursor_ClassDecl:
-        case CXCursor_EnumDecl:
-        case CXCursor_Namespace:
-        case CXCursor_ClassTemplate:
-            ret = CXChildVisit_Recurse;
-            break;
+    case CXCursor_StructDecl:
+    case CXCursor_UnionDecl:
+    case CXCursor_ClassDecl:
+    case CXCursor_EnumDecl:
+    case CXCursor_Namespace:
+    case CXCursor_ClassTemplate:
+        ret = CXChildVisit_Recurse;
+        break;
 
-        case CXCursor_FieldDecl:
-        case CXCursor_EnumConstantDecl:
-        case CXCursor_FunctionDecl:
-        case CXCursor_VarDecl:
-        case CXCursor_ParmDecl:
-        case CXCursor_TypedefDecl:
-        case CXCursor_CXXMethod:
-        case CXCursor_Constructor:
-        case CXCursor_Destructor:
-        case CXCursor_FunctionTemplate:
+    case CXCursor_FieldDecl:
+    case CXCursor_EnumConstantDecl:
+    case CXCursor_FunctionDecl:
+    case CXCursor_VarDecl:
+    case CXCursor_ParmDecl:
+    case CXCursor_TypedefDecl:
+    case CXCursor_CXXMethod:
+    case CXCursor_Constructor:
+    case CXCursor_Destructor:
+    case CXCursor_FunctionTemplate:
         //case CXCursor_MacroDefinition: // this can crash Clang on Windows
-            ret = CXChildVisit_Continue;
-            break;
+        ret = CXChildVisit_Continue;
+        break;
 
-        default:
-            return CXChildVisit_Recurse;
+    default:
+        return CXChildVisit_Recurse;
     }
 
     CXSourceLocation loc = clang_getCursorLocation(cursor);
