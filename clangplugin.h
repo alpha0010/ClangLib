@@ -103,9 +103,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
          */
         void HighlightOccurrences(cbEditor* ed);
 
-private: // Internal utility functions
         void UpdateCompileCommand(cbEditor* ed);
-private: // Members
 
         TokenDatabase m_Database;
         wxStringVec m_CppKeywords;

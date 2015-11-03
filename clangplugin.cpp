@@ -548,7 +548,8 @@ void ClangPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu,
 void ClangPlugin::OnEditorOpen(CodeBlocksEvent& event)
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
-    if (ed){
+    if (ed)
+    {
         UpdateCompileCommand(ed);
         m_EdOpenTimer.Start(ED_OPEN_DELAY, wxTIMER_ONE_SHOT);
     }
@@ -558,7 +559,8 @@ void ClangPlugin::OnEditorOpen(CodeBlocksEvent& event)
 void ClangPlugin::OnEditorActivate(CodeBlocksEvent& event)
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
-    if (ed ){
+    if (ed)
+    {
         UpdateCompileCommand(ed);
         if(!m_EdOpenTimer.IsRunning())
             m_EdOpenTimer.Start(ED_ACTIVATE_DELAY, wxTIMER_ONE_SHOT);
@@ -569,7 +571,8 @@ void ClangPlugin::OnEditorActivate(CodeBlocksEvent& event)
 void ClangPlugin::OnProjectActivate(CodeBlocksEvent& event)
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
-    if (ed){
+    if (ed)
+    {
         UpdateCompileCommand(ed);
         if (!m_EdOpenTimer.IsRunning())
             m_EdOpenTimer.Start(ED_ACTIVATE_DELAY, wxTIMER_ONE_SHOT);
@@ -783,7 +786,7 @@ void ClangPlugin::UpdateCompileCommand(cbEditor* ed)
 
     ProjectBuildTarget* target = nullptr;
     Compiler* comp = nullptr;
-    if (pf && pf->GetParentProject() && !pf->GetBuildTargets().IsEmpty() )
+    if (pf && pf->GetParentProject() && !pf->GetBuildTargets().IsEmpty())
     {
         target = pf->GetParentProject()->GetBuildTarget(pf->GetBuildTargets()[0]);
         comp = CompilerFactory::GetCompiler(target->GetCompilerID());
@@ -800,21 +803,19 @@ void ClangPlugin::UpdateCompileCommand(cbEditor* ed)
     if (!comp)
         comp = CompilerFactory::GetDefaultCompiler();
 
-    if( pf && (!pf->GetBuildTargets().IsEmpty()) ){
+    if (pf && (!pf->GetBuildTargets().IsEmpty()))
+    {
         target = pf->GetParentProject()->GetBuildTarget(pf->GetBuildTargets()[0]);
 
         if (pf->GetUseCustomBuildCommand(target->GetCompilerID()))
-        {
             compileCommand = pf->GetCustomBuildCommand(target->GetCompilerID()).AfterFirst(wxT(' '));
-        }
     }
 
     if (compileCommand.IsEmpty())
         compileCommand = wxT("$options $includes");
     CompilerCommandGenerator* gen = comp->GetCommandGenerator(proj);
-    if( gen )
-        gen->GenerateCommandLine(compileCommand, target, pf, ed->GetFilename(),
-                                                         g_InvalidStr, g_InvalidStr, g_InvalidStr );
+    gen->GenerateCommandLine(compileCommand, target, pf, ed->GetFilename(),
+                             g_InvalidStr, g_InvalidStr, g_InvalidStr);
     delete gen;
 
     wxStringTokenizer tokenizer(compileCommand);
@@ -839,20 +840,19 @@ void ClangPlugin::UpdateCompileCommand(cbEditor* ed)
 
 void ClangPlugin::OnTimer(wxTimerEvent& event)
 {
-    if (!IsAttached()){
+    if (!IsAttached())
         return;
-    }
     const int evId = event.GetId();
     if (evId == idEdOpenTimer) // m_EdOpenTimer
     {
-        if (m_CompileCommand.IsEmpty()){
+        if (m_CompileCommand.IsEmpty())
+        {
             m_EdOpenTimer.Start(ED_OPEN_DELAY, wxTIMER_ONE_SHOT); // retry later
             return;
         }
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
-        if (!ed || !IsProviderFor(ed)){
+        if (!ed || !IsProviderFor(ed))
             return;
-        }
         else if (m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND)
         {
             m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
@@ -865,9 +865,8 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
             if (!source.IsEmpty())
             {
                 m_Proxy.CreateTranslationUnit(source, m_CompileCommand);
-                if (m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND){
+                if (m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND)
                     return; // got it
-                }
             }
         }
         m_Proxy.CreateTranslationUnit(ed->GetFilename(), m_CompileCommand);
@@ -877,17 +876,15 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
     {
         EditorManager* edMgr = Manager::Get()->GetEditorManager();
         cbEditor* ed = edMgr->GetBuiltinActiveEditor();
-        if (!ed){
+        if (!ed)
             return;
-        }
         if (ed != m_pLastEditor)
         {
             m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
             m_pLastEditor = ed;
         }
-        if (m_TranslUnitId == wxNOT_FOUND){
+        if (m_TranslUnitId == wxNOT_FOUND)
             return;
-        }
         std::map<wxString, wxString> unsavedFiles;
         for (int i = 0; i < edMgr->GetEditorsCount(); ++i)
         {
@@ -902,26 +899,22 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
     else if (evId == idDiagnosticTimer || evId == idHightlightTimer)
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
-        if (!ed){
+        if (!ed)
             return;
-        }
         if (ed != m_pLastEditor)
         {
             m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
             m_pLastEditor = ed;
         }
-        if (m_TranslUnitId == wxNOT_FOUND){
+        if (m_TranslUnitId == wxNOT_FOUND)
             return;
-        }
         if (evId == idDiagnosticTimer)
             DiagnoseEd(ed, dlFull);
         else
             HighlightOccurrences(ed);
     }
     else
-    {
         event.Skip();
-    }
 }
 
 void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
