@@ -82,6 +82,7 @@ private:
     void OnEditorClose(CodeBlocksEvent& event);
     /// Make project-dependent setup
     void OnProjectActivate(CodeBlocksEvent& event);
+    void OnProjectFileChanged(CodeBlocksEvent& event);
     /// Update project-dependent setup
     void OnProjectOptionsChanged(CodeBlocksEvent& event);
     /// Generic handler for various timers

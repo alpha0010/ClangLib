@@ -155,6 +155,7 @@ void ClangPlugin::OnAttach()
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_SAVE,      new ClEvent(this, &ClangPlugin::OnEditorSave));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_CLOSE,     new ClEvent(this, &ClangPlugin::OnEditorClose));
     Manager::Get()->RegisterEventSink(cbEVT_PROJECT_ACTIVATE, new ClEvent(this, &ClangPlugin::OnProjectActivate));
+    Manager::Get()->RegisterEventSink(cbEVT_PROJECT_FILE_CHANGED, new ClEvent(this, &ClangPlugin::OnProjectFileChanged));
     Manager::Get()->RegisterEventSink(cbEVT_PROJECT_OPTIONS_CHANGED, new ClEvent(this, &ClangPlugin::OnProjectOptionsChanged));
     //Connect(idEdOpenTimer,        wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     Connect(idReparseTimer,       wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
@@ -573,9 +574,9 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
     {
         if (!suffix.IsEmpty())
         {
-            if (stc->GetCharAt(endPos) == suffix[0])
+            if (stc->GetCharAt(endPos) == (int)suffix[0])
             {
-                if (suffix.Length() != 2 || stc->GetCharAt(endPos + 1) != suffix[1])
+                if (suffix.Length() != 2 || stc->GetCharAt(endPos + 1) != (int)suffix[1])
                     offsets = std::make_pair(1, 1);
             }
             else
@@ -727,6 +728,19 @@ void ClangPlugin::OnProjectOptionsChanged(CodeBlocksEvent& event)
             wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
             AddPendingEvent(evt);
         }
+    }
+}
+
+void ClangPlugin::OnProjectFileChanged(CodeBlocksEvent& event)
+{
+#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+#endif
+    event.Skip();
+    if( IsAttached() )
+    {
+        wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
+        AddPendingEvent(evt);
     }
 }
 
