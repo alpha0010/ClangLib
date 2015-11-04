@@ -79,6 +79,7 @@ private:
     /// Start up parsing timers
     void OnEditorActivate(CodeBlocksEvent& event);
     void OnEditorSave(CodeBlocksEvent& event);
+    void OnEditorClose(CodeBlocksEvent& event);
     /// Make project-dependent setup
     void OnProjectActivate(CodeBlocksEvent& event);
     /// Update project-dependent setup

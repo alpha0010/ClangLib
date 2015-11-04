@@ -128,8 +128,11 @@ public:
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-            clangproxy.CreateTranslationUnit(m_Filename, m_Commands);
             m_TranslationUnitId = clangproxy.GetTranslationUnitId(m_Filename);
+            if( m_TranslationUnitId == wxNOT_FOUND )
+            {
+                clangproxy.CreateTranslationUnit(m_Filename, m_Commands, m_TranslationUnitId);
+            }
         }
     protected:
         CreateTranslationUnitTask(const CreateTranslationUnitTask& other):
@@ -144,14 +147,45 @@ public:
     };
 
     /* final */
+    class RemoveTranslationUnitTask : public Task
+    {
+    public:
+        RemoveTranslationUnitTask( wxEventType evtType, int evtId, int TranslUnitId ) :
+            Task(evtType, evtId),
+            m_TranslationUnitId(TranslUnitId) {}
+        Task* Clone() const
+        {
+            RemoveTranslationUnitTask* task = new RemoveTranslationUnitTask(*this);
+            return static_cast<Task*>(task);
+        }
+        void operator()(ClangProxy& clangproxy)
+        {
+#ifdef CLANGPROXY_TRACE_FUNCTIONS
+            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+#endif
+            clangproxy.RemoveTranslationUnit(m_TranslationUnitId);
+        }
+    protected:
+        RemoveTranslationUnitTask(const RemoveTranslationUnitTask& other):
+            Task(other.m_EventType, other.m_EventId),
+            m_TranslationUnitId(other.m_TranslationUnitId){}
+        int m_TranslationUnitId;
+    };
+
+    /* final */
     class ReparseTask : public Task
     {
     public:
         ReparseTask( wxEventType evtType, int evtId, int translId, const std::map<wxString, wxString>& unsavedFiles )
             : Task(evtType, evtId),
               m_TranslId(translId),
-              m_UnsavedFiles(unsavedFiles)
-        {}
+              m_UnsavedFiles()
+        {
+            for( std::map<wxString, wxString>::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it)
+            {
+                m_UnsavedFiles.insert( std::make_pair( wxString(it->first.c_str()), wxString(it->second.c_str()) ) );
+            }
+        }
         Task* Clone() const
         {
             return new ReparseTask(m_EventType, m_EventId, m_TranslId, m_UnsavedFiles);
@@ -514,7 +548,8 @@ public:
     int GetTranslationUnitId(const wxString& filename);
 
 protected: // Tasks that are run only on the thread
-    void CreateTranslationUnit(const wxString& filename, const wxString& commands);
+    void CreateTranslationUnit(const wxString& filename, const wxString& commands, int& out_TranslId);
+    void RemoveTranslationUnit(int TranslUnitId);
     void Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles);
     void GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnostics);
     void CodeCompleteAt(bool isAuto, const wxString& filename, int line, int column, int translId,

@@ -588,11 +588,14 @@ ClangProxy::ClangProxy( wxEvtHandler* pEvtCallbackHandler, TokenDatabase& databa
 
 ClangProxy::~ClangProxy()
 {
+    wxMutexLocker lock(m_Mutex);
+    m_pThread = NULL;
+    m_ConditionQueueNotEmpty.Signal();
     m_TranslUnits.clear();
     clang_disposeIndex(m_ClIndex);
 }
 
-void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands)
+void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands, int& out_TranslId)
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     wxStringTokenizer tokenizer(commands);
@@ -614,8 +617,29 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
     }
     TranslationUnit TU(filename, args, m_ClIndex, &m_Database);
     wxMutexLocker lock(m_Mutex);
-    m_TranslUnits.push_back(TU);
+    std::vector<TranslationUnit>::iterator it;
+    for( it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it)
+    {
+        if (it->IsEmpty())
+        {
+            *it = TU;
+            out_TranslId = it - m_TranslUnits.begin();
+            break;
+        }
+    }
+    if( it == m_TranslUnits.end())
+    {
+        m_TranslUnits.push_back(TU);
+        out_TranslId = m_TranslUnits.size() - 1;
+    }
     fprintf(stdout,"%s done.\n", __PRETTY_FUNCTION__);
+}
+
+void ClangProxy::RemoveTranslationUnit(int TranslUnitId)
+{
+    wxMutexLocker lock(m_Mutex);
+    // Replace with empty one
+    m_TranslUnits.assign( TranslUnitId, TranslationUnit(wxT(""), std::vector<const char*>(), m_ClIndex, &m_Database) );
 }
 
 int ClangProxy::GetTranslationUnitId(FileId fId)
@@ -1227,12 +1251,14 @@ void ClangProxy::GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnos
 
 void ClangProxy::AddPendingTask( ClangProxy::Task& task )
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    if( !m_pThread )
+    {
+        return;
+    }
     ClangProxy::Task* pTask = task.Clone();
     wxMutexLocker locker(m_TaskQueueMutex);
     m_TaskQueue.push(pTask);
     m_ConditionQueueNotEmpty.Signal();
-    fprintf(stdout,"%s done\n", __PRETTY_FUNCTION__);
 }
 
 wxThread::ExitCode ClangProxy::TaskThread::Entry()

@@ -26,31 +26,38 @@ TranslationUnit::TranslationUnit(const wxString& filename, const std::vector<con
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     // TODO: check and handle error conditions
-    m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
+    if( filename.length() == 0)
+    {
+        m_ClTranslUnit = nullptr;
+    }
+    else
+    {
+        m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
             args.size(), nullptr, 0,
             clang_defaultEditingTranslationUnitOptions()
             | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
             | CXTranslationUnit_DetailedPreprocessingRecord );
-    fprintf(stdout,"%s clang_parseTranslationUnit done\n", __PRETTY_FUNCTION__);
-    std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, database);
-    clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
-    m_Files.reserve(1024);
-    m_Files.push_back(database->GetFilenameId(filename));
-    std::sort(m_Files.begin(), m_Files.end());
-    std::unique(m_Files.begin(), m_Files.end());
-#if __cplusplus >= 201103L
-    m_Files.shrink_to_fit();
-#else
-    std::vector<FileId>(m_Files).swap(m_Files);
-#endif
-    fprintf(stdout,"%s calling Reparse()\n", __PRETTY_FUNCTION__);
-    Reparse(0, nullptr); // seems to improve performance for some reason?
+        fprintf(stdout,"%s clang_parseTranslationUnit done\n", __PRETTY_FUNCTION__);
+        std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, database);
+        clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
+        m_Files.reserve(1024);
+        m_Files.push_back(database->GetFilenameId(filename));
+        std::sort(m_Files.begin(), m_Files.end());
+        std::unique(m_Files.begin(), m_Files.end());
+    #if __cplusplus >= 201103L
+        m_Files.shrink_to_fit();
+    #else
+        std::vector<FileId>(m_Files).swap(m_Files);
+    #endif
+        //fprintf(stdout,"%s calling Reparse()\n", __PRETTY_FUNCTION__);
+        Reparse(0, nullptr); // seems to improve performance for some reason?
 
-    fprintf(stdout,"%s calling VisitChildren\n", __PRETTY_FUNCTION__);
-    clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, database);
-    fprintf(stdout,"%s Shrinking database\n", __PRETTY_FUNCTION__);
-    //database->Shrink();
-    fprintf(stdout,"%s Done\n", __PRETTY_FUNCTION__);
+        //fprintf(stdout,"%s calling VisitChildren\n", __PRETTY_FUNCTION__);
+        clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, database);
+        //fprintf(stdout,"%s Shrinking database\n", __PRETTY_FUNCTION__);
+        //database->Shrink();
+        //fprintf(stdout,"%s Done\n", __PRETTY_FUNCTION__);
+    }
 }
 
 #if __cplusplus >= 201103L
@@ -145,8 +152,11 @@ CXCursor TranslationUnit::GetTokensAt(const wxString& filename, int line, int co
 void TranslationUnit::Reparse(unsigned num_unsaved_files, struct CXUnsavedFile* unsaved_files)
 {
     // TODO: check and handle error conditions
-    clang_reparseTranslationUnit(m_ClTranslUnit, num_unsaved_files,
-            unsaved_files, clang_defaultReparseOptions(m_ClTranslUnit));
+    int ret = clang_reparseTranslationUnit(m_ClTranslUnit, num_unsaved_files, unsaved_files, clang_defaultReparseOptions(m_ClTranslUnit));
+    if( ret != 0 )
+    {
+        fprintf(stdout,"ERROR: reparseTranslationUnit() failed!");
+    }
 }
 
 void TranslationUnit::GetDiagnostics(std::vector<ClDiagnostic>& diagnostics)

@@ -8,8 +8,8 @@
 		<Option compiler="gcc" />
 		<Build>
 			<Target title="ClangLib">
-				<Option output="../../devel/share/codeblocks/plugins/libclanglib" prefix_auto="0" extension_auto="1" />
-				<Option working_dir="../../devel" />
+				<Option output="../../../../../codeblocks-svn/lib/codeblocks/plugins/libclanglib" prefix_auto="0" extension_auto="1" />
+				<Option working_dir="../../../../../codeblocks-svn" />
 				<Option object_output="../../.objs/plugins/clanglib" />
 				<Option type="3" />
 				<Option compiler="gcc" />
@@ -19,11 +19,17 @@
 				<Option projectCompilerOptionsRelation="2" />
 				<Compiler>
 					<Add option="$(#CB_RELEASE_TYPE)" />
+					<Add option="`wx-config --version=2.8 --cflags`" />
+					<Add option="-I`llvm-config --includedir`" />
+					<Add option="-fmessage-length=0" />
+					<Add option="-fexceptions" />
+					<Add option="-Winvalid-pch" />
+					<Add option="-fPIC" />
 					<Add option="-DBUILDING_PLUGIN" />
 					<Add directory="." />
 				</Compiler>
 				<ExtraCommands>
-					<Add after="zip -j9 ../../devel/share/codeblocks/clanglib.zip resources/manifest.xml" />
+					<Add after="zip -j9 /home/yves/codeblocks-svn/share/codeblocks/clanglib.zip resources/manifest.xml" />
 				</ExtraCommands>
 			</Target>
 		</Build>
@@ -36,7 +42,7 @@
 			<Add option="-ansi" />
 			<Add option="$(#CB_RELEASE_TYPE)" />
 			<Add option="`wx-config --version=2.8 --cflags`" />
-			<Add option="-I`llvm-config --includedir`" />
+			<Add option="-I/usr/lib/llvm-3.6/include" />
 			<Add option="-fmessage-length=0" />
 			<Add option="-fexceptions" />
 			<Add option="-Winvalid-pch" />
@@ -49,11 +55,11 @@
 		</Compiler>
 		<Linker>
 			<Add option="`wx-config --version=2.8 --libs`" />
-			<Add option="-L`llvm-config --libdir`" />
+			<Add option="-L/usr/lib/llvm-3.6/lib" />
 			<Add option="-Wl,--no-undefined" />
 			<Add library="codeblocks" />
 			<Add library="clang" />
-			<Add directory="../../devel" />
+			<Add directory="../../../../../codeblocks-svn/lib" />
 		</Linker>
 		<Unit filename="README.md" />
 		<Unit filename="clangplugin.cpp" />

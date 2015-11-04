@@ -26,7 +26,7 @@ public:
         swap(first.m_ClTranslUnit, second.m_ClTranslUnit);
         swap(first.m_LastCC, second.m_LastCC);
     }
-    TranslationUnit& operator=(TranslationUnit& other)
+    TranslationUnit& operator=(TranslationUnit other)
     {
         swap(*this,other);
         return *this;
@@ -34,6 +34,7 @@ public:
 
     void AddInclude(FileId fId);
     bool Contains(FileId fId);
+    bool IsEmpty(){ return m_Files.empty(); }
 
     // note that complete_line and complete_column are 1 index, not 0 index!
     CXCodeCompleteResults* CodeCompleteAt( const char* complete_filename, unsigned complete_line,
