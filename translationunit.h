@@ -9,8 +9,8 @@ unsigned HashToken(CXCompletionString token, wxString& identifier);
 class TranslationUnit
 {
 public:
-    TranslationUnit(const wxString& filename, const std::vector<const char*>& args,
-            CXIndex clIndex, TokenDatabase* database);
+    TranslationUnit( int id, const wxString& filename, const std::vector<const char*>& args,
+            CXIndex clIndex, TokenDatabase* database );
     // move ctor
 #if __cplusplus >= 201103L
     TranslationUnit(TranslationUnit&& other);
@@ -34,6 +34,7 @@ public:
 
     void AddInclude(FileId fId);
     bool Contains(FileId fId);
+    bool IsFileId(FileId fId){ return m_FileId == fId; }
     bool IsEmpty(){ return m_Files.empty(); }
 
     // note that complete_line and complete_column are 1 index, not 0 index!
@@ -53,7 +54,8 @@ private:
 #endif
 
     void ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<ClDiagnostic>& diagnostics);
-
+    int m_Id;
+    FileId m_FileId;
     std::vector<FileId> m_Files;
     CXTranslationUnit m_ClTranslUnit;
     CXCodeCompleteResults* m_LastCC;

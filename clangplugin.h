@@ -85,6 +85,7 @@ private:
     void OnProjectFileChanged(CodeBlocksEvent& event);
     /// Update project-dependent setup
     void OnProjectOptionsChanged(CodeBlocksEvent& event);
+
     /// Generic handler for various timers
     void OnTimer(wxTimerEvent& event);
     /// Start re-parse and highlight timers
@@ -146,6 +147,8 @@ private: // Members
     std::vector<wxStringVec> m_LastCallTips;
     wxString m_CompileCommand;
     unsigned int m_Parsing;
+    unsigned int m_CCOutstanding;
+    long m_CCOutstandingLastMessageTime;
 };
 
 #endif // CLANGPLUGIN_H

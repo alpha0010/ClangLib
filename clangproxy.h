@@ -6,6 +6,7 @@
 #include <list>
 #include <wx/string.h>
 #include <queue>
+#include <backgroundthread.h>
 
 #undef CLANGPROXY_TRACE_FUNCTIONS
 
@@ -78,52 +79,100 @@ class ClangProxy
 {
 public:
     /*abstract */
-    class Task : public wxObject
+    class ClangJob : public AbstractJob, public wxObject
     {
+    public:
+        enum JobType {
+            CreateTranslationUnitType,
+            RemoveTranslationUnitType,
+            ReparseType,
+            GetDiagnosticsType,
+            CodeCompleteAtType,
+            GetTokensAtType,
+            GetCallTipsAtType,
+            GetOccurrencesOfType,
+            DetermineFunctionAtType
+        };
     protected:
-        Task( wxEventType evtType, int evtId ) : wxObject(), m_EventType(evtType), m_EventId(evtId)
+        ClangJob( JobType JobType ) :
+            AbstractJob(),
+            wxObject(),
+            m_JobType(JobType),
+            m_pProxy(NULL)
         {
         }
-        Task( const Task& other ) : wxObject()
+        ClangJob( const ClangJob& other ) : AbstractJob(), wxObject()
+        {
+            m_JobType = other.m_JobType;
+            m_pProxy = other.m_pProxy;
+        }
+
+    public:
+        /// Returns a copy of this job on the heap to make sure the objects lifecycle is guaranteed across threads
+        virtual ClangJob* Clone() const = 0;
+        // Called on job thread
+        virtual void Execute(ClangProxy& /*clangproxy*/) = 0;
+        // Called on job thread
+        virtual void Completed(ClangProxy& /*clangproxy*/) {}
+        // Called on job thread
+        void SetProxy( ClangProxy* pProxy ) { m_pProxy = pProxy; }
+        JobType GetJobType() const { return m_JobType; }
+    public:
+        void operator()(){
+            assert( m_pProxy != NULL );
+            Execute(*m_pProxy);
+            Completed(*m_pProxy);
+        }
+    protected:
+        JobType    m_JobType;
+        ClangProxy* m_pProxy;
+    };
+
+    /**
+     * @brief ClangJob that posts a wxEvent back when completed
+     */
+    /* abstract */
+    class EventJob : public ClangJob
+    {
+    protected:
+        EventJob( JobType JobType, wxEventType evtType, int evtId ) : ClangJob(JobType), m_EventType(evtType), m_EventId(evtId)
+        {
+        }
+        EventJob( const EventJob& other ) : ClangJob(other.m_JobType)
         {
             m_EventType = other.m_EventType;
             m_EventId = other.m_EventId;
         }
-
     public:
-        /// Returns a copy of this task on the heap to make sure the objects lifecycle is guaranteed across threads
-        virtual Task* Clone() const = 0;
-        virtual void operator()(ClangProxy& /*clangproxy*/) {}
-        virtual void Completed() {}
-        wxEventType GetCallbackEventType() const
+        // Called on job thread
+        virtual void Completed(ClangProxy& clangProxy)
         {
-            return m_EventType;
+            if( clangProxy.m_pEventCallbackHandler&&(m_EventType != 0) )
+            {
+                ClangProxy::CallbackEvent evt( m_EventType, m_EventId, this);
+                clangProxy.m_pEventCallbackHandler->AddPendingEvent( evt );
+            }
         }
-        int GetCallbackEventId() const
-        {
-            return m_EventId;
-        }
-
-    protected:
+    private:
         wxEventType m_EventType;
         int         m_EventId;
     };
 
     /* final */
-    class CreateTranslationUnitTask : public Task
+    class CreateTranslationUnitJob : public EventJob
     {
     public:
-        CreateTranslationUnitTask( wxEventType evtType, int evtId, const wxString& filename, const wxString& commands ) :
-            Task(evtType, evtId),
-            m_Filename(filename),
-            m_Commands(commands),
+        CreateTranslationUnitJob( wxEventType evtType, int evtId, const wxString& filename, const wxString& commands ) :
+            EventJob(CreateTranslationUnitType, evtType, evtId),
+            m_Filename(filename.c_str()),
+            m_Commands(commands.c_str()),
             m_TranslationUnitId(0) {}
-        Task* Clone() const
+        ClangJob* Clone() const
         {
-            CreateTranslationUnitTask* task = new CreateTranslationUnitTask(*this);
-            return static_cast<Task*>(task);
+            CreateTranslationUnitJob* job = new CreateTranslationUnitJob(*this);
+            return static_cast<ClangJob*>(job);
         }
-        void operator()(ClangProxy& clangproxy)
+        void Execute(ClangProxy& clangproxy)
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
@@ -135,10 +184,10 @@ public:
             }
         }
     protected:
-        CreateTranslationUnitTask(const CreateTranslationUnitTask& other):
-            Task(other.m_EventType, other.m_EventId),
-            m_Filename(other.m_Filename),
-            m_Commands(other.m_Commands),
+        CreateTranslationUnitJob(const CreateTranslationUnitJob& other):
+            EventJob(other),
+            m_Filename(other.m_Filename.c_str()),
+            m_Commands(other.m_Commands.c_str()),
             m_TranslationUnitId(other.m_TranslationUnitId){}
     public:
         wxString m_Filename;
@@ -147,18 +196,18 @@ public:
     };
 
     /* final */
-    class RemoveTranslationUnitTask : public Task
+    class RemoveTranslationUnitJob : public EventJob
     {
     public:
-        RemoveTranslationUnitTask( wxEventType evtType, int evtId, int TranslUnitId ) :
-            Task(evtType, evtId),
+        RemoveTranslationUnitJob( wxEventType evtType, int evtId, int TranslUnitId ) :
+            EventJob(RemoveTranslationUnitType, evtType, evtId),
             m_TranslationUnitId(TranslUnitId) {}
-        Task* Clone() const
+        ClangJob* Clone() const
         {
-            RemoveTranslationUnitTask* task = new RemoveTranslationUnitTask(*this);
-            return static_cast<Task*>(task);
+            RemoveTranslationUnitJob* job = new RemoveTranslationUnitJob(*this);
+            return static_cast<ClangJob*>(job);
         }
-        void operator()(ClangProxy& clangproxy)
+        void Execute(ClangProxy& clangproxy)
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
@@ -166,18 +215,18 @@ public:
             clangproxy.RemoveTranslationUnit(m_TranslationUnitId);
         }
     protected:
-        RemoveTranslationUnitTask(const RemoveTranslationUnitTask& other):
-            Task(other.m_EventType, other.m_EventId),
+        RemoveTranslationUnitJob(const RemoveTranslationUnitJob& other):
+            EventJob(other),
             m_TranslationUnitId(other.m_TranslationUnitId){}
         int m_TranslationUnitId;
     };
 
     /* final */
-    class ReparseTask : public Task
+    class ReparseJob : public EventJob
     {
     public:
-        ReparseTask( wxEventType evtType, int evtId, int translId, const std::map<wxString, wxString>& unsavedFiles )
-            : Task(evtType, evtId),
+        ReparseJob( wxEventType evtType, int evtId, int translId, const std::map<wxString, wxString>& unsavedFiles )
+            : EventJob(ReparseType, evtType, evtId),
               m_TranslId(translId),
               m_UnsavedFiles()
         {
@@ -186,11 +235,11 @@ public:
                 m_UnsavedFiles.insert( std::make_pair( wxString(it->first.c_str()), wxString(it->second.c_str()) ) );
             }
         }
-        Task* Clone() const
+        ClangJob* Clone() const
         {
-            return new ReparseTask(m_EventType, m_EventId, m_TranslId, m_UnsavedFiles);
+            return new ReparseJob(*this);
         }
-        void operator()(ClangProxy& clangproxy)
+        void Execute(ClangProxy& clangproxy)
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
@@ -203,21 +252,21 @@ public:
     };
 
     /* final */
-    class GetDiagnosticsTask : public Task
+    class GetDiagnosticsJob : public EventJob
     {
     public:
-        GetDiagnosticsTask( wxEventType evtType, int evtId, int translId ):
-            Task(evtType, evtId),
+        GetDiagnosticsJob( wxEventType evtType, int evtId, int translId ):
+            EventJob(GetDiagnosticsType, evtType, evtId),
             m_TranslId(translId)
         {}
     public:
-        Task* Clone() const
+        ClangJob* Clone() const
         {
-            GetDiagnosticsTask* pTask = new GetDiagnosticsTask(*this);
-            pTask->m_Diagnostics = m_Diagnostics;
-            return static_cast<Task*>(pTask);
+            GetDiagnosticsJob* pJob = new GetDiagnosticsJob(*this);
+            pJob->m_Diagnostics = m_Diagnostics;
+            return static_cast<ClangJob*>(pJob);
         }
-        void operator()(ClangProxy& clangproxy)
+        void Execute(ClangProxy& clangproxy)
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
@@ -225,8 +274,8 @@ public:
             clangproxy.GetDiagnostics(m_TranslId, m_Diagnostics);
         }
     protected:
-        GetDiagnosticsTask( const GetDiagnosticsTask& other ) :
-            Task(other.m_EventType, other.m_EventId),
+        GetDiagnosticsJob( const GetDiagnosticsJob& other ) :
+            EventJob(other),
             m_TranslId(other.m_TranslId),
             m_Diagnostics(other.m_Diagnostics){}
     public:
@@ -234,35 +283,56 @@ public:
         std::vector<ClDiagnostic> m_Diagnostics; // Returned value
     };
 
-    /// Task designed to be run synchronous
+    class DetermineFunctionAtJob : public EventJob
+    {
+    public:
+        DetermineFunctionAtJob( wxEventType evtType, int evtId, int translId, const wxString& filename, int line, int column) :
+            EventJob(DetermineFunctionAtType, evtType, evtId),
+            m_TranslId(translId),
+            m_Filename(filename.c_str()),
+            m_Line(line),
+            m_Column(column){}
+    public:
+        int m_TranslId;
+        wxString m_Filename;
+        int m_Line;
+        int m_Column;
+        wxString m_ClassName;
+        wxString m_MethodName;
+    };
+
+    /// Job designed to be run synchronous
     /*abstract */
-    class SyncTask : public Task
+    class SyncJob : public EventJob
     {
     protected:
-        SyncTask(wxEventType evtType, int evtId) :
-            Task(evtType, evtId),
+        SyncJob(JobType JobType, wxEventType evtType, int evtId) :
+            EventJob(JobType, evtType, evtId),
             m_bCompleted(false),
             m_pMutex(new wxMutex()),
             m_pCond(new wxCondition(*m_pMutex))
         {
         }
-        SyncTask(wxEventType evtType, int evtId, wxMutex* pMutex, wxCondition* pCond) :
-            Task(evtType, evtId),
+        SyncJob(JobType JobType, wxEventType evtType, int evtId, wxMutex* pMutex, wxCondition* pCond) :
+            EventJob(JobType, evtType, evtId),
             m_bCompleted(false),
             m_pMutex(pMutex),
             m_pCond(pCond) {}
     public:
-        // Called on task thread
-        virtual void Completed()
+        // Called on Job thread
+        virtual void Completed( ClangProxy& clangproxy )
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-            wxMutexLocker lock(*m_pMutex);
-            m_bCompleted = true;
-            m_pCond->Signal();
+            {
+                wxMutexLocker lock(*m_pMutex);
+                m_bCompleted = true;
+                m_pCond->Signal();
+            }
+            EventJob::Completed(clangproxy);
         }
-        /// Called on main thread to wait for completion of this task.
+        /// Called on main thread to wait for completion of this job.
         wxCondError WaitCompletion( unsigned long milliseconds )
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
@@ -294,15 +364,15 @@ public:
     };
 
     /* final */
-    class CodeCompleteAtTask : public SyncTask
+    class CodeCompleteAtJob : public SyncJob
     {
     public:
-        CodeCompleteAtTask( wxEventType evtType, const int evtId, const bool isAuto,
+        CodeCompleteAtJob( wxEventType evtType, const int evtId, const bool isAuto,
                 const wxString& filename, const int line, const int column,
                 const int translId, const std::map<wxString, wxString>& unsavedFiles ):
-            SyncTask(evtType, evtId),
+            SyncJob(CodeCompleteAtType, evtType, evtId),
             m_IsAuto(isAuto),
-            m_Filename(filename),
+            m_Filename(filename.c_str()),
             m_Line(line),
             m_Column(column),
             m_TranslId(translId),
@@ -316,12 +386,12 @@ public:
             m_pResults = new std::vector<ClToken>();
         }
 
-        Task* Clone() const
+        ClangJob* Clone() const
         {
-            CodeCompleteAtTask* pTask = new CodeCompleteAtTask(*this);
-            return static_cast<Task*>(pTask);
+            CodeCompleteAtJob* pJob = new CodeCompleteAtJob(*this);
+            return static_cast<ClangJob*>(pJob);
         }
-        void operator()(ClangProxy& clangproxy)
+        void Execute(ClangProxy& clangproxy)
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
@@ -332,7 +402,7 @@ public:
         }
         virtual void Finalize()
         {
-            SyncTask::Finalize();
+            SyncJob::Finalize();
             delete m_pResults;
         }
         const std::vector<ClToken>& GetResults()
@@ -340,10 +410,10 @@ public:
             return *m_pResults;
         }
     protected:
-        CodeCompleteAtTask( const CodeCompleteAtTask& other ) :
-            SyncTask(other.m_EventType, other.m_EventId, other.m_pMutex, other.m_pCond),
+        CodeCompleteAtJob( const CodeCompleteAtJob& other ) :
+            SyncJob(other),
             m_IsAuto(other.m_IsAuto),
-            m_Filename(other.m_Filename),
+            m_Filename(other.m_Filename.c_str()),
             m_Line(other.m_Line),
             m_Column(other.m_Column),
             m_TranslId(other.m_TranslId),
@@ -359,24 +429,24 @@ public:
     };
 
     /* final */
-    class GetTokensAtTask : public SyncTask
+    class GetTokensAtJob : public SyncJob
     {
     public:
-        GetTokensAtTask( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId ):
-            SyncTask(evtType, evtId),
-            m_Filename(filename),
+        GetTokensAtJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId ):
+            SyncJob(GetTokensAtType, evtType, evtId),
+            m_Filename(filename.c_str()),
             m_Line(line),
             m_Column(column),
             m_TranslId(translId)
         {
             m_pResults = new wxStringVec();
         }
-        Task* Clone() const
+        ClangJob* Clone() const
         {
-            GetTokensAtTask* pTask = new GetTokensAtTask(m_EventType, m_EventId, m_Filename, m_Line, m_Column, m_TranslId, m_pMutex, m_pCond, m_pResults);
-            return static_cast<Task*>(pTask);
+            GetTokensAtJob* pJob = new GetTokensAtJob(*this);
+            return static_cast<ClangJob*>(pJob);
         }
-        void operator()(ClangProxy& clangproxy)
+        void Execute(ClangProxy& clangproxy)
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
@@ -388,11 +458,11 @@ public:
             return *m_pResults;
         }
     protected:
-        GetTokensAtTask( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId,
+        GetTokensAtJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId,
                 wxMutex* pMutex, wxCondition* pCond,
                 wxStringVec* pResults ):
-            SyncTask(evtType, evtId, pMutex, pCond),
-            m_Filename(filename),
+            SyncJob(GetTokensAtType, evtType, evtId, pMutex, pCond),
+            m_Filename(filename.c_str()),
             m_Line(line),
             m_Column(column),
             m_TranslId(translId),
@@ -405,12 +475,12 @@ public:
     };
 
     /* final */
-    class GetCallTipsAtTask : public SyncTask
+    class GetCallTipsAtJob : public SyncJob
     {
     public:
-        GetCallTipsAtTask( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId, const wxString& tokenStr ):
-            SyncTask(evtType, evtId),
-            m_Filename(filename),
+        GetCallTipsAtJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId, const wxString& tokenStr ):
+            SyncJob( GetCallTipsAtType, evtType, evtId),
+            m_Filename(filename.c_str()),
             m_Line(line),
             m_Column(column),
             m_TranslId(translId),
@@ -418,12 +488,12 @@ public:
         {
             m_pResults = new std::vector<wxStringVec>();
         }
-        Task* Clone() const
+        ClangJob* Clone() const
         {
-            GetCallTipsAtTask* pTask = new GetCallTipsAtTask(m_EventType, m_EventId, m_Filename, m_Line, m_Column, m_TranslId, m_TokenStr, m_pMutex, m_pCond, m_pResults);
-            return static_cast<Task*>(pTask);
+            GetCallTipsAtJob* pJob = new GetCallTipsAtJob(*this);
+            return static_cast<ClangJob*>(pJob);
         }
-        void operator()(ClangProxy& clangproxy)
+        void Execute(ClangProxy& clangproxy)
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
@@ -435,11 +505,11 @@ public:
             return *m_pResults;
         }
     protected:
-        GetCallTipsAtTask( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId, const wxString& tokenStr,
+        GetCallTipsAtJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId, const wxString& tokenStr,
                 wxMutex* pMutex, wxCondition* pCond,
                 std::vector<wxStringVec>* pResults ):
-            SyncTask(evtType, evtId, pMutex, pCond),
-            m_Filename(filename),
+            SyncJob( GetCallTipsAtType, evtType, evtId, pMutex, pCond),
+            m_Filename(filename.c_str()),
             m_Line(line),
             m_Column(column),
             m_TranslId(translId),
@@ -454,24 +524,24 @@ public:
     };
 
     /* final */
-    class GetOccurrencesOfTask : public SyncTask
+    class GetOccurrencesOfJob : public SyncJob
     {
     public:
-        GetOccurrencesOfTask( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId ):
-            SyncTask(evtType, evtId),
-            m_Filename(filename),
+        GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId ):
+            SyncJob( GetOccurrencesOfType, evtType, evtId),
+            m_Filename(filename.c_str()),
             m_Line(line),
             m_Column(column),
             m_TranslId(translId)
         {
             m_pResults = new std::vector< std::pair<int, int> >();
         }
-        Task* Clone() const
+        ClangJob* Clone() const
         {
-            GetOccurrencesOfTask* pTask = new GetOccurrencesOfTask(m_EventType, m_EventId, m_Filename, m_Line, m_Column, m_TranslId, m_pMutex, m_pCond, m_pResults);
-            return static_cast<Task*>(pTask);
+            GetOccurrencesOfJob* pJob = new GetOccurrencesOfJob(*this);
+            return static_cast<ClangJob*>(pJob);
         }
-        void operator()(ClangProxy& clangproxy)
+        void Execute(ClangProxy& clangproxy)
         {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
@@ -483,11 +553,11 @@ public:
             return *m_pResults;
         }
     protected:
-        GetOccurrencesOfTask( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId,
+        GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId,
                 wxMutex* pMutex, wxCondition* pCond,
                 std::vector< std::pair<int, int> >* pResults ):
-            SyncTask(evtType, evtId, pMutex, pCond),
-            m_Filename(filename),
+            SyncJob(GetOccurrencesOfType, evtType, evtId, pMutex, pCond),
+            m_Filename(filename.c_str()),
             m_Line(line),
             m_Column(column),
             m_TranslId(translId),
@@ -506,15 +576,15 @@ public:
     class CallbackEvent : public wxEvent
     {
     public:
-        CallbackEvent( wxEventType evtType, int evtId, Task* task ) : wxEvent( evtType, evtId )
+        CallbackEvent( wxEventType evtType, int evtId, ClangJob* job ) : wxEvent( evtType, evtId )
         {
-            SetEventObject(task);
+            SetEventObject(job);
         }
         CallbackEvent( const CallbackEvent& other ) : wxEvent(other)
         {
-            ClangProxy::Task* pTask = static_cast<ClangProxy::Task*>(other.GetEventObject());
-            if (pTask)
-                SetEventObject( pTask->Clone() );
+            ClangProxy::ClangJob* pJob = static_cast<ClangProxy::ClangJob*>(other.GetEventObject());
+            if (pJob)
+                SetEventObject( pJob->Clone() );
         }
         ~CallbackEvent()
         {
@@ -523,36 +593,24 @@ public:
         }
         wxEvent* Clone() const
         {
-            ClangProxy::Task* pTask = static_cast<ClangProxy::Task*>(GetEventObject());
-            if( pTask )
-                pTask = pTask->Clone();
-            return new CallbackEvent( m_eventType, m_id, pTask );
+            ClangProxy::ClangJob* pJob = static_cast<ClangProxy::ClangJob*>(GetEventObject());
+            if( pJob )
+                pJob = pJob->Clone();
+            return new CallbackEvent( m_eventType, m_id, pJob );
         }
-    };
-
-
-    class TaskThread : public wxThread
-    {
-    public:
-        TaskThread( ClangProxy* pClangProxy ) :
-            wxThread(wxTHREAD_DETACHED),
-            m_pClangProxy(pClangProxy) {}
-
-        wxThread::ExitCode Entry();
-    public:
-        ClangProxy* m_pClangProxy;
     };
 
 public:
     ClangProxy( wxEvtHandler* pEvtHandler, TokenDatabase& database, const std::vector<wxString>& cppKeywords);
     ~ClangProxy();
 
-    void AddPendingTask( ClangProxy::Task& task );
+    void AppendPendingJob( ClangProxy::ClangJob& job );
+    //void PrependPendingJob( ClangProxy::ClangJob& job );
 
     int GetTranslationUnitId(FileId fId);
     int GetTranslationUnitId(const wxString& filename);
 
-protected: // Tasks that are run only on the thread
+protected: // jobs that are run only on the thread
     void CreateTranslationUnit(const wxString& filename, const wxString& commands, int& out_TranslId);
     void RemoveTranslationUnit(int TranslUnitId);
     void Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles);
@@ -564,6 +622,8 @@ protected: // Tasks that are run only on the thread
             const wxString& tokenStr, std::vector<wxStringVec>& results);
     void GetOccurrencesOf(const wxString& filename, int line, int column,
             int translId, std::vector< std::pair<int, int> >& results);
+
+    void DetermineFunctionAt(int translId, const wxString& filename, int line, int column,wxString &out_ClassName, wxString &out_FunctionName );
 
 public:
     wxString DocumentCCToken(int translId, int tknId);
@@ -580,11 +640,9 @@ private:
     std::vector<TranslationUnit> m_TranslUnits;
     CXIndex m_ClIndex;
 private: // Thread
-    mutable wxMutex m_TaskQueueMutex; // Protects: m_TaskQueue
     wxEvtHandler* m_pEventCallbackHandler;
-    std::queue<ClangProxy::Task*> m_TaskQueue;
-    mutable wxCondition m_ConditionQueueNotEmpty;
-    TaskThread* m_pThread;
+    BackgroundThread* m_pThread;
+    //BackgroundThread* m_pParsingThread;
 };
 
 #endif // CLANGPROXY_H

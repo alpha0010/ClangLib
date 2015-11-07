@@ -155,6 +155,7 @@ namespace ProxyHelper
         case CXCursor_FunctionTemplate:
         {
             CXString str = clang_getCursorSpelling(cursor);
+            fprintf(stdout,"Cursor spelling of functionDecl/CXXMethon/FunctionTemplate: %s\n", clang_getCString(str));
             if (strcmp(clang_getCString(str), "operator()") == 0)
             {
                 std::vector<CXCursor>* tokenSet
@@ -576,31 +577,36 @@ ClangProxy::ClangProxy( wxEvtHandler* pEvtCallbackHandler, TokenDatabase& databa
     m_Mutex(),
     m_Database(database),
     m_CppKeywords(cppKeywords),
-    m_TaskQueueMutex(),
-    m_pEventCallbackHandler(pEvtCallbackHandler),
-    m_ConditionQueueNotEmpty(m_TaskQueueMutex)
+    m_pEventCallbackHandler(pEvtCallbackHandler)
 {
     m_ClIndex = clang_createIndex(0, 0);
-    m_pThread = new TaskThread(this);
-    m_pThread->Create();
-    m_pThread->Run();
+    m_pThread = new BackgroundThread(false);
+    //m_pParsingThread = new BackgroundThread();
 }
 
 ClangProxy::~ClangProxy()
 {
-    wxMutexLocker lock(m_Mutex);
-    m_pThread = NULL;
-    m_ConditionQueueNotEmpty.Signal();
-    m_TranslUnits.clear();
+#if 0
+    //TaskThread* pThread = m_pThread;
+    {
+        wxMutexLocker lock(m_Mutex);
+        m_pThread = NULL;
+        m_ConditionQueueNotEmpty.Signal();
+        m_TranslUnits.clear();
+    }
+#endif
+    fprintf(stdout,"Waiting for thread shutdown\n");
+    //pThread->Wait();
     clang_disposeIndex(m_ClIndex);
 }
 
 void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands, int& out_TranslId)
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-    wxStringTokenizer tokenizer(commands);
+    wxString cmd = commands + wxT(" -ferror-limit=0");
+    wxStringTokenizer tokenizer(cmd);
     if (!filename.EndsWith(wxT(".c"))) // force language reduces chance of error on STL headers
-        tokenizer.SetString(commands + wxT(" -x c++"));
+        tokenizer.SetString(cmd + wxT(" -x c++"));
     std::vector<wxString> unknownOptions;
     unknownOptions.push_back(wxT("-Wno-unused-local-typedefs"));
     unknownOptions.push_back(wxT("-Wzero-as-null-pointer-constant"));
@@ -615,21 +621,21 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
         argsBuffer.push_back(compilerSwitch.ToUTF8());
         args.push_back(argsBuffer.back().data());
     }
-    TranslationUnit TU(filename, args, m_ClIndex, &m_Database);
     wxMutexLocker lock(m_Mutex);
     std::vector<TranslationUnit>::iterator it;
-    for( it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it)
+    int id = 0;
+    for( it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it, ++id)
     {
         if (it->IsEmpty())
         {
-            *it = TU;
+            *it = TranslationUnit(id, filename, args, m_ClIndex, &m_Database);
             out_TranslId = it - m_TranslUnits.begin();
             break;
         }
     }
     if( it == m_TranslUnits.end())
     {
-        m_TranslUnits.push_back(TU);
+        m_TranslUnits.push_back(TranslationUnit(id, filename, args, m_ClIndex, &m_Database));
         out_TranslId = m_TranslUnits.size() - 1;
     }
     fprintf(stdout,"%s done.\n", __PRETTY_FUNCTION__);
@@ -637,14 +643,31 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
 
 void ClangProxy::RemoveTranslationUnit(int TranslUnitId)
 {
+   if ( TranslUnitId < 0 )
+   {
+       return;
+   }
+   if (TranslUnitId >= (int)m_TranslUnits.size())
+   {
+       return;
+   }
     wxMutexLocker lock(m_Mutex);
     // Replace with empty one
-    m_TranslUnits.assign( TranslUnitId, TranslationUnit(wxT(""), std::vector<const char*>(), m_ClIndex, &m_Database) );
+    m_TranslUnits.assign( TranslUnitId, TranslationUnit( TranslUnitId, wxT(""), std::vector<const char*>(), m_ClIndex, &m_Database) );
 }
 
 int ClangProxy::GetTranslationUnitId(FileId fId)
 {
     wxMutexLocker locker(m_Mutex);
+    /*
+    for (size_t i = 0; i < m_TranslUnits.size(); ++i)
+    {
+            if (m_TranslUnits[i].IsFileId(fId))
+            {
+                return i;
+            }
+    }
+    */
     for (size_t i = 0; i < m_TranslUnits.size(); ++i)
     {
         if (m_TranslUnits[i].Contains(fId))
@@ -653,6 +676,7 @@ int ClangProxy::GetTranslationUnitId(FileId fId)
             return i;
         }
     }
+
     //std::cout<<"file id "<<fId<<" not found in translUnits"<<std::endl;
     return wxNOT_FOUND;
 }
@@ -1219,6 +1243,44 @@ void ClangProxy::ResolveDeclTokenAt(wxString& filename, int& line, int& column, 
     clang_disposeString(str);
 }
 
+void ClangProxy::DetermineFunctionAt(int translId, const wxString& filename, int line, int column, wxString &out_ClassName, wxString &out_MethodName )
+{
+    wxMutexLocker lock(m_Mutex);
+    CXCursor cursor = m_TranslUnits[translId].GetTokensAt(filename, line, column);
+    if (clang_Cursor_isNull(cursor))
+        return;
+
+    wxString className;
+    wxString methodName;
+    CXString str;
+    while( (className.length() == 0)||(methodName.length() == 0) )
+    {
+        switch( cursor.kind )
+        {
+        case CXCursor_StructDecl:
+        case CXCursor_ClassDecl:
+        case CXCursor_ClassTemplate:
+        case CXCursor_ClassTemplatePartialSpecialization:
+            str = clang_getCursorDisplayName(cursor);
+            className = wxString::FromUTF8(clang_getCString(str));
+            clang_disposeString(str);
+            break;
+        case CXCursor_CXXMethod:
+            str = clang_getCursorDisplayName(cursor);
+            methodName = wxString::FromUTF8(clang_getCString(str));
+            clang_disposeString(str);
+            break;
+        default:
+            break;
+        }
+        cursor = clang_getCursorSemanticParent(cursor);
+        if (clang_Cursor_isNull(cursor) )
+            break;
+    }
+    out_ClassName = className;
+    out_MethodName = methodName;
+}
+
 void ClangProxy::Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles)
 {
     std::vector<CXUnsavedFile> clUnsavedFiles;
@@ -1249,59 +1311,16 @@ void ClangProxy::GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnos
     m_TranslUnits[translId].GetDiagnostics(diagnostics);
 }
 
-void ClangProxy::AddPendingTask( ClangProxy::Task& task )
+void ClangProxy::AppendPendingJob( ClangProxy::ClangJob& job )
 {
     if( !m_pThread )
     {
         return;
     }
-    ClangProxy::Task* pTask = task.Clone();
-    wxMutexLocker locker(m_TaskQueueMutex);
-    m_TaskQueue.push(pTask);
-    m_ConditionQueueNotEmpty.Signal();
-}
+    ClangProxy::ClangJob* pJob = job.Clone();
+    pJob->SetProxy(this);
+    m_pThread->Queue(pJob);
 
-wxThread::ExitCode ClangProxy::TaskThread::Entry()
-{
-    while(m_pClangProxy->m_pThread != NULL)
-    {
-        Task* pTask = NULL;
-        {
-            wxMutexLocker lock(m_pClangProxy->m_TaskQueueMutex);
-            while(m_pClangProxy->m_TaskQueue.empty())
-            {
-                wxCondError err = m_pClangProxy->m_ConditionQueueNotEmpty.Wait();
-                if( err != wxCOND_NO_ERROR )
-                {
-                    m_pClangProxy->m_pThread = NULL;
-                    return (wxThread::ExitCode)-1;
-                }
-            }
-            pTask = m_pClangProxy->m_TaskQueue.front();
-            m_pClangProxy->m_TaskQueue.pop();
-        }
-        if( pTask )
-        {
-            try
-            {
-                (*pTask)(*m_pClangProxy);
-            }
-            catch(...)
-            {
-                fprintf(stdout,"%s: Exception caught\n", __PRETTY_FUNCTION__);
-                continue;
-            }
-            pTask->Completed();
-            if( m_pClangProxy->m_pEventCallbackHandler )
-            {
-                if( pTask->GetCallbackEventType() != 0 )
-                {
-                    ClangProxy::CallbackEvent evt( pTask->GetCallbackEventType(), pTask->GetCallbackEventId(), pTask);
-                    m_pClangProxy->m_pEventCallbackHandler->AddPendingEvent( evt );
-                }
-            }
-        }
-    }
-    return (wxThread::ExitCode)0;
+    return;
 }
 

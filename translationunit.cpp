@@ -19,8 +19,10 @@ static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion
 
 static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data);
 
-TranslationUnit::TranslationUnit(const wxString& filename, const std::vector<const char*>& args,
+TranslationUnit::TranslationUnit( int id, const wxString& filename, const std::vector<const char*>& args,
         CXIndex clIndex, TokenDatabase* database) :
+    m_Id(id),
+    m_FileId(-1),
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
 {
@@ -37,11 +39,11 @@ TranslationUnit::TranslationUnit(const wxString& filename, const std::vector<con
             clang_defaultEditingTranslationUnitOptions()
             | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
             | CXTranslationUnit_DetailedPreprocessingRecord );
-        fprintf(stdout,"%s clang_parseTranslationUnit done\n", __PRETTY_FUNCTION__);
         std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, database);
         clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
+        m_FileId = database->GetFilenameId(filename);
         m_Files.reserve(1024);
-        m_Files.push_back(database->GetFilenameId(filename));
+        m_Files.push_back(m_FileId);
         std::sort(m_Files.begin(), m_Files.end());
         std::unique(m_Files.begin(), m_Files.end());
     #if __cplusplus >= 201103L
@@ -62,6 +64,7 @@ TranslationUnit::TranslationUnit(const wxString& filename, const std::vector<con
 
 #if __cplusplus >= 201103L
 TranslationUnit::TranslationUnit(TranslationUnit&& other) :
+    m_Id(other.m_Id),
     m_Files(std::move(other.m_Files)),
     m_ClTranslUnit(other.m_ClTranslUnit),
     m_LastCC(nullptr),
@@ -78,6 +81,7 @@ TranslationUnit::TranslationUnit(const TranslationUnit& WXUNUSED(other))
 }
 #else
 TranslationUnit::TranslationUnit(const TranslationUnit& other) :
+    m_Id(other.m_Id),
     m_ClTranslUnit(other.m_ClTranslUnit),
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
