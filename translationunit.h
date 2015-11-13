@@ -2,15 +2,28 @@
 #define TRANSLATION_UNIT_H
 
 #include <clang-c/Index.h>
-#include "clangproxy.h"
+#include "tokendatabase.h"
 
 unsigned HashToken(CXCompletionString token, wxString& identifier);
+
+enum Severity { sWarning, sError };
+struct ClDiagnostic
+{
+    ClDiagnostic(int ln, int rgStart, int rgEnd, Severity level, const wxString& fl, const wxString& msg) :
+        line(ln), range(rgStart, rgEnd), severity(level), file(fl), message(msg) {}
+
+    int line;
+    std::pair<int, int> range;
+    Severity severity;
+    wxString file;
+    wxString message;
+};
+
 
 class TranslationUnit
 {
 public:
-    TranslationUnit( int id, const wxString& filename, const std::vector<const char*>& args,
-            CXIndex clIndex, TokenDatabase* database );
+    TranslationUnit( int id );
     // move ctor
 #if __cplusplus >= 201103L
     TranslationUnit(TranslationUnit&& other);
@@ -22,6 +35,8 @@ public:
     friend void swap( TranslationUnit& first, TranslationUnit& second )
     {
         using std::swap;
+        swap(first.m_Id, second.m_Id);
+        swap(first.m_FileId, second.m_FileId);
         swap(first.m_Files, second.m_Files);
         swap(first.m_ClTranslUnit, second.m_ClTranslUnit);
         swap(first.m_LastCC, second.m_LastCC);
@@ -34,8 +49,18 @@ public:
 
     void AddInclude(FileId fId);
     bool Contains(FileId fId);
-    bool IsFileId(FileId fId){ return m_FileId == fId; }
-    bool IsEmpty(){ return m_Files.empty(); }
+    int GetFileId() const { return m_FileId; }
+    bool IsEmpty() const { return m_Files.empty(); }
+    bool IsValid() const {
+        if(IsEmpty())
+            return false;
+        if(m_ClTranslUnit==nullptr)
+            return false;
+        if(m_Id < 0)
+            return false;
+        return true;
+    }
+    int GetId() const { return m_Id; }
 
     // note that complete_line and complete_column are 1 index, not 0 index!
     CXCodeCompleteResults* CodeCompleteAt( const char* complete_filename, unsigned complete_line,
@@ -43,11 +68,15 @@ public:
             unsigned num_unsaved_files );
     const CXCompletionResult* GetCCResult(unsigned index);
     CXCursor GetTokensAt(const wxString& filename, int line, int column);
-    void Reparse(unsigned num_unsaved_files, struct CXUnsavedFile* unsaved_files);
+    void Parse( const wxString& filename, const std::vector<const char*>& args,
+                const std::map<wxString, wxString>& unsavedFiles,
+                CXIndex clIndex, TokenDatabase* database );
+    void Reparse( const std::map<wxString, wxString>& unsavedFiles );
     void GetDiagnostics(std::vector<ClDiagnostic>& diagnostics);
     CXFile GetFileHandle(const wxString& filename) const;
 
-private:
+//private:
+public:
 #if __cplusplus >= 201103L
     // copying not allowed (we can move)
     TranslationUnit(const TranslationUnit& other);

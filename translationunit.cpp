@@ -19,47 +19,14 @@ static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion
 
 static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data);
 
-TranslationUnit::TranslationUnit( int id, const wxString& filename, const std::vector<const char*>& args,
-        CXIndex clIndex, TokenDatabase* database) :
+TranslationUnit::TranslationUnit( int id ) :
     m_Id(id),
     m_FileId(-1),
+    m_ClTranslUnit(nullptr),
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-    // TODO: check and handle error conditions
-    if( filename.length() == 0)
-    {
-        m_ClTranslUnit = nullptr;
-    }
-    else
-    {
-        m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
-            args.size(), nullptr, 0,
-            clang_defaultEditingTranslationUnitOptions()
-            | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
-            | CXTranslationUnit_DetailedPreprocessingRecord );
-        std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, database);
-        clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
-        m_FileId = database->GetFilenameId(filename);
-        m_Files.reserve(1024);
-        m_Files.push_back(m_FileId);
-        std::sort(m_Files.begin(), m_Files.end());
-        std::unique(m_Files.begin(), m_Files.end());
-    #if __cplusplus >= 201103L
-        m_Files.shrink_to_fit();
-    #else
-        std::vector<FileId>(m_Files).swap(m_Files);
-    #endif
-        //fprintf(stdout,"%s calling Reparse()\n", __PRETTY_FUNCTION__);
-        Reparse(0, nullptr); // seems to improve performance for some reason?
-
-        //fprintf(stdout,"%s calling VisitChildren\n", __PRETTY_FUNCTION__);
-        clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, database);
-        //fprintf(stdout,"%s Shrinking database\n", __PRETTY_FUNCTION__);
-        //database->Shrink();
-        //fprintf(stdout,"%s Done\n", __PRETTY_FUNCTION__);
-    }
+    //fprintf(stdout,"%p %s %d\n",this, __PRETTY_FUNCTION__, m_Id);
 }
 
 #if __cplusplus >= 201103L
@@ -86,7 +53,7 @@ TranslationUnit::TranslationUnit(const TranslationUnit& other) :
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    //fprintf(stdout,"%p %s %d, other: %d\n",this, __PRETTY_FUNCTION__, m_Id, other.m_Id);
     m_Files.swap(const_cast<TranslationUnit&>(other).m_Files);
     const_cast<TranslationUnit&>(other).m_ClTranslUnit = nullptr;
 }
@@ -94,10 +61,14 @@ TranslationUnit::TranslationUnit(const TranslationUnit& other) :
 
 TranslationUnit::~TranslationUnit()
 {
+    //fprintf(stdout,"%p %s %d\n", this, __PRETTY_FUNCTION__, m_Id);
     if (m_LastCC)
         clang_disposeCodeCompleteResults(m_LastCC);
     if (m_ClTranslUnit)
+    {
+        fprintf(stdout,"%p Disposing %p\n", this, m_ClTranslUnit);
         clang_disposeTranslationUnit(m_ClTranslUnit);
+    }
 }
 
 std::ostream& operator << (std::ostream& str, const std::vector<FileId> files)
@@ -128,8 +99,16 @@ CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_fil
         unsigned complete_column, struct CXUnsavedFile* unsaved_files,
         unsigned num_unsaved_files )
 {
-    if (m_LastPos.Equals(complete_line, complete_column))
+    if( m_ClTranslUnit == nullptr )
+    {
+        fprintf(stdout,"%s: m_ClTranslUnit is NULL!\n", __PRETTY_FUNCTION__);
+        return NULL;
+    }
+    if (m_LastPos.Equals(complete_line, complete_column)&&(m_LastCC)&&m_LastCC->NumResults)
+    {
+        fprintf(stdout,"%s: Returning last CC (%d)\n", __PRETTY_FUNCTION__, m_LastCC->NumResults);
         return m_LastCC;
+    }
     if (m_LastCC)
         clang_disposeCodeCompleteResults(m_LastCC);
     m_LastCC = clang_codeCompleteAt(m_ClTranslUnit, complete_filename, complete_line, complete_column,
@@ -138,6 +117,11 @@ CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_fil
             | CXCodeComplete_IncludeCodePatterns
             | CXCodeComplete_IncludeBriefComments);
     m_LastPos.Set(complete_line, complete_column);
+    if( !m_LastCC )
+    {
+        fprintf(stdout,"%s: clang_CodeComplete returned NULL!\n", __PRETTY_FUNCTION__);
+    }
+    fprintf(stdout,"%s: Returning %d results\n", __PRETTY_FUNCTION__, (int)m_LastCC->NumResults);
     return m_LastCC;
 }
 
@@ -153,10 +137,101 @@ CXCursor TranslationUnit::GetTokensAt(const wxString& filename, int line, int co
     return clang_getCursor(m_ClTranslUnit, clang_getLocation(m_ClTranslUnit, GetFileHandle(filename), line, column));
 }
 
-void TranslationUnit::Reparse(unsigned num_unsaved_files, struct CXUnsavedFile* unsaved_files)
+/**
+ * Parses the supplied file and unsaved files
+ */
+void TranslationUnit::Parse( const wxString& filename, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles, CXIndex clIndex, TokenDatabase* database )
 {
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+
+    if (m_LastCC)
+    {
+        clang_disposeCodeCompleteResults(m_LastCC);
+        m_LastCC = nullptr;
+    }
+    if (m_ClTranslUnit)
+    {
+        fprintf(stdout,"Disposing %p\n", m_ClTranslUnit);
+        clang_disposeTranslationUnit(m_ClTranslUnit);
+        m_ClTranslUnit = nullptr;
+    }
+
     // TODO: check and handle error conditions
-    int ret = clang_reparseTranslationUnit(m_ClTranslUnit, num_unsaved_files, unsaved_files, clang_defaultReparseOptions(m_ClTranslUnit));
+    std::vector<CXUnsavedFile> clUnsavedFiles;
+    std::vector<wxCharBuffer> clFileBuffer;
+    for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
+            fileIt != unsavedFiles.end(); ++fileIt)
+    {
+        CXUnsavedFile unit;
+        clFileBuffer.push_back(fileIt->first.ToUTF8());
+        unit.Filename = clFileBuffer.back().data();
+        clFileBuffer.push_back(fileIt->second.ToUTF8());
+        unit.Contents = clFileBuffer.back().data();
+#if wxCHECK_VERSION(2, 9, 4)
+        unit.Length   = clFileBuffer.back().length();
+#else
+        unit.Length   = strlen(unit.Contents); // extra work needed because wxString::Length() treats multibyte character length as '1'
+#endif
+        clUnsavedFiles.push_back(unit);
+    }
+
+    if( filename.length() != 0)
+    {
+        m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
+            args.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size(),
+            clang_defaultEditingTranslationUnitOptions()
+            | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
+            | CXTranslationUnit_DetailedPreprocessingRecord );
+        std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, database);
+        clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
+        m_FileId = database->GetFilenameId(filename);
+        m_Files.reserve(1024);
+        m_Files.push_back(m_FileId);
+        std::sort(m_Files.begin(), m_Files.end());
+        std::unique(m_Files.begin(), m_Files.end());
+    #if __cplusplus >= 201103L
+        m_Files.shrink_to_fit();
+    #else
+        std::vector<FileId>(m_Files).swap(m_Files);
+    #endif
+        //fprintf(stdout,"%s calling Reparse()\n", __PRETTY_FUNCTION__);
+        //Reparse(0, nullptr); // seems to improve performance for some reason?
+
+        //fprintf(stdout,"%s calling VisitChildren\n", __PRETTY_FUNCTION__);
+        clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, database);
+        //fprintf(stdout,"%s Shrinking database\n", __PRETTY_FUNCTION__);
+        //database->Shrink();
+        //fprintf(stdout,"%s Done\n", __PRETTY_FUNCTION__);
+    }
+}
+
+void TranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles)
+{
+    if( m_ClTranslUnit == nullptr )
+    {
+        fprintf(stdout,"ERROR: Reparsing a NULL translation Unit\n");
+        return;
+    }
+    std::vector<CXUnsavedFile> clUnsavedFiles;
+    std::vector<wxCharBuffer> clFileBuffer;
+    for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
+            fileIt != unsavedFiles.end(); ++fileIt)
+    {
+        CXUnsavedFile unit;
+        clFileBuffer.push_back(fileIt->first.ToUTF8());
+        unit.Filename = clFileBuffer.back().data();
+        clFileBuffer.push_back(fileIt->second.ToUTF8());
+        unit.Contents = clFileBuffer.back().data();
+#if wxCHECK_VERSION(2, 9, 4)
+        unit.Length   = clFileBuffer.back().length();
+#else
+        unit.Length   = strlen(unit.Contents); // extra work needed because wxString::Length() treats multibyte character length as '1'
+#endif
+        clUnsavedFiles.push_back(unit);
+    }
+
+    // TODO: check and handle error conditions
+    int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clang_defaultReparseOptions(m_ClTranslUnit));
     if( ret != 0 )
     {
         fprintf(stdout,"ERROR: reparseTranslationUnit() failed!");
@@ -165,6 +240,10 @@ void TranslationUnit::Reparse(unsigned num_unsaved_files, struct CXUnsavedFile* 
 
 void TranslationUnit::GetDiagnostics(std::vector<ClDiagnostic>& diagnostics)
 {
+    if( m_ClTranslUnit == nullptr )
+    {
+        return;
+    }
     CXDiagnosticSet diagSet = clang_getDiagnosticSetFromTU(m_ClTranslUnit);
     ExpandDiagnosticSet(diagSet, diagnostics);
     clang_disposeDiagnosticSet(diagSet);

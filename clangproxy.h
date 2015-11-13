@@ -8,6 +8,8 @@
 #include <queue>
 #include <backgroundthread.h>
 
+#include "translationunit.h"
+
 #undef CLANGPROXY_TRACE_FUNCTIONS
 
 class TranslationUnit;
@@ -60,19 +62,6 @@ struct ClToken // TODO: do we want this, or is just using CCToken good enough?
     int category;
     int weight;
     wxString name;
-};
-
-enum Severity { sWarning, sError };
-struct ClDiagnostic
-{
-    ClDiagnostic(int ln, int rgStart, int rgEnd, Severity level, const wxString& fl, const wxString& msg) :
-        line(ln), range(rgStart, rgEnd), severity(level), file(fl), message(msg) {}
-
-    int line;
-    std::pair<int, int> range;
-    Severity severity;
-    wxString file;
-    wxString message;
 };
 
 class ClangProxy
@@ -166,7 +155,7 @@ public:
             EventJob(CreateTranslationUnitType, evtType, evtId),
             m_Filename(filename.c_str()),
             m_Commands(commands.c_str()),
-            m_TranslationUnitId(0) {}
+            m_TranslationUnitId(-1) {}
         ClangJob* Clone() const
         {
             CreateTranslationUnitJob* job = new CreateTranslationUnitJob(*this);
@@ -177,7 +166,7 @@ public:
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-            m_TranslationUnitId = clangproxy.GetTranslationUnitId(m_Filename);
+            m_TranslationUnitId = clangproxy.GetTranslationUnitId(m_TranslationUnitId, m_Filename);
             if( m_TranslationUnitId == wxNOT_FOUND )
             {
                 clangproxy.CreateTranslationUnit(m_Filename, m_Commands, m_TranslationUnitId);
@@ -225,11 +214,13 @@ public:
     class ReparseJob : public EventJob
     {
     public:
-        ReparseJob( wxEventType evtType, int evtId, int translId, const std::map<wxString, wxString>& unsavedFiles )
+        ReparseJob( wxEventType evtType, int evtId, int translId, const wxString& compileCommand, const std::map<wxString, wxString>& unsavedFiles )
             : EventJob(ReparseType, evtType, evtId),
               m_TranslId(translId),
-              m_UnsavedFiles()
+              m_UnsavedFiles(),
+              m_CompileCommand(compileCommand.c_str())
         {
+            /* deep copy */
             for( std::map<wxString, wxString>::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it)
             {
                 m_UnsavedFiles.insert( std::make_pair( wxString(it->first.c_str()), wxString(it->second.c_str()) ) );
@@ -239,16 +230,20 @@ public:
         {
             return new ReparseJob(*this);
         }
-        void Execute(ClangProxy& clangproxy)
+        void Execute(ClangProxy& clangproxy);
+
+        virtual void Completed(ClangProxy& /*clangProxy*/)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
-            clangproxy.Reparse(m_TranslId, m_UnsavedFiles);
+            return; // Override: the event will be posted after AsyncReparse
+        }
+        virtual void ReparseCompleted( ClangProxy& clangProxy )
+        {
+            EventJob::Completed(clangProxy);
         }
     public:
         int m_TranslId;
         std::map<wxString, wxString> m_UnsavedFiles;
+        wxString m_CompileCommand;
     };
 
     /* final */
@@ -382,7 +377,6 @@ public:
             {
                 m_UnsavedFiles.insert( std::make_pair( wxString(it->first.c_str()), wxString(it->second.c_str()) ) );
             }
-
             m_pResults = new std::vector<ClToken>();
         }
 
@@ -403,7 +397,6 @@ public:
         virtual void Finalize()
         {
             SyncJob::Finalize();
-            delete m_pResults;
         }
         const std::vector<ClToken>& GetResults()
         {
@@ -607,13 +600,17 @@ public:
     void AppendPendingJob( ClangProxy::ClangJob& job );
     //void PrependPendingJob( ClangProxy::ClangJob& job );
 
-    int GetTranslationUnitId(FileId fId);
-    int GetTranslationUnitId(const wxString& filename);
+    int GetTranslationUnitId(int CtxTranslUnitId, FileId fId);
+    int GetTranslationUnitId(int CtxTranslUnitId, const wxString& filename);
 
 protected: // jobs that are run only on the thread
-    void CreateTranslationUnit(const wxString& filename, const wxString& commands, int& out_TranslId);
+    void CreateTranslationUnit(const wxString& filename, const wxString& compileCommand, int& out_TranslId);
     void RemoveTranslationUnit(int TranslUnitId);
-    void Reparse(int translId, const std::map<wxString, wxString>& unsavedFiles);
+    /** Reparse translation id
+     *
+     * @param unsavedFiles reference to the unsaved files data. This function takes the data and this list will be empty after this call
+     */
+    void Reparse(int translId, const wxString& compileCommand, std::map<wxString, wxString>& unsavedFiles);
     void GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnostics);
     void CodeCompleteAt(bool isAuto, const wxString& filename, int line, int column, int translId,
             const std::map<wxString, wxString>& unsavedFiles, std::vector<ClToken>& results);
@@ -633,6 +630,8 @@ public:
 
     void ResolveDeclTokenAt(wxString& filename, int& line, int& column, int translId);
 
+    void ParsedTranslationUnit( TranslationUnit& translUnit );
+
 private:
     mutable wxMutex m_Mutex;
     TokenDatabase& m_Database;
@@ -642,7 +641,8 @@ private:
 private: // Thread
     wxEvtHandler* m_pEventCallbackHandler;
     BackgroundThread* m_pThread;
-    //BackgroundThread* m_pParsingThread;
+    BackgroundThread* m_pParsingThread;
+    TranslationUnit m_ParsingTranslUnit;
 };
 
 #endif // CLANGPROXY_H

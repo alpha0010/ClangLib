@@ -36,6 +36,9 @@ public:
     // Build popup menu
     virtual void BuildModuleMenu(const ModuleType type, wxMenu* menu, const FileTreeData* data = nullptr);
 
+    /** build CC Toolbar */
+    virtual bool BuildToolBar(wxToolBar* toolBar);
+
 protected:
     virtual void OnAttach();
     virtual void OnRelease(bool appShutDown);
@@ -85,7 +88,8 @@ private:
     void OnProjectFileChanged(CodeBlocksEvent& event);
     /// Update project-dependent setup
     void OnProjectOptionsChanged(CodeBlocksEvent& event);
-
+    /// Close project
+    void OnProjectClose(CodeBlocksEvent& event);
     /// Generic handler for various timers
     void OnTimer(wxTimerEvent& event);
     /// Start re-parse and highlight timers
@@ -123,6 +127,12 @@ private: // Internal utility functions
     // Builds compile command
     int UpdateCompileCommand(cbEditor* ed);
 
+    /** enable the two wxChoices */
+    void EnableToolbarTools(bool enable = true);
+
+    // Updates the toolbar
+    void UpdateToolBar();
+
     // Async
     void OnReparse( wxCommandEvent& evt );
 
@@ -135,6 +145,7 @@ private: // Members
     wxStringVec m_CppKeywords;
     ClangProxy m_Proxy;
     wxImageList m_ImageList;
+
     //wxTimer m_EdOpenTimer;
     wxTimer m_ReparseTimer;
     wxTimer m_DiagnosticTimer;
@@ -146,9 +157,21 @@ private: // Members
     int m_LastCallTipPos;
     std::vector<wxStringVec> m_LastCallTips;
     wxString m_CompileCommand;
-    unsigned int m_Parsing;
     unsigned int m_CCOutstanding;
     long m_CCOutstandingLastMessageTime;
+    int m_CCOutstandingPos;
+    std::vector<ClToken> m_CCOutstandingResults;
+    int m_ReparseNeeded;
+    int m_ReparseNeededLine;
+    int m_ReparseBusy;
+
+private:
+    /** the CC's toolbar */
+    wxToolBar*              m_ToolBar;
+    /** function choice control of CC's toolbar, it is the second choice */
+    wxChoice*               m_Function;
+    /** namespace/scope choice control, it is the first choice control */
+    wxChoice*               m_Scope;
 };
 
 #endif // CLANGPLUGIN_H

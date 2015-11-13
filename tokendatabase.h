@@ -27,18 +27,19 @@ public:
     ~TokenDatabase();
 
     FileId GetFilenameId(const wxString& filename);
-    wxString GetFilename(FileId fId) const;
-
+    wxString GetFilename(FileId fId);
+    TokenId GetTokenId(const wxString& identifier, unsigned tokenHash); // returns wxNOT_FOUND on failure
     TokenId InsertToken(const wxString& identifier, const AbstractToken& token); // duplicate tokens are discarded
-    TokenId GetTokenId(const wxString& identifier, unsigned tokenHash) const; // returns wxNOT_FOUND on failure
-    AbstractToken& GetToken(TokenId tId) const;
-    std::vector<TokenId> GetTokenMatches(const wxString& identifier) const;
+    AbstractToken GetToken(TokenId tId);
+    std::vector<TokenId> GetTokenMatches(const wxString& identifier);
 
     void Shrink();
 
 private:
+
     TreeMap<AbstractToken>* m_pTokens;
     TreeMap<wxString>* m_pFilenames;
+    wxMutex m_Mutex;
 };
 
 #endif // TOKENDATABASE_H
