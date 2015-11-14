@@ -139,6 +139,8 @@ private: // Internal utility functions
     // Async
     void OnCreateTranslationUnit( wxCommandEvent& evt );
 
+    void RequestReparse();
+
 private: // Members
 
     TokenDatabase m_Database;
@@ -162,7 +164,6 @@ private: // Members
     int m_CCOutstandingPos;
     std::vector<ClToken> m_CCOutstandingResults;
     int m_ReparseNeeded;
-    int m_ReparseNeededLine;
     int m_ReparseBusy;
 
 private:

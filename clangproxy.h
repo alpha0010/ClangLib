@@ -136,7 +136,7 @@ public:
         // Called on job thread
         virtual void Completed(ClangProxy& clangProxy)
         {
-            if( clangProxy.m_pEventCallbackHandler&&(m_EventType != 0) )
+            if (clangProxy.m_pEventCallbackHandler&&(m_EventType != 0) )
             {
                 ClangProxy::CallbackEvent evt( m_EventType, m_EventId, this);
                 clangProxy.m_pEventCallbackHandler->AddPendingEvent( evt );
@@ -167,7 +167,7 @@ public:
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
             m_TranslationUnitId = clangproxy.GetTranslationUnitId(m_TranslationUnitId, m_Filename);
-            if( m_TranslationUnitId == wxNOT_FOUND )
+            if (m_TranslationUnitId == wxNOT_FOUND )
             {
                 clangproxy.CreateTranslationUnit(m_Filename, m_Commands, m_TranslationUnitId);
             }
@@ -214,11 +214,12 @@ public:
     class ReparseJob : public EventJob
     {
     public:
-        ReparseJob( wxEventType evtType, int evtId, int translId, const wxString& compileCommand, const std::map<wxString, wxString>& unsavedFiles )
+        ReparseJob( wxEventType evtType, int evtId, int translId, const wxString& compileCommand, const wxString& filename, const std::map<wxString, wxString>& unsavedFiles )
             : EventJob(ReparseType, evtType, evtId),
               m_TranslId(translId),
               m_UnsavedFiles(),
-              m_CompileCommand(compileCommand.c_str())
+              m_CompileCommand(compileCommand.c_str()),
+              m_Filename(filename.c_str())
         {
             /* deep copy */
             for( std::map<wxString, wxString>::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it)
@@ -244,6 +245,7 @@ public:
         int m_TranslId;
         std::map<wxString, wxString> m_UnsavedFiles;
         wxString m_CompileCommand;
+        wxString m_Filename;
     };
 
     /* final */
@@ -334,7 +336,7 @@ public:
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
             wxMutexLocker lock(*m_pMutex);
-            if( m_bCompleted )
+            if (m_bCompleted )
             {
                 return wxCOND_NO_ERROR;
             }
@@ -587,7 +589,7 @@ public:
         wxEvent* Clone() const
         {
             ClangProxy::ClangJob* pJob = static_cast<ClangProxy::ClangJob*>(GetEventObject());
-            if( pJob )
+            if (pJob )
                 pJob = pJob->Clone();
             return new CallbackEvent( m_eventType, m_id, pJob );
         }

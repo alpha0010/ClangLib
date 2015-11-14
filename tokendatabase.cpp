@@ -26,7 +26,8 @@ TokenDatabase::~TokenDatabase()
 FileId TokenDatabase::GetFilenameId(const wxString& filename)
 {
     wxMutexLocker lock(m_Mutex);
-
+    assert(m_pFilenames);
+    assert(m_pT);
     wxFileName fln(filename.c_str());
     fln.Normalize(wxPATH_NORM_ALL & ~wxPATH_NORM_CASE);
     const wxString& normFile = fln.GetFullPath(wxPATH_UNIX);
@@ -45,11 +46,13 @@ wxString TokenDatabase::GetFilename(FileId fId)
 {
     wxMutexLocker lock( m_Mutex);
 
+    assert(m_pFilenames->HasValue(fId));
+    //if (!m_pFilenames->HasValue(fId))
+    //    return wxString();
+
     const wxChar* val = m_pFilenames->GetValue(fId).c_str();
-    if( val == NULL )
-    {
+    if (val == NULL)
         return wxString();
-    }
 
     fprintf(stdout, "%s this=%p id=%d Returning %p", __PRETTY_FUNCTION__, (void*)this, (int)fId, (void*)val );
     return wxString(val);
@@ -72,8 +75,9 @@ TokenId TokenDatabase::GetTokenId(const wxString& identifier, unsigned tokenHash
     for (std::vector<int>::const_iterator itr = ids.begin();
             itr != ids.end(); ++itr)
     {
-        if (m_pTokens->GetValue(*itr).tokenHash == tokenHash)
-            return *itr;
+        if (m_pTokens->HasValue(*itr))
+            if (m_pTokens->GetValue(*itr).tokenHash == tokenHash)
+                return *itr;
     }
     return wxNOT_FOUND;
 }
@@ -81,6 +85,7 @@ TokenId TokenDatabase::GetTokenId(const wxString& identifier, unsigned tokenHash
 AbstractToken TokenDatabase::GetToken(TokenId tId)
 {
     wxMutexLocker lock( m_Mutex);
+    assert( m_pTokens->HasValue(tId) );
     return m_pTokens->GetValue(tId);
 }
 

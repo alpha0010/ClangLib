@@ -52,11 +52,11 @@ public:
     int GetFileId() const { return m_FileId; }
     bool IsEmpty() const { return m_Files.empty(); }
     bool IsValid() const {
-        if(IsEmpty())
+        if (IsEmpty())
             return false;
-        if(m_ClTranslUnit==nullptr)
+        if (m_ClTranslUnit==nullptr)
             return false;
-        if(m_Id < 0)
+        if (m_Id < 0)
             return false;
         return true;
     }

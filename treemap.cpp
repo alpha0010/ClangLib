@@ -204,6 +204,7 @@ std::vector<int> TreeMap<int>::GetIdSet(const wxString& key) const
 #endif // USE_TREE_MAP
 }
 
+// Function just returns itself.
 int TreeMap<int>::GetValue(int id) const
 {
     return id;

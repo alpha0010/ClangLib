@@ -223,6 +223,13 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
 #endif
     std::vector<CCToken> tokens;
 
+    int CCOutstanding = m_CCOutstanding;
+    if ((CCOutstanding > 0)&&(m_CCOutstandingPos != ed->GetControl()->GetCurrentPos()))
+    {
+        CCOutstanding = 0;
+    }
+
+    m_CCOutstanding = 0;
     if (ed  != m_pLastEditor)
     {
         // Switching files
@@ -240,12 +247,12 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
     const wxChar curChar = stc->GetCharAt(tknEnd - 1);
     if (isAuto) // filter illogical cases of auto-launch
     {
-        if (   (   curChar == wxT(':') // scope operator
+        if ((curChar == wxT(':') // scope operator
                 && stc->GetCharAt(tknEnd - 2) != wxT(':') )
-                || (   curChar == wxT('>') // '->'
+                || ( curChar == wxT('>') // '->'
                         && stc->GetCharAt(tknEnd - 2) != wxT('-') )
-                || (   wxString(wxT("<\"/")).Find(curChar) != wxNOT_FOUND // #include directive (TODO: enumerate completable include files)
-                        && !stc->IsPreprocessor(style) ) )
+                || ( wxString(wxT("<\"/")).Find(curChar) != wxNOT_FOUND // #include directive (TODO: enumerate completable include files)
+                        && !stc->IsPreprocessor(style)))
         {
             return tokens;
         }
@@ -264,8 +271,8 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
     int column = tknStart - lnStart;
     for (; column > 0; --column)
     {
-        if ( !wxIsspace(stc->GetCharAt(lnStart + column - 1))
-                || (column != 1 && !wxIsspace(stc->GetCharAt(lnStart + column - 2))) )
+        if (!wxIsspace(stc->GetCharAt(lnStart + column - 1))
+                || (column != 1 && !wxIsspace(stc->GetCharAt(lnStart + column - 2))))
         {
             break;
         }
@@ -285,15 +292,15 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
     }
 
     std::vector<ClToken> tknResults;
-    if( (m_CCOutstanding == 0)||(m_CCOutstandingPos != ed->GetControl()->GetCurrentPos()) )
+    if ((CCOutstanding == 0)||(m_CCOutstandingResults.size()==0))
     {
         ClangProxy::CodeCompleteAtJob job( cbEVT_CLANG_SYNCTASK_FINISHED, idClangCodeCompleteTask, isAuto, ed->GetFilename(), line+1, column+1, m_TranslUnitId, unsavedFiles);
         m_Proxy.AppendPendingJob(job);
         unsigned long timeout = 200;
 
-        if( wxCOND_TIMEOUT == job.WaitCompletion(timeout) )
+        if (wxCOND_TIMEOUT == job.WaitCompletion(timeout))
         {
-            if( wxGetLocalTime() - m_CCOutstandingLastMessageTime > 10 )
+            if (wxGetLocalTime() - m_CCOutstandingLastMessageTime > 10)
             {
                 InfoWindow::Display(_("Code completion"), _("Busy parsing the document"), 1000);
                 m_CCOutstandingLastMessageTime = wxGetLocalTime();
@@ -310,7 +317,6 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
     {
         tknResults = m_CCOutstandingResults;
     }
-    m_CCOutstanding = 0;
 
     //m_Proxy.CodeCompleteAt(isAuto, ed->GetFilename(), line + 1, column + 1,
     //        m_TranslUnitId, unsavedFiles, tknResults);
@@ -441,9 +447,9 @@ std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int /*styl
     while (--pos > 0)
     {
         const int curStyle = stc->GetStyleAt(pos);
-        if (   stc->IsString(curStyle)
+        if (stc->IsString(curStyle)
                 || stc->IsCharacter(curStyle)
-                || stc->IsComment(curStyle) )
+                || stc->IsComment(curStyle))
         {
             continue;
         }
@@ -470,8 +476,8 @@ std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int /*styl
     }
     while (--pos > 0)
     {
-        if (   stc->GetCharAt(pos) <= wxT(' ')
-                || stc->IsComment(stc->GetStyleAt(pos)) )
+        if (stc->GetCharAt(pos) <= wxT(' ')
+                || stc->IsComment(stc->GetStyleAt(pos)))
         {
             continue;
         }
@@ -488,7 +494,7 @@ std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int /*styl
         {
             ClangProxy::GetCallTipsAtJob job( cbEVT_CLANG_SYNCTASK_FINISHED, idClangSyncTask, ed->GetFilename(), line + 1, column + 1, m_TranslUnitId, tknText);
             m_Proxy.AppendPendingJob(job);
-            if( job.WaitCompletion(200) == wxCOND_TIMEOUT )
+            if (job.WaitCompletion(200) == wxCOND_TIMEOUT)
             {
                 fprintf(stdout,"GetCallTips: Timeout\n");
                 return tips;
@@ -567,7 +573,6 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
 #ifdef CLANGPLUGIN_TRACE_FUNCTIONS
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-    m_CCOutstanding = 0;
     wxString tknText = token.name;
     int idx = tknText.Find(wxT(':'));
     if (idx != wxNOT_FOUND)
@@ -611,8 +616,8 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
         stc->ReplaceTarget(tknText);
     stc->SetSelectionVoid(moveToPos + offsets.first, moveToPos + offsets.second);
     stc->ChooseCaretX();
-    if (   token.category != tcLangKeyword
-            && (offsets.first != offsets.second || offsets.first == 1) )
+    if (token.category != tcLangKeyword
+            && (offsets.first != offsets.second || offsets.first == 1))
     {
         int tooltipMode = Manager::Get()->GetConfigManager(wxT("ccmanager"))->ReadInt(wxT("/tooltip_mode"), 1);
         if (tooltipMode != 3) // keybound only
@@ -645,6 +650,7 @@ void ClangPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu,
         //m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
         m_TranslUnitId = wxNOT_FOUND;
         m_pLastEditor = ed;
+        m_ReparseNeeded = 0;
     }
     if (m_TranslUnitId == wxNOT_FOUND)
         return;
@@ -694,13 +700,14 @@ void ClangPlugin::OnEditorActivate(CodeBlocksEvent& event)
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
     if (ed)
     {
-        if( ed != m_pLastEditor )
+        if (ed != m_pLastEditor)
         {
             m_pLastEditor = ed;
             m_TranslUnitId = wxNOT_FOUND;
+            m_ReparseNeeded = 0;
         }
         int reparseNeeded = UpdateCompileCommand(ed);
-        if( (m_TranslUnitId == wxNOT_FOUND)||(reparseNeeded) )
+        if ((m_TranslUnitId == wxNOT_FOUND)||(reparseNeeded))
         {
             ClangProxy::CreateTranslationUnitJob job( cbEVT_CLANG_CREATETU_FINISHED, idClangCreateTU, ed->GetFilename(), m_CompileCommand );
             m_Proxy.AppendPendingJob(job);
@@ -735,16 +742,17 @@ void ClangPlugin::OnEditorClose(CodeBlocksEvent& event)
     cbEditor* ed = edm->GetBuiltinEditor(event.GetEditor());
     if (ed)
     {
-        if( ed != m_pLastEditor )
+        if (ed != m_pLastEditor)
         {
             translId = m_Proxy.GetTranslationUnitId(m_TranslUnitId, event.GetEditor()->GetFilename() );
         }
     }
     ClangProxy::RemoveTranslationUnitJob job( cbEVT_CLANG_REMOVETU_FINISHED, idClangRemoveTU, translId);
     m_Proxy.AppendPendingJob(job);
-    if( translId == m_TranslUnitId )
+    if (translId == m_TranslUnitId)
     {
         m_TranslUnitId = wxNOT_FOUND;
+        m_ReparseNeeded = 0;
     }
 
     // we need to clear CC toolbar only when we are closing last editor
@@ -778,14 +786,10 @@ void ClangPlugin::OnProjectOptionsChanged(CodeBlocksEvent& event)
     if (ed)
     {
         int compileCommandChanged = UpdateCompileCommand(ed);
-        if( compileCommandChanged )
+        if (compileCommandChanged)
         {
             std::cout<<"OnProjectOptionsChanged: Calling reparse (compile command changed)"<<std::endl;
-            //wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
-            //AddPendingEvent(evt);
-            m_ReparseTimer.Stop();
-            m_DiagnosticTimer.Stop();
-            m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
+            RequestReparse();
         }
     }
 }
@@ -799,13 +803,9 @@ void ClangPlugin::OnProjectFileChanged(CodeBlocksEvent& event)
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
     event.Skip();
-    if( IsAttached() )
+    if (IsAttached())
     {
-        //wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
-        //AddPendingEvent(evt);
-        m_ReparseTimer.Stop();
-        m_DiagnosticTimer.Stop();
-        m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
+        RequestReparse();
     }
 }
 
@@ -1015,13 +1015,13 @@ int ClangPlugin::UpdateCompileCommand(cbEditor* ed)
 
     ProjectBuildTarget* target = nullptr;
     Compiler* comp = nullptr;
-    if (pf && pf->GetParentProject() && !pf->GetBuildTargets().IsEmpty() )
+    if (pf && pf->GetParentProject() && !pf->GetBuildTargets().IsEmpty())
     {
         target = pf->GetParentProject()->GetBuildTarget(pf->GetBuildTargets()[0]);
         comp = CompilerFactory::GetCompiler(target->GetCompilerID());
     }
     cbProject* proj = (pf ? pf->GetParentProject() : nullptr);
-    if (!comp && proj)
+    if ( (!comp) && proj)
         comp = CompilerFactory::GetCompiler(proj->GetCompilerID());
     if (!comp)
     {
@@ -1032,11 +1032,11 @@ int ClangPlugin::UpdateCompileCommand(cbEditor* ed)
     if (!comp)
         comp = CompilerFactory::GetDefaultCompiler();
 
-    if ( pf && (!pf->GetBuildTargets().IsEmpty()) )
+    if (pf && (!pf->GetBuildTargets().IsEmpty()) )
     {
         target = pf->GetParentProject()->GetBuildTarget(pf->GetBuildTargets()[0]);
 
-        if (pf->GetUseCustomBuildCommand(target->GetCompilerID() ) )
+        if (pf->GetUseCustomBuildCommand(target->GetCompilerID() ))
             compileCommand = pf->GetCustomBuildCommand(target->GetCompilerID()).AfterFirst(wxT(' '));
 
     }
@@ -1044,7 +1044,7 @@ int ClangPlugin::UpdateCompileCommand(cbEditor* ed)
     if (compileCommand.IsEmpty())
         compileCommand = wxT("$options $includes");
     CompilerCommandGenerator* gen = comp->GetCommandGenerator(proj);
-    if ( gen )
+    if (gen)
         gen->GenerateCommandLine(compileCommand, target, pf, ed->GetFilename(),
                 g_InvalidStr, g_InvalidStr, g_InvalidStr );
     delete gen;
@@ -1065,7 +1065,7 @@ int ClangPlugin::UpdateCompileCommand(cbEditor* ed)
         compileCommand += flag + wxT(" ");
     }
     compileCommand += GetCompilerInclDirs(comp->GetID());
-    if( compileCommand != m_CompileCommand )
+    if (compileCommand != m_CompileCommand)
     {
         m_CompileCommand = compileCommand;
         return 1;
@@ -1135,7 +1135,7 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         }
         HighlightOccurrences(ed);
     }
-    else if (evId == idDiagnosticTimer )
+    else if (evId == idDiagnosticTimer)
     {
         wxCommandEvent evt(cbEVT_COMMAND_DIAGNOSEED, idDiagnoseEd);
         AddPendingEvent(evt);
@@ -1153,25 +1153,25 @@ void ClangPlugin::OnClangCreateTUFinished( wxEvent& event )
 #endif
 
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
-    if( !ed )
+    if (!ed)
     {
         fprintf(stdout,"%s No editor ???\n", __PRETTY_FUNCTION__);
         return;
     }
 
     ClangProxy::CreateTranslationUnitJob* obj = static_cast<ClangProxy::CreateTranslationUnitJob*>(event.GetEventObject());
-    if( !obj )
+    if (!obj)
     {
         fprintf(stdout,"%s No passed job ???\n", __PRETTY_FUNCTION__);
         return;
     }
     //std::cout<<"Translation unit created: "<<obj->m_TranslationUnitId<<" file="<<obj->m_Filename.c_str()<<std::endl;
-    if( obj->m_Filename != ed->GetFilename() )
+    if (obj->m_Filename != ed->GetFilename())
     {
         fprintf(stdout,"%s: Filename mismatch, probably another file was loaded while we were busy parsing. TU filename: '%s', current filename: '%s'\n", __PRETTY_FUNCTION__, (const char*)obj->m_Filename.c_str(), (const char*)ed->GetFilename().c_str());
         return;
     }
-    if( m_TranslUnitId != obj->m_TranslationUnitId )
+    if (m_TranslUnitId != obj->m_TranslationUnitId)
     {
         wxCommandEvent evt(cbEVT_COMMAND_DIAGNOSEED, idDiagnoseEd);
         AddPendingEvent(evt);
@@ -1197,6 +1197,8 @@ void ClangPlugin::OnReparse( wxCommandEvent& /*event*/ )
         return;
     }
 
+    m_ReparseNeeded = 0;
+
     if (ed != m_pLastEditor)
     {
         //m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
@@ -1218,9 +1220,8 @@ void ClangPlugin::OnReparse( wxCommandEvent& /*event*/ )
         if (ed && ed->GetModified())
             unsavedFiles.insert(std::make_pair(ed->GetFilename(), ed->GetControl()->GetText()));
     }
-    ClangProxy::ReparseJob job( cbEVT_CLANG_REPARSE_FINISHED, idClangReparse, m_TranslUnitId, m_CompileCommand, unsavedFiles);
+    ClangProxy::ReparseJob job( cbEVT_CLANG_REPARSE_FINISHED, idClangReparse, m_TranslUnitId, m_CompileCommand, ed->GetFilename(), unsavedFiles);
     m_Proxy.AppendPendingJob(job);
-    m_ReparseNeeded = 0;
     m_ReparseBusy++;
 }
 
@@ -1231,13 +1232,13 @@ void ClangPlugin::OnClangReparseFinished( wxEvent& event )
 #endif
     m_ReparseBusy--;
     ClangProxy::ReparseJob* pJob = static_cast<ClangProxy::ReparseJob*>(event.GetEventObject());
-    if( pJob->m_TranslId != this->m_TranslUnitId )
+    if (pJob->m_TranslId != this->m_TranslUnitId)
     {
         std::cout<<" Reparse finished but another file was loaded"<<std::endl;
         return;
     }
 
-    if( m_ReparseNeeded )
+    if (m_ReparseNeeded)
     {
         wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
         AddPendingEvent(evt);
@@ -1263,17 +1264,8 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
         m_ReparseTimer.Stop();
         if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
         {
-            const int pos = stc->GetCurrentPos();
             m_ReparseNeeded++;
-            if( m_ReparseNeeded == 1 )
-            {
-                m_ReparseNeededLine = stc->LineFromPosition(pos);
-            }
-            else
-            {
-                if( m_ReparseNeededLine != stc->LineFromPosition(pos) )
-                    reparse = true;
-            }
+            reparse = true;
             clearIndicator = true;
         }
     }
@@ -1294,11 +1286,7 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     }
     if (reparse)
     {
-        m_DiagnosticTimer.Stop();
-        //wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
-        //AddPendingEvent(evt);
-        m_ReparseTimer.Stop();
-        m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
+        RequestReparse();
     }
 }
 
@@ -1311,12 +1299,12 @@ void ClangPlugin::OnDiagnoseEd( wxCommandEvent& /*event*/ )
     if (m_ReparseNeeded > 0)
     {
         // Diagnostics will be requested again after reparse
-        fprintf(stdout,"%s: Reparse needed...\n", __PRETTY_FUNCTION__);
+        fprintf(stdout,"%s: Reparse needed... (%d)\n", __PRETTY_FUNCTION__, m_ReparseNeeded);
         return;
     }
     if (m_ReparseBusy > 0)
     {
-        fprintf(stdout,"%s: Reparse busy...\n", __PRETTY_FUNCTION__);
+        fprintf(stdout,"%s: Reparse busy (%d)...\n", __PRETTY_FUNCTION__, m_ReparseBusy);
         return;
     }
     ClangProxy::GetDiagnosticsJob job( cbEVT_CLANG_GETDIAGNOSTICS_FINISHED, idClangGetDiagnostics, m_TranslUnitId );
@@ -1339,7 +1327,7 @@ void ClangPlugin::OnClangGetDiagnosticsFinished( wxEvent& event )
         std::cout<<"No editor..."<<std::endl;
         return;
     }
-    if( (pJob->m_TranslId != m_TranslUnitId)||(ed != m_pLastEditor) )
+    if ((pJob->m_TranslId != m_TranslUnitId)||(ed != m_pLastEditor))
     {
         // No longer the current editor
         std::cout<<"Diagnostics requested but another file was loaded..."<<std::endl;
@@ -1384,7 +1372,7 @@ void ClangPlugin::OnClangGetDiagnosticsFinished( wxEvent& event )
         }
         if (dgItr->severity == sError)
             stc->SetIndicatorCurrent(errorIndicator);
-        else if (   dgItr != pJob->m_Diagnostics.begin()
+        else if (  dgItr != pJob->m_Diagnostics.begin()
                 && dgItr->line == (dgItr - 1)->line
                 && dgItr->range.first <= (dgItr - 1)->range.second )
         {
@@ -1405,24 +1393,20 @@ void ClangPlugin::OnClangSyncTaskFinished( wxEvent& event )
 #endif
     ClangProxy::SyncJob* pJob = static_cast<ClangProxy::SyncJob*>(event.GetEventObject());
 
-    if( event.GetId() == idClangCodeCompleteTask )
+    if (event.GetId() == idClangCodeCompleteTask)
     {
-        if( m_CCOutstanding > 0 )
+        if (m_CCOutstanding > 0)
         {
-            if( m_CCOutstanding == 1 )
+            EditorManager* edMgr = Manager::Get()->GetEditorManager();
+            cbEditor* ed = edMgr->GetBuiltinActiveEditor();
+            if (ed)
             {
-                EditorManager* edMgr = Manager::Get()->GetEditorManager();
-                cbEditor* ed = edMgr->GetBuiltinActiveEditor();
-                if (ed)
+                if (ed->GetControl()->GetCurrentPos() == m_CCOutstandingPos)
                 {
-                    if( ed->GetControl()->GetCurrentPos() == m_CCOutstandingPos )
-                    {
-                        CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
-                        Manager::Get()->ProcessEvent(evt);
-                    }
+                    CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
+                    Manager::Get()->ProcessEvent(evt);
                 }
             }
-            m_CCOutstanding--;
         }
     }
 
@@ -1437,9 +1421,9 @@ void ClangPlugin::HighlightOccurrences(cbEditor* ed)
     cbStyledTextCtrl* stc = ed->GetControl();
     int pos = stc->GetCurrentPos();
     const wxChar ch = stc->GetCharAt(pos);
-    if (   pos > 0
+    if (pos > 0
             && (wxIsspace(ch) || (ch != wxT('_') && wxIspunct(ch)))
-            && !wxIsspace(stc->GetCharAt(pos - 1)) )
+            && !wxIsspace(stc->GetCharAt(pos - 1)))
     {
         --pos;
     }
@@ -1467,7 +1451,7 @@ void ClangPlugin::HighlightOccurrences(cbEditor* ed)
     const int column = pos - stc->PositionFromLine(line);
     ClangProxy::GetOccurrencesOfJob job(cbEVT_CLANG_SYNCTASK_FINISHED, idClangSyncTask, ed->GetFilename(), line + 1, column + 1, m_TranslUnitId);
     m_Proxy.AppendPendingJob(job);
-    if( job.WaitCompletion(200) == wxCOND_TIMEOUT )
+    if (job.WaitCompletion(200) == wxCOND_TIMEOUT)
     {
         return;
     }
@@ -1480,4 +1464,12 @@ void ClangPlugin::HighlightOccurrences(cbEditor* ed)
     {
         stc->IndicatorFillRange(tkn->first, tkn->second);
     }
+}
+
+void ClangPlugin::RequestReparse()
+{
+    m_ReparseNeeded++;
+    m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
+    m_DiagnosticTimer.Stop();
+    m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
 }

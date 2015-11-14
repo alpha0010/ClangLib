@@ -99,7 +99,7 @@ CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_fil
         unsigned complete_column, struct CXUnsavedFile* unsaved_files,
         unsigned num_unsaved_files )
 {
-    if( m_ClTranslUnit == nullptr )
+    if (m_ClTranslUnit == nullptr )
     {
         fprintf(stdout,"%s: m_ClTranslUnit is NULL!\n", __PRETTY_FUNCTION__);
         return NULL;
@@ -117,7 +117,7 @@ CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_fil
             | CXCodeComplete_IncludeCodePatterns
             | CXCodeComplete_IncludeBriefComments);
     m_LastPos.Set(complete_line, complete_column);
-    if( !m_LastCC )
+    if (!m_LastCC )
     {
         fprintf(stdout,"%s: clang_CodeComplete returned NULL!\n", __PRETTY_FUNCTION__);
     }
@@ -175,7 +175,7 @@ void TranslationUnit::Parse( const wxString& filename, const std::vector<const c
         clUnsavedFiles.push_back(unit);
     }
 
-    if( filename.length() != 0)
+    if (filename.length() != 0)
     {
         m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
             args.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size(),
@@ -207,7 +207,7 @@ void TranslationUnit::Parse( const wxString& filename, const std::vector<const c
 
 void TranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles)
 {
-    if( m_ClTranslUnit == nullptr )
+    if (m_ClTranslUnit == nullptr )
     {
         fprintf(stdout,"ERROR: Reparsing a NULL translation Unit\n");
         return;
@@ -232,15 +232,19 @@ void TranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles)
 
     // TODO: check and handle error conditions
     int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clang_defaultReparseOptions(m_ClTranslUnit));
-    if( ret != 0 )
+    if (ret != 0 )
     {
         fprintf(stdout,"ERROR: reparseTranslationUnit() failed!");
+
+        // The only thing we can do according to Clang documentation is dispose it...
+        clang_disposeTranslationUnit(m_ClTranslUnit);
+        m_ClTranslUnit = nullptr;
     }
 }
 
 void TranslationUnit::GetDiagnostics(std::vector<ClDiagnostic>& diagnostics)
 {
-    if( m_ClTranslUnit == nullptr )
+    if (m_ClTranslUnit == nullptr )
     {
         return;
     }
@@ -275,7 +279,7 @@ void TranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, std::vector<C
         for (size_t j = 0; j < numRnges; ++j) // often no range data (clang bug?)
         {
             RangeToColumns(clang_getDiagnosticRange(diag, j), rgStart, rgEnd);
-            if(rgStart != rgEnd)
+            if (rgStart != rgEnd)
                 break;
         }
         if (rgStart == rgEnd) // check if there is FixIt data for the range

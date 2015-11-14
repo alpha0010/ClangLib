@@ -47,6 +47,15 @@ class TreeMap
             return m_Tree.GetIdSet(key);
         }
 
+        bool HasValue(int id)
+        {
+            if (id < 0)
+                return false;
+            if (id >= (int)m_Data.size())
+                return false;
+            return true;
+        }
+
         _Tp& GetValue(int id)
         {
             return m_Data[id];
