@@ -23,7 +23,7 @@ struct ClDiagnostic
 class TranslationUnit
 {
 public:
-    TranslationUnit( int id );
+    TranslationUnit( int id, CXIndex clIndex );
     // move ctor
 #if __cplusplus >= 201103L
     TranslationUnit(TranslationUnit&& other);
@@ -38,6 +38,7 @@ public:
         swap(first.m_Id, second.m_Id);
         swap(first.m_FileId, second.m_FileId);
         swap(first.m_Files, second.m_Files);
+        swap(first.m_ClIndex, second.m_ClIndex);
         swap(first.m_ClTranslUnit, second.m_ClTranslUnit);
         swap(first.m_LastCC, second.m_LastCC);
     }
@@ -46,6 +47,7 @@ public:
         swap(*this,other);
         return *this;
     }
+    bool UsesClangIndex( const CXIndex& idx ){ return idx == m_ClIndex; }
 
     void AddInclude(FileId fId);
     bool Contains(FileId fId);
@@ -70,7 +72,7 @@ public:
     CXCursor GetTokensAt(const wxString& filename, int line, int column);
     void Parse( const wxString& filename, const std::vector<const char*>& args,
                 const std::map<wxString, wxString>& unsavedFiles,
-                CXIndex clIndex, TokenDatabase* database );
+                TokenDatabase* database );
     void Reparse( const std::map<wxString, wxString>& unsavedFiles );
     void GetDiagnostics(std::vector<ClDiagnostic>& diagnostics);
     CXFile GetFileHandle(const wxString& filename) const;
@@ -86,6 +88,7 @@ public:
     int m_Id;
     FileId m_FileId;
     std::vector<FileId> m_Files;
+    CXIndex m_ClIndex;
     CXTranslationUnit m_ClTranslUnit;
     CXCodeCompleteResults* m_LastCC;
 

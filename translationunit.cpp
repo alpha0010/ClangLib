@@ -19,9 +19,10 @@ static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion
 
 static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data);
 
-TranslationUnit::TranslationUnit( int id ) :
+TranslationUnit::TranslationUnit( int id, CXIndex clIndex ) :
     m_Id(id),
     m_FileId(-1),
+    m_ClIndex(clIndex),
     m_ClTranslUnit(nullptr),
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
@@ -33,6 +34,7 @@ TranslationUnit::TranslationUnit( int id ) :
 TranslationUnit::TranslationUnit(TranslationUnit&& other) :
     m_Id(other.m_Id),
     m_Files(std::move(other.m_Files)),
+    m_ClIndex(other.m_ClIndex),
     m_ClTranslUnit(other.m_ClTranslUnit),
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
@@ -49,6 +51,7 @@ TranslationUnit::TranslationUnit(const TranslationUnit& WXUNUSED(other))
 #else
 TranslationUnit::TranslationUnit(const TranslationUnit& other) :
     m_Id(other.m_Id),
+    m_ClIndex(other.m_ClIndex),
     m_ClTranslUnit(other.m_ClTranslUnit),
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
@@ -140,7 +143,7 @@ CXCursor TranslationUnit::GetTokensAt(const wxString& filename, int line, int co
 /**
  * Parses the supplied file and unsaved files
  */
-void TranslationUnit::Parse( const wxString& filename, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles, CXIndex clIndex, TokenDatabase* database )
+void TranslationUnit::Parse( const wxString& filename, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles, TokenDatabase* database )
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 
@@ -177,11 +180,19 @@ void TranslationUnit::Parse( const wxString& filename, const std::vector<const c
 
     if (filename.length() != 0)
     {
-        m_ClTranslUnit = clang_parseTranslationUnit( clIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
+        m_ClTranslUnit = clang_parseTranslationUnit( m_ClIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
             args.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size(),
-            clang_defaultEditingTranslationUnitOptions()
+            /*clang_defaultEditingTranslationUnitOptions()
             | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
-            | CXTranslationUnit_DetailedPreprocessingRecord );
+            | CXTranslationUnit_DetailedPreprocessingRecord */
+            CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_PrecompiledPreamble |
+                CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
+                CXTranslationUnit_CXXChainedPCH
+            );
+        if( m_ClTranslUnit == nullptr )
+        {
+            return;
+        }
         std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, database);
         clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
         m_FileId = database->GetFilenameId(filename);
@@ -196,6 +207,10 @@ void TranslationUnit::Parse( const wxString& filename, const std::vector<const c
     #endif
         //fprintf(stdout,"%s calling Reparse()\n", __PRETTY_FUNCTION__);
         //Reparse(0, nullptr); // seems to improve performance for some reason?
+        //int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
+        //                    clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
+        //                    clang_defaultReparseOptions(m_ClTranslUnit)
+        //                                   );
 
         //fprintf(stdout,"%s calling VisitChildren\n", __PRETTY_FUNCTION__);
         clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, database);
@@ -231,7 +246,13 @@ void TranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles)
     }
 
     // TODO: check and handle error conditions
-    int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clang_defaultReparseOptions(m_ClTranslUnit));
+    int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
+                            clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
+                            //clang_defaultReparseOptions(m_ClTranslUnit)
+                CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_PrecompiledPreamble |
+                CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
+                CXTranslationUnit_CXXChainedPCH
+                                           );
     if (ret != 0 )
     {
         fprintf(stdout,"ERROR: reparseTranslationUnit() failed!");

@@ -82,11 +82,10 @@ ClangPlugin::ClangPlugin() :
     m_CCOutstanding(0),
     m_CCOutstandingPos(0),
     m_ReparseNeeded(0),
-
     m_ToolBar(nullptr),
     m_Function(nullptr),
-    m_Scope(nullptr)
-
+    m_Scope(nullptr),
+    m_UpdateCompileCommand(0)
 {
     if (!Manager::LoadResource(_T("clanglib.zip")))
         NotifyMissingFile(_T("clanglib.zip"));
@@ -1013,6 +1012,14 @@ int ClangPlugin::UpdateCompileCommand(cbEditor* ed)
     wxString compileCommand;
     ProjectFile* pf = ed->GetProjectFile();
 
+    m_UpdateCompileCommand++;
+    if( m_UpdateCompileCommand > 1 )
+    {
+        // Re-entry is not allowed
+        m_UpdateCompileCommand--;
+        return 0;
+    }
+
     ProjectBuildTarget* target = nullptr;
     Compiler* comp = nullptr;
     if (pf && pf->GetParentProject() && !pf->GetBuildTargets().IsEmpty())
@@ -1065,6 +1072,9 @@ int ClangPlugin::UpdateCompileCommand(cbEditor* ed)
         compileCommand += flag + wxT(" ");
     }
     compileCommand += GetCompilerInclDirs(comp->GetID());
+
+    m_UpdateCompileCommand--;
+
     if (compileCommand != m_CompileCommand)
     {
         m_CompileCommand = compileCommand;
@@ -1165,16 +1175,10 @@ void ClangPlugin::OnClangCreateTUFinished( wxEvent& event )
         fprintf(stdout,"%s No passed job ???\n", __PRETTY_FUNCTION__);
         return;
     }
-    //std::cout<<"Translation unit created: "<<obj->m_TranslationUnitId<<" file="<<obj->m_Filename.c_str()<<std::endl;
     if (obj->m_Filename != ed->GetFilename())
     {
-        fprintf(stdout,"%s: Filename mismatch, probably another file was loaded while we were busy parsing. TU filename: '%s', current filename: '%s'\n", __PRETTY_FUNCTION__, (const char*)obj->m_Filename.c_str(), (const char*)ed->GetFilename().c_str());
+        fprintf(stdout,"%s: Filename mismatch, probably another file was loaded while we were busy parsing. TU filename: '%s', current filename: '%s'\n", __PRETTY_FUNCTION__, (const char*)obj->m_Filename.mb_str(), (const char*)ed->GetFilename().mb_str());
         return;
-    }
-    if (m_TranslUnitId != obj->m_TranslationUnitId)
-    {
-        wxCommandEvent evt(cbEVT_COMMAND_DIAGNOSEED, idDiagnoseEd);
-        AddPendingEvent(evt);
     }
     m_TranslUnitId = obj->m_TranslationUnitId;
     m_pLastEditor = ed;
@@ -1237,9 +1241,9 @@ void ClangPlugin::OnClangReparseFinished( wxEvent& event )
         std::cout<<" Reparse finished but another file was loaded"<<std::endl;
         return;
     }
-
     if (m_ReparseNeeded)
     {
+        fprintf(stdout,"%s: Reparsing again, was modified while we were busy...\n", __PRETTY_FUNCTION__);
         wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
         AddPendingEvent(evt);
     }
@@ -1264,7 +1268,6 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
         m_ReparseTimer.Stop();
         if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
         {
-            m_ReparseNeeded++;
             reparse = true;
             clearIndicator = true;
         }
@@ -1292,14 +1295,17 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 
 void ClangPlugin::OnDiagnoseEd( wxCommandEvent& /*event*/ )
 {
-//#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-//#endif
+#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
+    //fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+#endif
 
     if (m_ReparseNeeded > 0)
     {
         // Diagnostics will be requested again after reparse
         fprintf(stdout,"%s: Reparse needed... (%d)\n", __PRETTY_FUNCTION__, m_ReparseNeeded);
+        m_ReparseTimer.Stop();
+        wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
+        AddPendingEvent(evt);
         return;
     }
     if (m_ReparseBusy > 0)
@@ -1395,6 +1401,7 @@ void ClangPlugin::OnClangSyncTaskFinished( wxEvent& event )
 
     if (event.GetId() == idClangCodeCompleteTask)
     {
+        ClangProxy::CodeCompleteAtJob* pCCJob = dynamic_cast<ClangProxy::CodeCompleteAtJob*>(pJob);
         if (m_CCOutstanding > 0)
         {
             EditorManager* edMgr = Manager::Get()->GetEditorManager();
@@ -1403,8 +1410,12 @@ void ClangPlugin::OnClangSyncTaskFinished( wxEvent& event )
             {
                 if (ed->GetControl()->GetCurrentPos() == m_CCOutstandingPos)
                 {
-                    CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
-                    Manager::Get()->ProcessEvent(evt);
+                    m_CCOutstandingResults = pCCJob->GetResults();
+                    if( m_CCOutstandingResults.size() > 0 )
+                    {
+                        CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
+                        Manager::Get()->ProcessEvent(evt);
+                    }
                 }
             }
         }

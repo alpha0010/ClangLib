@@ -632,14 +632,16 @@ public:
 
     void ResolveDeclTokenAt(wxString& filename, int& line, int& column, int translId);
 
+    void TakeTranslationUnit( TranslationUnit& translUnit );
     void ParsedTranslationUnit( TranslationUnit& translUnit );
+    void ReturnTranslationUnit( TranslationUnit& translUnit );
 
 private:
     mutable wxMutex m_Mutex;
     TokenDatabase& m_Database;
     const std::vector<wxString>& m_CppKeywords;
     std::vector<TranslationUnit> m_TranslUnits;
-    CXIndex m_ClIndex;
+    CXIndex m_ClIndex[2];
 private: // Thread
     wxEvtHandler* m_pEventCallbackHandler;
     BackgroundThread* m_pThread;

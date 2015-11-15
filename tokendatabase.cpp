@@ -36,7 +36,7 @@ FileId TokenDatabase::GetFilenameId(const wxString& filename)
     {
         wxString f = wxString(normFile.c_str());
         FileId id = m_pFilenames->Insert( f, f );
-        fprintf(stdout,"%s this=%p Storing %s(%p) as %d\n", __PRETTY_FUNCTION__, (void*)this, (const char*)f.mb_str(), (void*)f.c_str(), (int)id );
+        //fprintf(stdout,"%s this=%p Storing %s(%p) as %d\n", __PRETTY_FUNCTION__, (void*)this, (const char*)f.mb_str(), (void*)f.c_str(), (int)id );
         return id;
     }
     return id.front();
@@ -54,7 +54,7 @@ wxString TokenDatabase::GetFilename(FileId fId)
     if (val == NULL)
         return wxString();
 
-    fprintf(stdout, "%s this=%p id=%d Returning %p", __PRETTY_FUNCTION__, (void*)this, (int)fId, (void*)val );
+    //fprintf(stdout, "%s this=%p id=%d Returning %p", __PRETTY_FUNCTION__, (void*)this, (int)fId, (void*)val );
     return wxString(val);
 }
 

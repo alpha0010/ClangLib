@@ -159,6 +159,7 @@ private: // Members
     int m_LastCallTipPos;
     std::vector<wxStringVec> m_LastCallTips;
     wxString m_CompileCommand;
+    int m_UpdateCompileCommand;
     unsigned int m_CCOutstanding;
     long m_CCOutstandingLastMessageTime;
     int m_CCOutstandingPos;
