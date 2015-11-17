@@ -5,7 +5,7 @@
 
 struct TreeNode;
 class wxString;
-template<typename _Tp> class TreeMap;
+template<typename _TpVal> class TreeMap;
 
 template<>
 class TreeMap<int>
@@ -21,12 +21,12 @@ class TreeMap<int>
         TreeNode* m_Root;
 };
 
-template<typename _Tp>
+template<typename _TpVal>
 class TreeMap
 {
     public:
         // returns the id of the value inserted
-        int Insert(const wxString& key, const _Tp& value)
+        int Insert(const wxString& key, const _TpVal& value)
         {
             m_Data.push_back(value);
             return m_Tree.Insert(key, m_Data.size() - 1);
@@ -38,7 +38,7 @@ class TreeMap
 #if __cplusplus >= 201103L
             m_Data.shrink_to_fit();
 #else
-            std::vector<_Tp>(m_Data).swap(m_Data);
+            std::vector<_TpVal>(m_Data).swap(m_Data);
 #endif
         }
 
@@ -56,14 +56,14 @@ class TreeMap
             return true;
         }
 
-        _Tp& GetValue(int id)
+        _TpVal& GetValue(int id)
         {
             return m_Data[id];
         }
 
     private:
         TreeMap<int> m_Tree;
-        std::vector<_Tp> m_Data;
+        std::vector<_TpVal> m_Data;
 };
 
 #endif // TREEMAP_H

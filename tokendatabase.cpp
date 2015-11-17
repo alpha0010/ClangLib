@@ -12,6 +12,7 @@
 
 TokenDatabase::TokenDatabase() :
     m_pTokens(new TreeMap<AbstractToken>()),
+    m_pFileTokens(new TreeMap<int>()),
     m_pFilenames(new TreeMap<wxString>()),
     m_Mutex(wxMUTEX_RECURSIVE)
 {
@@ -62,9 +63,14 @@ TokenId TokenDatabase::InsertToken(const wxString& identifier, const AbstractTok
 {
     wxMutexLocker lock(m_Mutex);
 
+    //fprintf(stdout,"InsertToken '%s'\n", (const char*)identifier.mbc_str());
     TokenId tId = GetTokenId(identifier, token.tokenHash);
     if (tId == wxNOT_FOUND)
-        return m_pTokens->Insert(wxString(identifier.c_str()), token);
+    {
+        tId = m_pTokens->Insert(wxString(identifier.c_str()), token);
+        wxString filen = wxString::Format(wxT("%d"), token.fileId);
+        m_pFileTokens->Insert(filen, tId);
+    }
     return tId;
 }
 
@@ -95,9 +101,19 @@ std::vector<TokenId> TokenDatabase::GetTokenMatches(const wxString& identifier)
     return m_pTokens->GetIdSet(identifier);
 }
 
+std::vector<TokenId> TokenDatabase::GetFileTokens(FileId fId)
+{
+    wxMutexLocker lock( m_Mutex);
+    wxString key = wxString::Format(wxT("%d"), fId);
+    std::vector<TokenId> tokens = m_pFileTokens->GetIdSet(key);
+
+    return tokens;
+}
+
 void TokenDatabase::Shrink()
 {
     wxMutexLocker lock(m_Mutex);
     m_pFilenames->Shrink();
     m_pTokens->Shrink();
+    m_pFileTokens->Shrink();
 }

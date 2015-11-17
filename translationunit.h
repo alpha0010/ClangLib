@@ -4,6 +4,8 @@
 #include <clang-c/Index.h>
 #include "tokendatabase.h"
 
+#include <map>
+
 unsigned HashToken(CXCompletionString token, wxString& identifier);
 
 enum Severity { sWarning, sError };
@@ -70,9 +72,9 @@ public:
             unsigned num_unsaved_files );
     const CXCompletionResult* GetCCResult(unsigned index);
     CXCursor GetTokensAt(const wxString& filename, int line, int column);
-    void Parse( const wxString& filename, const std::vector<const char*>& args,
+    void Parse( const wxString& filename, FileId FileId, const std::vector<const char*>& args,
                 const std::map<wxString, wxString>& unsavedFiles,
-                TokenDatabase* database );
+                TokenDatabase* pUpdateDatabase );
     void Reparse( const std::map<wxString, wxString>& unsavedFiles );
     void GetDiagnostics(std::vector<ClDiagnostic>& diagnostics);
     CXFile GetFileHandle(const wxString& filename) const;

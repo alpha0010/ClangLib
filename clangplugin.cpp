@@ -5,6 +5,7 @@
 #include <sdk.h>
 #include <stdio.h>
 #include "clangplugin.h"
+#include "clangtoolbar.h"
 
 #include <cbcolourmanager.h>
 #include <cbstyledtextctrl.h>
@@ -79,16 +80,14 @@ ClangPlugin::ClangPlugin() :
     m_HightlightTimer(this, idHightlightTimer),
     m_pLastEditor(nullptr),
     m_TranslUnitId(wxNOT_FOUND),
+    m_UpdateCompileCommand(0),
     m_CCOutstanding(0),
     m_CCOutstandingPos(0),
-    m_ReparseNeeded(0),
-    m_ToolBar(nullptr),
-    m_Function(nullptr),
-    m_Scope(nullptr),
-    m_UpdateCompileCommand(0)
+    m_ReparseNeeded(0)
 {
     if (!Manager::LoadResource(_T("clanglib.zip")))
         NotifyMissingFile(_T("clanglib.zip"));
+    m_ComponentList.push_back( new ClangToolbar() );
 }
 
 ClangPlugin::~ClangPlugin()
@@ -164,24 +163,36 @@ void ClangPlugin::OnAttach()
     Manager::Get()->RegisterEventSink(cbEVT_PROJECT_FILE_CHANGED, new ClEvent(this, &ClangPlugin::OnProjectFileChanged));
     Manager::Get()->RegisterEventSink(cbEVT_PROJECT_OPTIONS_CHANGED, new ClEvent(this, &ClangPlugin::OnProjectOptionsChanged));
     Manager::Get()->RegisterEventSink(cbEVT_PROJECT_CLOSE,    new ClEvent(this, &ClangPlugin::OnProjectClose));
-    //Connect(idEdOpenTimer,        wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
-    Connect(idReparseTimer,       wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
-    Connect(idDiagnosticTimer,    wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
-    Connect(idHightlightTimer,      wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
-    Connect(idGotoDeclaration,      wxEVT_COMMAND_MENU_SELECTED, /*wxMenuEventHandler*/wxCommandEventHandler(ClangPlugin::OnGotoDeclaration), nullptr, this);
-    Connect(idReparse,              cbEVT_COMMAND_REPARSE, wxCommandEventHandler(ClangPlugin::OnReparse), nullptr, this);
-    Connect(idDiagnoseEd,           cbEVT_COMMAND_DIAGNOSEED, wxCommandEventHandler(ClangPlugin::OnDiagnoseEd), nullptr, this);
-    Connect(idClangCreateTU,        cbEVT_CLANG_CREATETU_FINISHED, wxEventHandler(ClangPlugin::OnClangCreateTUFinished), nullptr, this);
-    Connect(idClangReparse,         cbEVT_CLANG_REPARSE_FINISHED, wxEventHandler(ClangPlugin::OnClangReparseFinished), nullptr, this);
-    Connect(idClangGetDiagnostics,  cbEVT_CLANG_GETDIAGNOSTICS_FINISHED, wxEventHandler(ClangPlugin::OnClangGetDiagnosticsFinished), nullptr, this);
-    Connect(idClangSyncTask, cbEVT_CLANG_SYNCTASK_FINISHED, wxEventHandler(ClangPlugin::OnClangSyncTaskFinished), nullptr, this);
+
+    //Connect(idEdOpenTimer,           wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idReparseTimer,          wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idDiagnosticTimer,       wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idHightlightTimer,       wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
+    Connect(idGotoDeclaration,       wxEVT_COMMAND_MENU_SELECTED, /*wxMenuEventHandler*/wxCommandEventHandler(ClangPlugin::OnGotoDeclaration), nullptr, this);
+    Connect(idReparse,               cbEVT_COMMAND_REPARSE, wxCommandEventHandler(ClangPlugin::OnReparse), nullptr, this);
+    Connect(idDiagnoseEd,            cbEVT_COMMAND_DIAGNOSEED, wxCommandEventHandler(ClangPlugin::OnDiagnoseEd), nullptr, this);
+    Connect(idClangCreateTU,         cbEVT_CLANG_CREATETU_FINISHED, wxEventHandler(ClangPlugin::OnClangCreateTUFinished), nullptr, this);
+    Connect(idClangReparse,          cbEVT_CLANG_REPARSE_FINISHED, wxEventHandler(ClangPlugin::OnClangReparseFinished), nullptr, this);
+    Connect(idClangGetDiagnostics,   cbEVT_CLANG_GETDIAGNOSTICS_FINISHED, wxEventHandler(ClangPlugin::OnClangGetDiagnosticsFinished), nullptr, this);
+    Connect(idClangSyncTask,         cbEVT_CLANG_SYNCTASK_FINISHED, wxEventHandler(ClangPlugin::OnClangSyncTaskFinished), nullptr, this);
     Connect(idClangCodeCompleteTask, cbEVT_CLANG_SYNCTASK_FINISHED, wxEventHandler(ClangPlugin::OnClangSyncTaskFinished), nullptr, this);
 
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangPlugin>(this, &ClangPlugin::OnEditorHook));
+
+    for( std::vector<ClangPluginComponent*>::iterator it = m_ComponentList.begin(); it != m_ComponentList.end(); ++it)
+    {
+        (*it)->OnAttach(this);
+    }
+
 }
 
 void ClangPlugin::OnRelease(bool WXUNUSED(appShutDown))
 {
+    for( std::vector<ClangPluginComponent*>::iterator it = m_ComponentList.begin(); it != m_ComponentList.end(); ++it)
+    {
+        (*it)->OnRelease(this);
+    }
+
     EditorHooks::UnregisterHook(m_EditorHookId);
     Disconnect(idGotoDeclaration);
     Disconnect(idHightlightTimer);
@@ -660,8 +671,18 @@ void ClangPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu,
     menu->Insert(0, idGotoDeclaration, _("Find declaration (clang)"));
 }
 
+
 bool ClangPlugin::BuildToolBar(wxToolBar* toolBar)
 {
+    for( std::vector<ClangPluginComponent*>::iterator it = m_ComponentList.begin(); it != m_ComponentList.end(); ++it)
+    {
+        if( (*it)->BuildToolBar(toolBar) )
+        {
+            return true;
+        }
+    }
+    return false;
+#if 0
     // load the toolbar resource
     Manager::Get()->AddonToolBar(toolBar,_T("codecompletion_toolbar"));
     // get the wxChoice control pointers
@@ -677,8 +698,8 @@ bool ClangPlugin::BuildToolBar(wxToolBar* toolBar)
     EnableToolbarTools(false);
 
     return true;
+    #endif
 }
-
 
 void ClangPlugin::OnEditorOpen(CodeBlocksEvent& event)
 {
@@ -752,20 +773,6 @@ void ClangPlugin::OnEditorClose(CodeBlocksEvent& event)
     {
         m_TranslUnitId = wxNOT_FOUND;
         m_ReparseNeeded = 0;
-    }
-
-    // we need to clear CC toolbar only when we are closing last editor
-    // in other situations OnEditorActivated does this job
-    // If no editors were opened, or a non-buildin-editor was active, disable the CC toolbar
-    if (edm->GetEditorsCount() == 0 || !edm->GetActiveEditor() || !edm->GetActiveEditor()->IsBuiltinEditor())
-    {
-        EnableToolbarTools(false);
-
-        // clear toolbar when closing last editor
-        if (m_Scope)
-            m_Scope->Clear();
-        if (m_Function)
-            m_Function->Clear();
     }
 }
 
@@ -1083,35 +1090,6 @@ int ClangPlugin::UpdateCompileCommand(cbEditor* ed)
     return 0;
 }
 
-void ClangPlugin::UpdateToolBar()
-{
-    bool showScope = Manager::Get()->GetConfigManager(_T("code_completion"))->ReadBool(_T("/scope_filter"), true);
-
-    if (showScope && !m_Scope)
-    {
-        m_Scope = new wxChoice(m_ToolBar, wxNewId(), wxPoint(0, 0), wxSize(280, -1), 0, 0);
-        m_ToolBar->InsertControl(0, m_Scope);
-    }
-    else if (!showScope && m_Scope)
-    {
-        m_ToolBar->DeleteTool(m_Scope->GetId());
-        m_Scope = NULL;
-    }
-    else
-        return;
-
-    m_ToolBar->Realize();
-    m_ToolBar->SetInitialSize();
-}
-
-void ClangPlugin::EnableToolbarTools(bool enable)
-{
-    if (m_Scope)
-        m_Scope->Enable(enable);
-    if (m_Function)
-        m_Function->Enable(enable);
-}
-
 void ClangPlugin::OnTimer(wxTimerEvent& event)
 {
     if (!IsAttached())
@@ -1226,7 +1204,7 @@ void ClangPlugin::OnReparse( wxCommandEvent& /*event*/ )
     }
     ClangProxy::ReparseJob job( cbEVT_CLANG_REPARSE_FINISHED, idClangReparse, m_TranslUnitId, m_CompileCommand, ed->GetFilename(), unsavedFiles);
     m_Proxy.AppendPendingJob(job);
-    m_ReparseBusy++;
+    //m_ReparseBusy++;
 }
 
 void ClangPlugin::OnClangReparseFinished( wxEvent& event )
@@ -1234,7 +1212,7 @@ void ClangPlugin::OnClangReparseFinished( wxEvent& event )
 #ifdef CLANGPLUGIN_TRACE_FUNCTIONS
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-    m_ReparseBusy--;
+    //m_ReparseBusy--;
     ClangProxy::ReparseJob* pJob = static_cast<ClangProxy::ReparseJob*>(event.GetEventObject());
     if (pJob->m_TranslId != this->m_TranslUnitId)
     {
@@ -1257,6 +1235,7 @@ void ClangPlugin::OnClangReparseFinished( wxEvent& event )
 
 void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 {
+    //fprintf(stdout,"OnEditorHook %d/%d/%d\n", (int)event.GetEventType(), (int)event.GetModificationType(), (int)event.GetUpdated());
     event.Skip();
     bool clearIndicator = false;
     bool reparse = false;
@@ -1265,6 +1244,7 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     cbStyledTextCtrl* stc = ed->GetControl();
     if (event.GetEventType() == wxEVT_SCI_MODIFIED)
     {
+        //fprintf(stdout,"wxEVT_SCI_MODIFIED\n");
         m_ReparseTimer.Stop();
         if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
         {
@@ -1274,12 +1254,17 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     }
     else if (event.GetEventType() == wxEVT_SCI_UPDATEUI)
     {
+        //fprintf(stdout,"wxEVT_SCI_UPDATEUI\n");
         if (event.GetUpdated() & wxSCI_UPDATE_SELECTION)
         {
             m_HightlightTimer.Stop();
             m_HightlightTimer.Start(HIGHTLIGHT_DELAY, wxTIMER_ONE_SHOT);
         }
         clearIndicator = true;
+    }
+    else if (event.GetEventType() == wxEVT_SCI_CHANGE)
+    {
+        //fprintf(stdout,"wxEVT_SCI_CHANGE\n");
     }
     if (clearIndicator)
     {
@@ -1308,11 +1293,11 @@ void ClangPlugin::OnDiagnoseEd( wxCommandEvent& /*event*/ )
         AddPendingEvent(evt);
         return;
     }
-    if (m_ReparseBusy > 0)
-    {
-        fprintf(stdout,"%s: Reparse busy (%d)...\n", __PRETTY_FUNCTION__, m_ReparseBusy);
-        return;
-    }
+    //if (m_ReparseBusy > 0)
+    //{
+    //    fprintf(stdout,"%s: Reparse busy (%d)...\n", __PRETTY_FUNCTION__, m_ReparseBusy);
+    //    return;
+    //}
     ClangProxy::GetDiagnosticsJob job( cbEVT_CLANG_GETDIAGNOSTICS_FINISHED, idClangGetDiagnostics, m_TranslUnitId );
     m_Proxy.AppendPendingJob(job);
 }
@@ -1415,9 +1400,11 @@ void ClangPlugin::OnClangSyncTaskFinished( wxEvent& event )
                     {
                         CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
                         Manager::Get()->ProcessEvent(evt);
+                        return;
                     }
                 }
             }
+            m_CCOutstanding = 0;
         }
     }
 
@@ -1483,4 +1470,33 @@ void ClangPlugin::RequestReparse()
     m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
     m_DiagnosticTimer.Stop();
     m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
+}
+
+ClTranslUnitId ClangPlugin::GetTranslationUnitId( const wxString& filename )
+{
+    return m_TranslUnitId;
+}
+
+wxString ClangPlugin::GetFunctionScope( ClTranslUnitId id, const wxString& filename, int line, int column )
+{
+    wxString scope;
+    wxString func;
+    m_Proxy.GetFunctionScopeAt(id, filename, line, column, scope, func);
+    return scope + wxT("::") + func;
+}
+
+wxStringVec ClangPlugin::GetFunctionScopes( ClTranslUnitId, const wxString& filename )
+{
+    wxStringVec ret;
+    FileId fId = m_Database.GetFilenameId(filename);
+    std::vector<TokenId> tokenIdList = m_Database.GetFileTokens(fId);
+    for( std::vector<TokenId>::const_iterator it = tokenIdList.begin(); it != tokenIdList.end(); ++it)
+    {
+        AbstractToken token = m_Database.GetToken(*it);
+        if( token.type == TokenType_FuncDecl )
+        {
+            ret.push_back( token.displayName );
+        }
+    }
+    return ret;
 }

@@ -72,8 +72,11 @@
 		</Unit>
 		<Unit filename="clangplugin.cpp" />
 		<Unit filename="clangplugin.h" />
+		<Unit filename="clangpluginapi.h" />
 		<Unit filename="clangproxy.cpp" />
 		<Unit filename="clangproxy.h" />
+		<Unit filename="clangtoolbar.cpp" />
+		<Unit filename="clangtoolbar.h" />
 		<Unit filename="resources/codecompletion_toolbar.xrc" />
 		<Unit filename="resources/manifest.xml" />
 		<Unit filename="tokendatabase.cpp" />

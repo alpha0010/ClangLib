@@ -7,7 +7,7 @@
 #include <wx/string.h>
 #include <queue>
 #include <backgroundthread.h>
-
+#include "clangpluginapi.h"
 #include "translationunit.h"
 
 #undef CLANGPROXY_TRACE_FUNCTIONS
@@ -80,7 +80,7 @@ public:
             GetTokensAtType,
             GetCallTipsAtType,
             GetOccurrencesOfType,
-            DetermineFunctionAtType
+            GetFunctionScopeAtType
         };
     protected:
         ClangJob( JobType JobType ) :
@@ -256,7 +256,6 @@ public:
             EventJob(GetDiagnosticsType, evtType, evtId),
             m_TranslId(translId)
         {}
-    public:
         ClangJob* Clone() const
         {
             GetDiagnosticsJob* pJob = new GetDiagnosticsJob(*this);
@@ -280,21 +279,45 @@ public:
         std::vector<ClDiagnostic> m_Diagnostics; // Returned value
     };
 
-    class DetermineFunctionAtJob : public EventJob
+    class GetFunctionScopeAtJob : public EventJob
     {
     public:
-        DetermineFunctionAtJob( wxEventType evtType, int evtId, int translId, const wxString& filename, int line, int column) :
-            EventJob(DetermineFunctionAtType, evtType, evtId),
+        GetFunctionScopeAtJob( wxEventType evtType, int evtId, int translId, const wxString& filename, int line, int column) :
+            EventJob(GetFunctionScopeAtType, evtType, evtId),
             m_TranslId(translId),
             m_Filename(filename.c_str()),
             m_Line(line),
             m_Column(column){}
+        ClangJob* Clone() const
+        {
+            GetFunctionScopeAtJob* pJob = new GetFunctionScopeAtJob(*this);
+            return static_cast<ClangJob*>(pJob);
+        }
+        void Execute(ClangProxy& clangproxy)
+        {
+#ifdef CLANGPROXY_TRACE_FUNCTIONS
+            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+#endif
+            clangproxy.GetFunctionScopeAt(m_TranslId, m_Filename, m_Line, m_Column, m_ScopeName, m_MethodName);
+        }
+
+    protected:
+        GetFunctionScopeAtJob( const GetFunctionScopeAtJob& other ) :
+            EventJob(other),
+            m_TranslId(other.m_TranslId),
+            m_Filename(other.m_Filename.c_str()),
+            m_Line(other.m_Line),
+            m_Column(other.m_Column),
+            m_ScopeName(other.m_ScopeName.c_str()),
+            m_MethodName(other.m_MethodName.c_str())
+        {
+        }
     public:
         int m_TranslId;
         wxString m_Filename;
         int m_Line;
         int m_Column;
-        wxString m_ClassName;
+        wxString m_ScopeName;
         wxString m_MethodName;
     };
 
@@ -622,15 +645,15 @@ protected: // jobs that are run only on the thread
     void GetOccurrencesOf(const wxString& filename, int line, int column,
             int translId, std::vector< std::pair<int, int> >& results);
 
-    void DetermineFunctionAt(int translId, const wxString& filename, int line, int column,wxString &out_ClassName, wxString &out_FunctionName );
 
 public:
-    wxString DocumentCCToken(int translId, int tknId);
-    wxString GetCCInsertSuffix(int translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets);
-    void RefineTokenType(int translId, int tknId, int& tknType); // TODO: cache TokenId (if resolved) for DocumentCCToken()
-
+    wxString DocumentCCToken(ClTranslUnitId translId, int tknId);
+    wxString GetCCInsertSuffix(ClTranslUnitId translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets);
+    void RefineTokenType(ClTranslUnitId translId, int tknId, int& tknType); // TODO: cache TokenId (if resolved) for DocumentCCToken()
 
     void ResolveDeclTokenAt(wxString& filename, int& line, int& column, int translId);
+    void GetFunctionScopeAt(ClTranslUnitId translId, const wxString& filename, int line, int column,wxString &out_ClassName, wxString &out_FunctionName );
+    wxStringVec GetFunctionScopes( ClTranslUnitId, const wxString& filename );
 
     void TakeTranslationUnit( TranslationUnit& translUnit );
     void ParsedTranslationUnit( TranslationUnit& translUnit );

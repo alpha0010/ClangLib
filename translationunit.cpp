@@ -14,6 +14,17 @@
 
 #include "tokendatabase.h"
 
+#if 0
+class ClangVisitorContext {
+public:
+    ClangVisitorContext(TranslationUnit* pTranslationUnit) :
+        m_pTranslationUnit(pTranslationUnit)
+    { }
+    std::deque<wxString> m_ScopeStack;
+    std::deque<CXCursor> m_CursorSt
+};
+#endif
+
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack,
         unsigned include_len, CXClientData client_data);
 
@@ -109,7 +120,7 @@ CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_fil
     }
     if (m_LastPos.Equals(complete_line, complete_column)&&(m_LastCC)&&m_LastCC->NumResults)
     {
-        fprintf(stdout,"%s: Returning last CC (%d)\n", __PRETTY_FUNCTION__, m_LastCC->NumResults);
+        //fprintf(stdout,"%s: Returning last CC (%d)\n", __PRETTY_FUNCTION__, m_LastCC->NumResults);
         return m_LastCC;
     }
     if (m_LastCC)
@@ -124,7 +135,7 @@ CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_fil
     {
         fprintf(stdout,"%s: clang_CodeComplete returned NULL!\n", __PRETTY_FUNCTION__);
     }
-    fprintf(stdout,"%s: Returning %d results\n", __PRETTY_FUNCTION__, (int)m_LastCC->NumResults);
+    //fprintf(stdout,"%s: Returning %d results\n", __PRETTY_FUNCTION__, (int)m_LastCC->NumResults);
     return m_LastCC;
 }
 
@@ -143,7 +154,7 @@ CXCursor TranslationUnit::GetTokensAt(const wxString& filename, int line, int co
 /**
  * Parses the supplied file and unsaved files
  */
-void TranslationUnit::Parse( const wxString& filename, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles, TokenDatabase* database )
+void TranslationUnit::Parse( const wxString& filename, FileId fileId, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles, TokenDatabase* pDatabase )
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 
@@ -177,11 +188,12 @@ void TranslationUnit::Parse( const wxString& filename, const std::vector<const c
 #endif
         clUnsavedFiles.push_back(unit);
     }
-
+    m_FileId = fileId;
     if (filename.length() != 0)
     {
-        m_ClTranslUnit = clang_parseTranslationUnit( m_ClIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0],
-            args.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size(),
+        m_ClTranslUnit = clang_parseTranslationUnit( m_ClIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0], args.size(),
+            //clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size(),
+            nullptr, 0,
             /*clang_defaultEditingTranslationUnitOptions()
             | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
             | CXTranslationUnit_DetailedPreprocessingRecord */
@@ -193,30 +205,33 @@ void TranslationUnit::Parse( const wxString& filename, const std::vector<const c
         {
             return;
         }
-        std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, database);
-        clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
-        m_FileId = database->GetFilenameId(filename);
-        m_Files.reserve(1024);
-        m_Files.push_back(m_FileId);
-        std::sort(m_Files.begin(), m_Files.end());
-        std::unique(m_Files.begin(), m_Files.end());
-    #if __cplusplus >= 201103L
-        m_Files.shrink_to_fit();
-    #else
-        std::vector<FileId>(m_Files).swap(m_Files);
-    #endif
+        if( pDatabase )
+        {
+            std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, pDatabase);
+            clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
+            //m_FileId = pDatabase->GetFilenameId(filename);
+            m_Files.reserve(1024);
+            m_Files.push_back(m_FileId);
+            std::sort(m_Files.begin(), m_Files.end());
+            std::unique(m_Files.begin(), m_Files.end());
+        #if __cplusplus >= 201103L
+            m_Files.shrink_to_fit();
+        #else
+            std::vector<FileId>(m_Files).swap(m_Files);
+        #endif
         //fprintf(stdout,"%s calling Reparse()\n", __PRETTY_FUNCTION__);
         //Reparse(0, nullptr); // seems to improve performance for some reason?
         //int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
         //                    clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
-        //                    clang_defaultReparseOptions(m_ClTranslUnit)
+        //                    clang_defaultReparseOptions(m_ClTranslUnit) );
         //                                   );
 
         //fprintf(stdout,"%s calling VisitChildren\n", __PRETTY_FUNCTION__);
-        clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, database);
+            clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, pDatabase);
         //fprintf(stdout,"%s Shrinking database\n", __PRETTY_FUNCTION__);
         //database->Shrink();
         //fprintf(stdout,"%s Done\n", __PRETTY_FUNCTION__);
+        }
     }
 }
 
@@ -255,6 +270,7 @@ void TranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles)
                                            );
     if (ret != 0 )
     {
+        assert(false&&"clang_reparseTranslationUnit should succeed");
         fprintf(stdout,"ERROR: reparseTranslationUnit() failed!");
 
         // The only thing we can do according to Clang documentation is dispose it...
@@ -375,6 +391,7 @@ static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* WXUNUSED(
 
 static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(parent), CXClientData client_data)
 {
+    TokenType typ = TokenType_Unknown;
     CXChildVisitResult ret = CXChildVisit_Break; // should never happen
     switch (cursor.kind)
     {
@@ -385,19 +402,36 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
     case CXCursor_Namespace:
     case CXCursor_ClassTemplate:
         ret = CXChildVisit_Recurse;
+        typ = TokenType_ScopeDecl;
         break;
 
     case CXCursor_FieldDecl:
+        ret = CXChildVisit_Continue;
+        break;
     case CXCursor_EnumConstantDecl:
+        ret = CXChildVisit_Continue;
+        break;
     case CXCursor_FunctionDecl:
+        typ = TokenType_FuncDecl;
+        ret = CXChildVisit_Continue;
+        break;
     case CXCursor_VarDecl:
+        typ = TokenType_VarDecl;
+        ret = CXChildVisit_Continue;
+        break;
     case CXCursor_ParmDecl:
+        typ = TokenType_ParmDecl;
+        ret = CXChildVisit_Continue;
+        break;
     case CXCursor_TypedefDecl:
+        //case CXCursor_MacroDefinition: // this can crash Clang on Windows
+        ret = CXChildVisit_Continue;
+        break;
     case CXCursor_CXXMethod:
     case CXCursor_Constructor:
     case CXCursor_Destructor:
     case CXCursor_FunctionTemplate:
-        //case CXCursor_MacroDefinition: // this can crash Clang on Windows
+        typ = TokenType_FuncDecl;
         ret = CXChildVisit_Continue;
         break;
 
@@ -420,8 +454,38 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
     unsigned tokenHash = HashToken(token, identifier);
     if (!identifier.IsEmpty())
     {
+        wxString displayName;
+        while( !clang_Cursor_isNull(cursor) )
+        {
+            CXString str;
+            switch( cursor.kind )
+            {
+            case CXCursor_StructDecl:
+            case CXCursor_ClassDecl:
+            case CXCursor_ClassTemplate:
+            case CXCursor_ClassTemplatePartialSpecialization:
+                str = clang_getCursorDisplayName(cursor);
+                if( displayName.Length() > 0 )
+                {
+                    displayName = displayName.Prepend(wxT("::"));
+                }
+                displayName = displayName.Prepend( wxString::FromUTF8(clang_getCString(str)) );
+                clang_disposeString(str);
+                break;
+            case CXCursor_CXXMethod:
+                str = clang_getCursorDisplayName(cursor);
+                displayName = wxString::FromUTF8(clang_getCString(str));
+                clang_disposeString(str);
+                break;
+            default:
+                break;
+            }
+            cursor = clang_getCursorSemanticParent(cursor);
+        }
+
         TokenDatabase* database = static_cast<TokenDatabase*>(client_data);
-        database->InsertToken(identifier, AbstractToken(database->GetFilenameId(filename), line, col, tokenHash));
+        //fprintf(stdout,"Inserting token '%s', file='%s', line=%d, col=%d\n", (const char*)identifier.mb_str(), (const char*)filename.mb_str(), line, col);
+        database->InsertToken(identifier, AbstractToken(typ,database->GetFilenameId(filename), line, col, displayName, tokenHash));
     }
     return ret;
 }

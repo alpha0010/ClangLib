@@ -5,10 +5,12 @@
 #include <wx/imaglist.h>
 #include <wx/timer.h>
 
+#include "clangpluginapi.h"
 #include "clangproxy.h"
 #include "tokendatabase.h"
 
-class ClangPlugin : public cbCodeCompletionPlugin
+/* final */
+class ClangPlugin : public cbCodeCompletionPlugin, public IClangPlugin
 {
 public:
     ClangPlugin();
@@ -96,14 +98,12 @@ private:
     void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
     /// Resolve the token under the cursor and open the relevant location
     void OnGotoDeclaration(wxCommandEvent& event);
-    /// Set the clang translation unit (callback)
-    void OnClangCreateTUFinished( wxEvent& event );
-    /// Update after clang has reparsing done (callback)
-    void OnClangReparseFinished( wxEvent& event );
-    /// Update after clang has built diagnostics
-    void OnClangGetDiagnosticsFinished( wxEvent& event );
-    /// Update after clang has finished a synchronous task
-    void OnClangSyncTaskFinished( wxEvent& event );
+
+    // Async
+    void OnReparse( wxCommandEvent& evt );
+
+    // Async
+    void OnCreateTranslationUnit( wxCommandEvent& evt );
 
     enum DiagnosticLevel { dlMinimal, dlFull };
     /**
@@ -114,6 +114,17 @@ private:
      */
     //void DiagnoseEd(cbEditor* ed, DiagnosticLevel diagLv);
     void OnDiagnoseEd( wxCommandEvent& event );
+
+
+    /// Set the clang translation unit (callback)
+    void OnClangCreateTUFinished( wxEvent& event );
+    /// Update after clang has reparsing done (callback)
+    void OnClangReparseFinished( wxEvent& event );
+    /// Update after clang has built diagnostics
+    void OnClangGetDiagnosticsFinished( wxEvent& event );
+    /// Update after clang has finished a synchronous task
+    void OnClangSyncTaskFinished( wxEvent& event );
+
     /**
      * Semantically highlight all occurrences of the token under the cursor
      * within the editor
@@ -122,26 +133,23 @@ private:
      */
     void HighlightOccurrences(cbEditor* ed);
 
+
+
 private: // Internal utility functions
 
     // Builds compile command
     int UpdateCompileCommand(cbEditor* ed);
 
-    /** enable the two wxChoices */
-    void EnableToolbarTools(bool enable = true);
-
-    // Updates the toolbar
-    void UpdateToolBar();
-
-    // Async
-    void OnReparse( wxCommandEvent& evt );
-
-    // Async
-    void OnCreateTranslationUnit( wxCommandEvent& evt );
-
     void RequestReparse();
 
+
+public: // IClangPlugin
+    ClTranslUnitId GetTranslationUnitId( const wxString& filename );
+    wxString GetFunctionScope( ClTranslUnitId id, const wxString& filename, int line, int column );
+    wxStringVec GetFunctionScopes( ClTranslUnitId, const wxString& filename );
+
 private: // Members
+    std::vector<ClangPluginComponent*> m_ComponentList;
 
     TokenDatabase m_Database;
     wxStringVec m_CppKeywords;
@@ -165,15 +173,7 @@ private: // Members
     int m_CCOutstandingPos;
     std::vector<ClToken> m_CCOutstandingResults;
     int m_ReparseNeeded;
-    int m_ReparseBusy;
-
-private:
-    /** the CC's toolbar */
-    wxToolBar*              m_ToolBar;
-    /** function choice control of CC's toolbar, it is the second choice */
-    wxChoice*               m_Function;
-    /** namespace/scope choice control, it is the first choice control */
-    wxChoice*               m_Scope;
+    //int m_ReparseBusy;
 };
 
 #endif // CLANGPLUGIN_H
