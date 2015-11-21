@@ -29,7 +29,7 @@ struct ClangVisitorContext
 {
     ClangVisitorContext( TokenDatabase* pDatabase ){ database = pDatabase; tokenCount = 0;}
     TokenDatabase* database;
-    unsigned long tokenCount;
+    unsigned long long tokenCount;
 };
 
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack,
@@ -207,6 +207,7 @@ void TranslationUnit::Parse( const wxString& filename, FileId fileId, const std:
             //clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size(),
             nullptr, 0,
             clang_defaultEditingTranslationUnitOptions()
+            | CXTranslationUnit_CacheCompletionResults
             | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
             | CXTranslationUnit_DetailedPreprocessingRecord
             | CXTranslationUnit_PrecompiledPreamble
@@ -476,26 +477,29 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
     if (!identifier.IsEmpty())
     {
         wxString displayName;
+        wxString scopeName;
         while( !clang_Cursor_isNull(cursor) )
         {
             CXString str;
             switch( cursor.kind )
             {
+            case CXCursor_Namespace:
             case CXCursor_StructDecl:
             case CXCursor_ClassDecl:
             case CXCursor_ClassTemplate:
             case CXCursor_ClassTemplatePartialSpecialization:
-                str = clang_getCursorDisplayName(cursor);
-                if ( displayName.Length() > 0 )
-                {
-                    displayName = displayName.Prepend(wxT("::"));
-                }
-                displayName = displayName.Prepend( wxString::FromUTF8(clang_getCString(str)) );
-                clang_disposeString(str);
-                break;
             case CXCursor_CXXMethod:
                 str = clang_getCursorDisplayName(cursor);
-                displayName = wxString::FromUTF8(clang_getCString(str));
+                if( displayName.Length() == 0 )
+                    displayName = wxString::FromUTF8(clang_getCString(str));
+                else
+                {
+                    if ( scopeName.Length() > 0 )
+                    {
+                        scopeName = scopeName.Prepend(wxT("::"));
+                    }
+                    scopeName = scopeName.Prepend( wxString::FromUTF8(clang_getCString(str)) );
+                }
                 clang_disposeString(str);
                 break;
             default:
@@ -506,7 +510,7 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
 
         struct ClangVisitorContext* ctx = static_cast<struct ClangVisitorContext*>(client_data);
         //fprintf(stdout,"Inserting token '%s', file='%s', line=%d, col=%d\n", (const char*)identifier.mb_str(), (const char*)filename.mb_str(), line, col);
-        ctx->database->InsertToken(identifier, AbstractToken(typ,ctx->database->GetFilenameId(filename), ClTokenPosition(line, col), displayName, tokenHash));
+        ctx->database->InsertToken(identifier, AbstractToken(typ,ctx->database->GetFilenameId(filename), ClTokenPosition(line, col), displayName, scopeName, tokenHash));
         ctx->tokenCount++;
     }
     return ret;

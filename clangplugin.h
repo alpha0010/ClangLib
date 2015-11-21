@@ -147,7 +147,7 @@ public: // IClangPlugin
     ClTranslUnitId GetTranslationUnitId( const wxString& filename );
     wxString GetFunctionScopeName( ClTranslUnitId id, const wxString& filename, const ClTokenPosition& location );
     ClTokenPosition GetFunctionScopeLocation( ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname);
-    wxStringVec GetFunctionScopes( ClTranslUnitId, const wxString& filename );
+    std::vector<std::pair<wxString, wxString> >   GetFunctionScopes( ClTranslUnitId, const wxString& filename );
 
 private: // Members
     std::vector<ClangPluginComponent*> m_ComponentList;

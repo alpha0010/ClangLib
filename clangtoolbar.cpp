@@ -191,22 +191,18 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& event )
     }
     int sel = m_Scope->GetSelection();
     wxString selScope = m_Scope->GetString(sel);
-    wxStringVec list = m_pClangPlugin->GetFunctionScopes( GetCurrentTranslationUnitId(), ed->GetFilename() );
+    std::vector<std::pair<wxString, wxString> > list = m_pClangPlugin->GetFunctionScopes( GetCurrentTranslationUnitId(), ed->GetFilename() );
     fprintf(stdout,"Function scopes: %d\n", (int)list.size());
     if (list.size() == 0)
         return;
     m_Scope->Freeze();
     m_Scope->Clear();
-    for( wxStringVec::iterator it = list.begin(); it != list.end(); ++it )
+    for( std::vector<std::pair<wxString, wxString> >::iterator it = list.begin(); it != list.end(); ++it )
     {
-        wxString val = *it;
-        wxString scope;
-        int pos = val.Find(':', true);
-        if (pos < 0 )
+        wxString scope = it->first;
+        if( scope.Length() == 0 )
         {
             scope = wxT("<global>");
-        }else{
-            scope = val.Left(pos-1);
         }
         if (m_Scope->FindString(scope) < 0 )
         {
@@ -293,14 +289,12 @@ void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
     m_Function->Freeze();
     m_Function->Clear();
 
-    wxStringVec funcList = m_pClangPlugin->GetFunctionScopes(this->GetCurrentTranslationUnitId(), ed->GetFilename());
-    for( wxStringVec::const_iterator it = funcList.begin(); it != funcList.end(); ++it)
+    std::vector<std::pair<wxString, wxString> > funcList = m_pClangPlugin->GetFunctionScopes(this->GetCurrentTranslationUnitId(), ed->GetFilename());
+    for( std::vector<std::pair<wxString, wxString> >::const_iterator it = funcList.begin(); it != funcList.end(); ++it)
     {
-        if (it->StartsWith(scopeItem, NULL))
+        if( it->first == scopeItem )
         {
-            wxString funcStr;
-            funcStr = it->Right( (int)it->Length() - (int)scopeItem.Length()-2);
-            m_Function->Append(funcStr);
+            m_Function->Append(it->second);
         }
     }
 

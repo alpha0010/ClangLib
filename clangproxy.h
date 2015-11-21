@@ -638,11 +638,7 @@ public:
 
     void ResolveDeclTokenAt(wxString& filename, ClTokenPosition& out_location, int translId);
     void GetFunctionScopeAt(ClTranslUnitId translId, const wxString& filename, const ClTokenPosition& location, wxString &out_ClassName, wxString &out_FunctionName );
-    wxStringVec GetFunctionScopes( ClTranslUnitId, const wxString& filename );
-
-    void TakeTranslationUnit( TranslationUnit& translUnit );
-    void ParsedTranslationUnit( TranslationUnit& translUnit );
-    void ReturnTranslationUnit( TranslationUnit& translUnit );
+    std::vector<std::pair<wxString, wxString> > GetFunctionScopes( ClTranslUnitId, const wxString& filename );
 
 private:
     mutable wxMutex m_Mutex;
@@ -653,8 +649,7 @@ private:
 private: // Thread
     wxEvtHandler* m_pEventCallbackHandler;
     BackgroundThread* m_pThread;
-    BackgroundThread* m_pParsingThread;
-    TranslationUnit m_ParsingTranslUnit;
+    //BackgroundThread* m_pParsingThread;
 };
 
 #endif // CLANGPROXY_H

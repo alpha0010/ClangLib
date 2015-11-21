@@ -572,7 +572,7 @@ namespace HTML_Writer
         }
     }
 }
-
+#if 0
 class AsyncParseJob : public AbstractJob {
 public:
     AsyncParseJob( ClangProxy* pProxy, int translUnitId, const wxString & fileName, const wxString& compileCommand, std::map<wxString, wxString>& unsavedFiles, TokenDatabase* pDatabase, ClangProxy::ReparseJob* pReparseJob ) :
@@ -635,16 +635,17 @@ private:
     TokenDatabase* m_pDatabase;
     ClangProxy::ReparseJob* m_pReparseJob;
 };
+#endif
 
 void ClangProxy::ReparseJob::Execute(ClangProxy& clangproxy)
 {
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-    //clangproxy.Reparse( m_TranslId, m_CompileCommand, m_UnsavedFiles);
-    wxMutexLocker lock(clangproxy.m_Mutex);
-    AbstractJob* pJob = new AsyncParseJob( &clangproxy, m_TranslId, m_Filename, m_CompileCommand, m_UnsavedFiles, &clangproxy.m_Database, this );
-    clangproxy.m_pParsingThread->Queue(pJob);
+    clangproxy.Reparse( m_TranslId, m_CompileCommand, m_UnsavedFiles);
+    //wxMutexLocker lock(clangproxy.m_Mutex);
+    //AbstractJob* pJob = new AsyncParseJob( &clangproxy, m_TranslId, m_Filename, m_CompileCommand, m_UnsavedFiles, &clangproxy.m_Database, this );
+    //clangproxy.m_pParsingThread->Queue(pJob);
 }
 
 
@@ -652,13 +653,11 @@ ClangProxy::ClangProxy( wxEvtHandler* pEvtCallbackHandler, TokenDatabase& databa
     m_Mutex(),
     m_Database(database),
     m_CppKeywords(cppKeywords),
-    m_pEventCallbackHandler(pEvtCallbackHandler),
-    m_ParsingTranslUnit(-1,nullptr)
+    m_pEventCallbackHandler(pEvtCallbackHandler)
 {
     m_ClIndex[0] = clang_createIndex(1, 1);
     m_ClIndex[1] = clang_createIndex(1, 1);
     m_pThread = new BackgroundThread(false);
-    m_pParsingThread = new BackgroundThread(true);
 }
 
 ClangProxy::~ClangProxy()
@@ -681,7 +680,7 @@ ClangProxy::~ClangProxy()
 void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands, int& out_TranslId)
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#if 0
+
     wxString cmd = commands + wxT(" -ferror-limit=0");
     wxStringTokenizer tokenizer(cmd);
     if (!filename.EndsWith(wxT(".c"))) // force language reduces chance of error on STL headers
@@ -700,37 +699,40 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
         argsBuffer.push_back(compilerSwitch.ToUTF8());
         args.push_back(argsBuffer.back().data());
     }
-    wxMutexLocker lock(m_Mutex);
+    std::map<wxString, wxString> unsavedFiles;
     std::vector<TranslationUnit>::iterator it;
     int id = 0;
+    wxMutexLocker lock(m_Mutex);
     for( it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it, ++id)
     {
         if (it->IsEmpty())
         {
-            *it = TranslationUnit(id);
-            it->Parse(filename, commands, m_ClIndex, &m_Database);
+            *it = TranslationUnit(id, m_ClIndex[0]);
+            it->Parse(filename, m_Database.GetFilenameId(filename), args, unsavedFiles, &m_Database);
             out_TranslId = it - m_TranslUnits.begin();
             break;
         }
     }
     if (it == m_TranslUnits.end())
     {
-        m_TranslUnits.push_back(TranslationUnit(id));
-        m_TranslUnits.back().Parse(filename, args, m_ClIndex, &m_Database);
+        m_TranslUnits.push_back(TranslationUnit(id, m_ClIndex[0]));
+        m_TranslUnits.back().Parse(filename, m_Database.GetFilenameId(filename), args, unsavedFiles, &m_Database);
         out_TranslId = m_TranslUnits.size() - 1;
     }
-#endif
+
+#if 0
     wxMutexLocker lock(m_Mutex);
     int translUnitId = m_TranslUnits.size();
     m_TranslUnits.push_back(TranslationUnit(translUnitId, m_ClIndex[0]));
     std::map<wxString, wxString> unsavedFiles;
-    //m_ParsingTranslUnit = TranslationUnit(TranslUnitId, m_ClIndex[1]);
-    AsyncParseJob* parse = new AsyncParseJob(this, translUnitId, filename, commands, unsavedFiles, &m_Database, NULL );
-    m_pParsingThread->Queue(parse);
+    //AsyncParseJob* parse = new AsyncParseJob(this, translUnitId, filename, commands, unsavedFiles, &m_Database, NULL );
+    //m_pParsingThread->Queue(parse);
     //AsyncParseJob* parse2 = new AsyncParseJob(this, translUnitId, filename, commands, unsavedFiles, &m_Database, NULL );
     //m_pParsingThread->Queue(parse2);
+
     out_TranslId = translUnitId;
-    fprintf(stdout,"%s done. New TU id: %d\n", __PRETTY_FUNCTION__, (int)translUnitId);
+#endif
+    fprintf(stdout,"%s done. New TU id: %d\n", __PRETTY_FUNCTION__, (int)out_TranslId);
 }
 
 void ClangProxy::RemoveTranslationUnit(int translUnitId)
@@ -1505,64 +1507,6 @@ void ClangProxy::GetDiagnostics(int translUnitId, std::vector<ClDiagnostic>& dia
        return;
     }
     m_TranslUnits[translUnitId].GetDiagnostics(diagnostics);
-}
-
-void ClangProxy::TakeTranslationUnit( TranslationUnit& translUnit )
-{
-    int Id = translUnit.GetId();
-    if (Id < 0)
-    {
-        fprintf(stdout, "ParsedTranslationUnit with invalid id: %d\n", Id );
-        assert(false);
-        return;
-    }
-    wxMutexLocker lock(m_Mutex);
-    if (Id >= (int)m_TranslUnits.size())
-    {
-        fprintf(stdout, "ParsedTranslationUnit with non-existent id: %d\n", Id );
-        assert(false);
-        return;
-    }
-    if ( (m_ParsingTranslUnit.GetId() != Id)||(!m_ParsingTranslUnit.IsValid()) )
-    {
-        fprintf(stdout, "Initializing ParsingTranslUnit\n");
-        CXIndex idx = m_ClIndex[0];
-        if ( m_TranslUnits[Id].UsesClangIndex(idx) )
-        {
-            idx = m_ClIndex[1];
-        }
-        m_ParsingTranslUnit = TranslationUnit(Id, idx);
-    }
-    std::swap(m_ParsingTranslUnit, translUnit);
-    //fprintf( stdout, "After TakeTranslationUnit. Current id: %d(%p), old parsing id: %d(%p), temp id: %d(%p)\n", m_TranslUnits[Id].GetId(), m_TranslUnits[Id].m_ClTranslUnit, m_ParsingTranslUnit.GetId(), m_ParsingTranslUnit.m_ClTranslUnit, translUnit.GetId(), translUnit.m_ClTranslUnit );
-}
-
-void ClangProxy::ReturnTranslationUnit( TranslationUnit& translUnit )
-{
-    int Id = translUnit.GetId();
-    wxMutexLocker lock(m_Mutex);
-    std::swap(m_ParsingTranslUnit, translUnit);
-    //fprintf( stdout, "After TakeTranslationUnit. Current id: %d(%p), old parsing id: %d(%p), temp id: %d(%p)\n", m_TranslUnits[Id].GetId(), m_TranslUnits[Id].m_ClTranslUnit, m_ParsingTranslUnit.GetId(), m_ParsingTranslUnit.m_ClTranslUnit, translUnit.GetId(), translUnit.m_ClTranslUnit );
-}
-
-void ClangProxy::ParsedTranslationUnit( TranslationUnit& translUnit )
-{
-    int Id = translUnit.GetId();
-    if (Id < 0)
-    {
-        fprintf(stdout, "ParsedTranslationUnit with invalid id: %d\n", Id );
-        return;
-    }
-    wxMutexLocker lock(m_Mutex);
-    if (Id >= (int)m_TranslUnits.size())
-    {
-        fprintf(stdout, "ParsedTranslationUnit with non-existent id: %d\n", Id );
-        return;
-    }
-
-    std::swap(translUnit, m_ParsingTranslUnit);
-    std::swap(m_ParsingTranslUnit, m_TranslUnits[Id]);
-    //fprintf( stdout, "ParsedTranslationUnit after swap Current id: %d(%p), old parsing id: %d(%p), temp id: %d(%p)\n", m_TranslUnits[Id].GetId(), m_TranslUnits[Id].m_ClTranslUnit, m_ParsingTranslUnit.GetId(), m_ParsingTranslUnit.m_ClTranslUnit, translUnit.GetId(), translUnit.m_ClTranslUnit );
 }
 
 void ClangProxy::AppendPendingJob( ClangProxy::ClangJob& job )

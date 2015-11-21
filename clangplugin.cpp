@@ -306,7 +306,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
         ClTokenPosition loc(line+1, column+1);
         ClangProxy::CodeCompleteAtJob job( cbEVT_CLANG_SYNCTASK_FINISHED, idClangCodeCompleteTask, isAuto, ed->GetFilename(), loc, m_TranslUnitId, unsavedFiles);
         m_Proxy.AppendPendingJob(job);
-        unsigned long timeout = 200;
+        unsigned long timeout = 100;
 
         if (wxCOND_TIMEOUT == job.WaitCompletion(timeout))
         {
@@ -505,7 +505,7 @@ std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int /*styl
             ClTokenPosition loc(line + 1, column + 1);
             ClangProxy::GetCallTipsAtJob job( cbEVT_CLANG_SYNCTASK_FINISHED, idClangSyncTask, ed->GetFilename(), loc, m_TranslUnitId, tknText);
             m_Proxy.AppendPendingJob(job);
-            if (job.WaitCompletion(200) == wxCOND_TIMEOUT)
+            if (job.WaitCompletion(100) == wxCOND_TIMEOUT)
             {
                 fprintf(stdout,"GetCallTips: Timeout\n");
                 return tips;
@@ -1501,18 +1501,17 @@ ClTokenPosition ClangPlugin::GetFunctionScopeLocation( ClTranslUnitId id, const 
     return ClTokenPosition(0,0);
 }
 
-wxStringVec ClangPlugin::GetFunctionScopes( ClTranslUnitId, const wxString& filename )
+std::vector<std::pair<wxString, wxString> >  ClangPlugin::GetFunctionScopes( ClTranslUnitId, const wxString& filename )
 {
-    wxStringVec ret;
+    std::vector<std::pair<wxString, wxString> >  ret;
     FileId fId = m_Database.GetFilenameId(filename);
     std::vector<TokenId> tokenIdList = m_Database.GetFileTokens(fId);
-    fprintf(stdout,"Token id list: %d\n", (int)tokenIdList.size());
     for( std::vector<TokenId>::const_iterator it = tokenIdList.begin(); it != tokenIdList.end(); ++it)
     {
         AbstractToken token = m_Database.GetToken(*it);
         if ( token.type == TokenType_FuncDecl )
         {
-            ret.push_back( token.displayName );
+            ret.push_back( std::make_pair(token.scopeName, token.displayName ));
         }
     }
     return ret;
