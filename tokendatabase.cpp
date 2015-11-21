@@ -28,7 +28,7 @@ FileId TokenDatabase::GetFilenameId(const wxString& filename)
 {
     wxMutexLocker lock(m_Mutex);
     assert(m_pFilenames);
-    assert(m_pT);
+    assert(m_pTokens);
     wxFileName fln(filename.c_str());
     fln.Normalize(wxPATH_NORM_ALL & ~wxPATH_NORM_CASE);
     const wxString& normFile = fln.GetFullPath(wxPATH_UNIX);
