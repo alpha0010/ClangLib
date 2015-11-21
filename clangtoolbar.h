@@ -10,8 +10,8 @@ public:
     ClangToolbar();
     virtual ~ClangToolbar();
 
-    virtual void OnAttach( IClangPlugin* pClangPlugin );
-    virtual void OnRelease( IClangPlugin* pClangPlugin );
+    void OnAttach( IClangPlugin* pClangPlugin );
+    void OnRelease( IClangPlugin* pClangPlugin );
 
 public: // Code::Blocks events
     void OnEditorActivate(CodeBlocksEvent& event);
@@ -19,8 +19,10 @@ public: // Code::Blocks events
     void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
 
 public: // Command events
-    void OnToolbarUpdateSelection( wxCommandEvent& evt );
-    void OnToolbarUpdateContents( wxCommandEvent& evt );
+    void OnUpdateSelection( wxCommandEvent& evt );
+    void OnUpdateContents( wxCommandEvent& evt );
+    void OnScope( wxCommandEvent& evt );
+    void OnFunction( wxCommandEvent& evt );
 public:
     bool BuildToolBar(wxToolBar* toolBar);
         /** enable the two wxChoices */
@@ -28,6 +30,9 @@ public:
 
     // Updates the toolbar
     void UpdateToolBar();
+
+    // Updates the functions when the scope has changed
+    void UpdateFunctions( const wxString& scopeItem );
 
     ClTranslUnitId GetCurrentTranslationUnitId();
 
@@ -42,6 +47,10 @@ private:
     wxChoice*               m_Function;
     /** namespace/scope choice control, it is the first choice control */
     wxChoice*               m_Scope;
+
+    typedef std::vector<int> ScopeMarksVec;
+
+    ScopeMarksVec           m_ScopeMarks;
 };
 
 #endif

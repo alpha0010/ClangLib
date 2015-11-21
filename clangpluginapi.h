@@ -6,12 +6,19 @@
 
 typedef int ClTranslUnitId;
 
+struct ClTokenPosition{
+    ClTokenPosition(unsigned int ln, unsigned int col){line = ln; column = col;}
+    unsigned int line;
+    unsigned int column;
+};
+
 /* interface */
 class IClangPlugin
 {
 public:
     virtual ClTranslUnitId GetTranslationUnitId( const wxString& filename ) = 0;
-    virtual wxString GetFunctionScope( ClTranslUnitId id, const wxString& filename, int line, int column ) = 0;
+    virtual wxString GetFunctionScopeName( ClTranslUnitId id, const wxString& filename, const ClTokenPosition& location ) = 0;
+    virtual ClTokenPosition GetFunctionScopeLocation( ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname) = 0;
     virtual wxStringVec GetFunctionScopes( ClTranslUnitId, const wxString& filename ) = 0;
 };
 

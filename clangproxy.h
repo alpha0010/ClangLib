@@ -282,12 +282,11 @@ public:
     class GetFunctionScopeAtJob : public EventJob
     {
     public:
-        GetFunctionScopeAtJob( wxEventType evtType, int evtId, int translId, const wxString& filename, int line, int column) :
+        GetFunctionScopeAtJob( wxEventType evtType, int evtId, int translId, const wxString& filename, const ClTokenPosition& location) :
             EventJob(GetFunctionScopeAtType, evtType, evtId),
             m_TranslId(translId),
             m_Filename(filename.c_str()),
-            m_Line(line),
-            m_Column(column){}
+            m_Location(location){}
         ClangJob* Clone() const
         {
             GetFunctionScopeAtJob* pJob = new GetFunctionScopeAtJob(*this);
@@ -298,7 +297,7 @@ public:
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-            clangproxy.GetFunctionScopeAt(m_TranslId, m_Filename, m_Line, m_Column, m_ScopeName, m_MethodName);
+            clangproxy.GetFunctionScopeAt(m_TranslId, m_Filename, m_Location, m_ScopeName, m_MethodName);
         }
 
     protected:
@@ -306,8 +305,7 @@ public:
             EventJob(other),
             m_TranslId(other.m_TranslId),
             m_Filename(other.m_Filename.c_str()),
-            m_Line(other.m_Line),
-            m_Column(other.m_Column),
+            m_Location(other.m_Location),
             m_ScopeName(other.m_ScopeName.c_str()),
             m_MethodName(other.m_MethodName.c_str())
         {
@@ -315,8 +313,7 @@ public:
     public:
         int m_TranslId;
         wxString m_Filename;
-        int m_Line;
-        int m_Column;
+        ClTokenPosition m_Location;
         wxString m_ScopeName;
         wxString m_MethodName;
     };
@@ -388,13 +385,12 @@ public:
     {
     public:
         CodeCompleteAtJob( wxEventType evtType, const int evtId, const bool isAuto,
-                const wxString& filename, const int line, const int column,
+                const wxString& filename, const ClTokenPosition& location,
                 const int translId, const std::map<wxString, wxString>& unsavedFiles ):
             SyncJob(CodeCompleteAtType, evtType, evtId),
             m_IsAuto(isAuto),
             m_Filename(filename.c_str()),
-            m_Line(line),
-            m_Column(column),
+            m_Location(location),
             m_TranslId(translId),
             m_UnsavedFiles()
         {
@@ -416,7 +412,7 @@ public:
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
             std::vector<ClToken> results;
-            clangproxy.CodeCompleteAt( m_IsAuto, m_Filename, m_Line, m_Column, m_TranslId, m_UnsavedFiles, results);
+            clangproxy.CodeCompleteAt( m_IsAuto, m_Filename, m_Location, m_TranslId, m_UnsavedFiles, results);
             m_pResults->swap(results);
         }
         virtual void Finalize()
@@ -432,15 +428,13 @@ public:
             SyncJob(other),
             m_IsAuto(other.m_IsAuto),
             m_Filename(other.m_Filename.c_str()),
-            m_Line(other.m_Line),
-            m_Column(other.m_Column),
+            m_Location(other.m_Location),
             m_TranslId(other.m_TranslId),
             m_UnsavedFiles(other.m_UnsavedFiles),
             m_pResults(other.m_pResults) {}
         bool m_IsAuto;
         wxString m_Filename;
-        int m_Line;
-        int m_Column;
+        ClTokenPosition m_Location;
         int m_TranslId;
         std::map<wxString, wxString> m_UnsavedFiles;
         std::vector<ClToken>* m_pResults; // Returned value
@@ -450,11 +444,10 @@ public:
     class GetTokensAtJob : public SyncJob
     {
     public:
-        GetTokensAtJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId ):
+        GetTokensAtJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, int translId ):
             SyncJob(GetTokensAtType, evtType, evtId),
             m_Filename(filename.c_str()),
-            m_Line(line),
-            m_Column(column),
+            m_Location(location),
             m_TranslId(translId)
         {
             m_pResults = new wxStringVec();
@@ -469,25 +462,23 @@ public:
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-            clangproxy.GetTokensAt( m_Filename, m_Line, m_Column, m_TranslId, *m_pResults);
+            clangproxy.GetTokensAt( m_Filename, m_Location, m_TranslId, *m_pResults);
         }
         const wxStringVec& GetResults()
         {
             return *m_pResults;
         }
     protected:
-        GetTokensAtJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId,
+        GetTokensAtJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, int translId,
                 wxMutex* pMutex, wxCondition* pCond,
                 wxStringVec* pResults ):
             SyncJob(GetTokensAtType, evtType, evtId, pMutex, pCond),
             m_Filename(filename.c_str()),
-            m_Line(line),
-            m_Column(column),
+            m_Location(location),
             m_TranslId(translId),
             m_pResults(pResults) {}
         wxString m_Filename;
-        int m_Line;
-        int m_Column;
+        ClTokenPosition m_Location;
         int m_TranslId;
         wxStringVec* m_pResults;
     };
@@ -496,11 +487,10 @@ public:
     class GetCallTipsAtJob : public SyncJob
     {
     public:
-        GetCallTipsAtJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId, const wxString& tokenStr ):
+        GetCallTipsAtJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, int translId, const wxString& tokenStr ):
             SyncJob( GetCallTipsAtType, evtType, evtId),
             m_Filename(filename.c_str()),
-            m_Line(line),
-            m_Column(column),
+            m_Location(location),
             m_TranslId(translId),
             m_TokenStr(tokenStr)
         {
@@ -516,26 +506,24 @@ public:
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-            clangproxy.GetCallTipsAt( m_Filename, m_Line, m_Column, m_TranslId, m_TokenStr, *m_pResults);
+            clangproxy.GetCallTipsAt( m_Filename, m_Location, m_TranslId, m_TokenStr, *m_pResults);
         }
         const std::vector<wxStringVec>& GetResults()
         {
             return *m_pResults;
         }
     protected:
-        GetCallTipsAtJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId, const wxString& tokenStr,
+        GetCallTipsAtJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, int translId, const wxString& tokenStr,
                 wxMutex* pMutex, wxCondition* pCond,
                 std::vector<wxStringVec>* pResults ):
             SyncJob( GetCallTipsAtType, evtType, evtId, pMutex, pCond),
             m_Filename(filename.c_str()),
-            m_Line(line),
-            m_Column(column),
+            m_Location(location),
             m_TranslId(translId),
             m_TokenStr(tokenStr),
             m_pResults(pResults) {}
         wxString m_Filename;
-        int m_Line;
-        int m_Column;
+        ClTokenPosition m_Location;
         int m_TranslId;
         wxString m_TokenStr;
         std::vector<wxStringVec>* m_pResults;
@@ -545,11 +533,10 @@ public:
     class GetOccurrencesOfJob : public SyncJob
     {
     public:
-        GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId ):
+        GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, int translId ):
             SyncJob( GetOccurrencesOfType, evtType, evtId),
             m_Filename(filename.c_str()),
-            m_Line(line),
-            m_Column(column),
+            m_Location(location),
             m_TranslId(translId)
         {
             m_pResults = new std::vector< std::pair<int, int> >();
@@ -564,25 +551,23 @@ public:
 #ifdef CLANGPROXY_TRACE_FUNCTIONS
             fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
-            clangproxy.GetOccurrencesOf( m_Filename, m_Line, m_Column, m_TranslId, *m_pResults);
+            clangproxy.GetOccurrencesOf( m_Filename, m_Location, m_TranslId, *m_pResults);
         }
         const std::vector< std::pair<int, int> >& GetResults()
         {
             return *m_pResults;
         }
     protected:
-        GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, int line, int column, int translId,
+        GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, int translId,
                 wxMutex* pMutex, wxCondition* pCond,
                 std::vector< std::pair<int, int> >* pResults ):
             SyncJob(GetOccurrencesOfType, evtType, evtId, pMutex, pCond),
             m_Filename(filename.c_str()),
-            m_Line(line),
-            m_Column(column),
+            m_Location(location),
             m_TranslId(translId),
             m_pResults(pResults) {}
         wxString m_Filename;
-        int m_Line;
-        int m_Column;
+        ClTokenPosition m_Location;
         int m_TranslId;
         std::vector< std::pair<int, int> >* m_pResults;
     };
@@ -637,12 +622,12 @@ protected: // jobs that are run only on the thread
      */
     void Reparse(int translId, const wxString& compileCommand, std::map<wxString, wxString>& unsavedFiles);
     void GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnostics);
-    void CodeCompleteAt(bool isAuto, const wxString& filename, int line, int column, int translId,
+    void CodeCompleteAt(bool isAuto, const wxString& filename, const ClTokenPosition& location, int translId,
             const std::map<wxString, wxString>& unsavedFiles, std::vector<ClToken>& results);
-    void GetTokensAt(const wxString& filename, int line, int column, int translId, std::vector<wxString>& results);
-    void GetCallTipsAt(const wxString& filename, int line, int column, int translId,
+    void GetTokensAt(const wxString& filename, const ClTokenPosition& location, int translId, std::vector<wxString>& results);
+    void GetCallTipsAt(const wxString& filename, const ClTokenPosition& location, int translId,
             const wxString& tokenStr, std::vector<wxStringVec>& results);
-    void GetOccurrencesOf(const wxString& filename, int line, int column,
+    void GetOccurrencesOf(const wxString& filename, const ClTokenPosition& location,
             int translId, std::vector< std::pair<int, int> >& results);
 
 
@@ -651,8 +636,8 @@ public:
     wxString GetCCInsertSuffix(ClTranslUnitId translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets);
     void RefineTokenType(ClTranslUnitId translId, int tknId, int& tknType); // TODO: cache TokenId (if resolved) for DocumentCCToken()
 
-    void ResolveDeclTokenAt(wxString& filename, int& line, int& column, int translId);
-    void GetFunctionScopeAt(ClTranslUnitId translId, const wxString& filename, int line, int column,wxString &out_ClassName, wxString &out_FunctionName );
+    void ResolveDeclTokenAt(wxString& filename, ClTokenPosition& out_location, int translId);
+    void GetFunctionScopeAt(ClTranslUnitId translId, const wxString& filename, const ClTokenPosition& location, wxString &out_ClassName, wxString &out_FunctionName );
     wxStringVec GetFunctionScopes( ClTranslUnitId, const wxString& filename );
 
     void TakeTranslationUnit( TranslationUnit& translUnit );

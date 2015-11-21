@@ -47,7 +47,7 @@
 			<Add option="-g" />
 			<Add option="$(#CB_RELEASE_TYPE)" />
 			<Add option="`wx-config --version=2.8 --cflags`" />
-			<Add option="-I`llvm-config --includedir`" />
+			<Add option="-I`/home/yves/llvm-3.8/bin/llvm-config --includedir`" />
 			<Add option="-fmessage-length=0" />
 			<Add option="-fexceptions" />
 			<Add option="-Winvalid-pch" />
@@ -61,7 +61,7 @@
 		</Compiler>
 		<Linker>
 			<Add option="`/home/yves/wxWidgets-2.8/bin/wx-config --libs`" />
-			<Add option="-L`/home/yves/llvm-3.6/bin/llvm-config --libdir`" />
+			<Add option="-L`/home/yves/llvm-3.8/bin/llvm-config --libdir`" />
 			<Add option="-Wl,--no-undefined" />
 			<Add library="codeblocks" />
 			<Add library="clang" />

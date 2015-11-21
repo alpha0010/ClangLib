@@ -2,6 +2,7 @@
 #define TRANSLATION_UNIT_H
 
 #include <clang-c/Index.h>
+#include "clangpluginapi.h"
 #include "tokendatabase.h"
 
 #include <map>
@@ -67,15 +68,14 @@ public:
     int GetId() const { return m_Id; }
 
     // note that complete_line and complete_column are 1 index, not 0 index!
-    CXCodeCompleteResults* CodeCompleteAt( const char* complete_filename, unsigned complete_line,
-            unsigned complete_column, struct CXUnsavedFile* unsaved_files,
+    CXCodeCompleteResults* CodeCompleteAt( const char* complete_filename, const ClTokenPosition& location, struct CXUnsavedFile* unsaved_files,
             unsigned num_unsaved_files );
     const CXCompletionResult* GetCCResult(unsigned index);
-    CXCursor GetTokensAt(const wxString& filename, int line, int column);
+    CXCursor GetTokensAt(const wxString& filename, const ClTokenPosition& location);
     void Parse( const wxString& filename, FileId FileId, const std::vector<const char*>& args,
                 const std::map<wxString, wxString>& unsavedFiles,
                 TokenDatabase* pUpdateDatabase );
-    void Reparse( const std::map<wxString, wxString>& unsavedFiles );
+    void Reparse( const std::map<wxString, wxString>& unsavedFiles, TokenDatabase* pDatabase );
     void GetDiagnostics(std::vector<ClDiagnostic>& diagnostics);
     CXFile GetFileHandle(const wxString& filename) const;
 

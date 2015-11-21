@@ -25,6 +25,13 @@ public:
 };
 #endif
 
+struct ClangVisitorContext
+{
+    ClangVisitorContext( TokenDatabase* pDatabase ){ database = pDatabase; tokenCount = 0;}
+    TokenDatabase* database;
+    unsigned long tokenCount;
+};
+
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack,
         unsigned include_len, CXClientData client_data);
 
@@ -109,8 +116,7 @@ bool TranslationUnit::Contains(FileId fId)
     return std::binary_search(m_Files.begin(), m_Files.end(), fId);
 }
 
-CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_filename, unsigned complete_line,
-        unsigned complete_column, struct CXUnsavedFile* unsaved_files,
+CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_filename, const ClTokenPosition& complete_location, struct CXUnsavedFile* unsaved_files,
         unsigned num_unsaved_files )
 {
     if (m_ClTranslUnit == nullptr )
@@ -118,23 +124,29 @@ CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_fil
         fprintf(stdout,"%s: m_ClTranslUnit is NULL!\n", __PRETTY_FUNCTION__);
         return NULL;
     }
-    if (m_LastPos.Equals(complete_line, complete_column)&&(m_LastCC)&&m_LastCC->NumResults)
+    if (m_LastPos.Equals(complete_location.line, complete_location.column)&&(m_LastCC)&&m_LastCC->NumResults)
     {
         //fprintf(stdout,"%s: Returning last CC (%d)\n", __PRETTY_FUNCTION__, m_LastCC->NumResults);
         return m_LastCC;
     }
     if (m_LastCC)
         clang_disposeCodeCompleteResults(m_LastCC);
-    m_LastCC = clang_codeCompleteAt(m_ClTranslUnit, complete_filename, complete_line, complete_column,
+    m_LastCC = clang_codeCompleteAt(m_ClTranslUnit, complete_filename, complete_location.line, complete_location.column,
             unsaved_files, num_unsaved_files,
             clang_defaultCodeCompleteOptions()
             | CXCodeComplete_IncludeCodePatterns
             | CXCodeComplete_IncludeBriefComments);
-    m_LastPos.Set(complete_line, complete_column);
+    m_LastPos.Set(complete_location.line, complete_location.column);
     if (!m_LastCC )
     {
         fprintf(stdout,"%s: clang_CodeComplete returned NULL!\n", __PRETTY_FUNCTION__);
     }
+    else
+    {
+        unsigned numDiag = clang_codeCompleteGetNumDiagnostics(m_LastCC);
+        fprintf(stdout, "codecomplete numdiag: %d\n", (int)numDiag );
+    }
+
     //fprintf(stdout,"%s: Returning %d results\n", __PRETTY_FUNCTION__, (int)m_LastCC->NumResults);
     return m_LastCC;
 }
@@ -146,9 +158,9 @@ const CXCompletionResult* TranslationUnit::GetCCResult(unsigned index)
     return nullptr;
 }
 
-CXCursor TranslationUnit::GetTokensAt(const wxString& filename, int line, int column)
+CXCursor TranslationUnit::GetTokensAt(const wxString& filename, const ClTokenPosition& location)
 {
-    return clang_getCursor(m_ClTranslUnit, clang_getLocation(m_ClTranslUnit, GetFileHandle(filename), line, column));
+    return clang_getCursor(m_ClTranslUnit, clang_getLocation(m_ClTranslUnit, GetFileHandle(filename), location.line, location.column));
 }
 
 /**
@@ -194,18 +206,19 @@ void TranslationUnit::Parse( const wxString& filename, FileId fileId, const std:
         m_ClTranslUnit = clang_parseTranslationUnit( m_ClIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0], args.size(),
             //clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size(),
             nullptr, 0,
-            /*clang_defaultEditingTranslationUnitOptions()
+            clang_defaultEditingTranslationUnitOptions()
             | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
-            | CXTranslationUnit_DetailedPreprocessingRecord */
-            CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_PrecompiledPreamble |
-                CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
-                CXTranslationUnit_CXXChainedPCH
+            | CXTranslationUnit_DetailedPreprocessingRecord
+            | CXTranslationUnit_PrecompiledPreamble
+            //CXTranslationUnit_CacheCompletionResults |
+            //    CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
+            //    CXTranslationUnit_CXXChainedPCH
             );
-        if( m_ClTranslUnit == nullptr )
+        if ( m_ClTranslUnit == nullptr )
         {
             return;
         }
-        if( pDatabase )
+        if ( pDatabase )
         {
             std::pair<TranslationUnit*, TokenDatabase*> visitorData = std::make_pair(this, pDatabase);
             clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
@@ -227,7 +240,9 @@ void TranslationUnit::Parse( const wxString& filename, FileId fileId, const std:
         //                                   );
 
         //fprintf(stdout,"%s calling VisitChildren\n", __PRETTY_FUNCTION__);
-            clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, pDatabase);
+            struct ClangVisitorContext ctx(pDatabase);
+            unsigned rc = clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
+            fprintf(stdout,"Visit count: %d, rc=%d\n", (int)ctx.tokenCount, (int)rc);
         //fprintf(stdout,"%s Shrinking database\n", __PRETTY_FUNCTION__);
         //database->Shrink();
         //fprintf(stdout,"%s Done\n", __PRETTY_FUNCTION__);
@@ -235,7 +250,7 @@ void TranslationUnit::Parse( const wxString& filename, FileId fileId, const std:
     }
 }
 
-void TranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles)
+void TranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles, TokenDatabase* pDatabase)
 {
     if (m_ClTranslUnit == nullptr )
     {
@@ -260,13 +275,14 @@ void TranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles)
         clUnsavedFiles.push_back(unit);
     }
 
+    #if 0
     // TODO: check and handle error conditions
     int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
                             clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
-                            //clang_defaultReparseOptions(m_ClTranslUnit)
-                CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_PrecompiledPreamble |
-                CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
-                CXTranslationUnit_CXXChainedPCH
+                            clang_defaultReparseOptions(m_ClTranslUnit)
+                //CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_PrecompiledPreamble |
+                //CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
+                //CXTranslationUnit_CXXChainedPCH
                                            );
     if (ret != 0 )
     {
@@ -277,6 +293,11 @@ void TranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles)
         clang_disposeTranslationUnit(m_ClTranslUnit);
         m_ClTranslUnit = nullptr;
     }
+    #endif
+    int testing;
+    struct ClangVisitorContext ctx(pDatabase);
+    unsigned rc = clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
+    fprintf(stdout,"Visit count: %d, rc=%d\n", (int)ctx.tokenCount, (int)rc);
 }
 
 void TranslationUnit::GetDiagnostics(std::vector<ClDiagnostic>& diagnostics)
@@ -441,7 +462,7 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
 
     CXSourceLocation loc = clang_getCursorLocation(cursor);
     CXFile clFile;
-    unsigned line, col;
+    unsigned line = 1, col = 1;
     clang_getSpellingLocation(loc, &clFile, &line, &col, nullptr);
     CXString str = clang_getFileName(clFile);
     wxString filename = wxString::FromUTF8(clang_getCString(str));
@@ -465,7 +486,7 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
             case CXCursor_ClassTemplate:
             case CXCursor_ClassTemplatePartialSpecialization:
                 str = clang_getCursorDisplayName(cursor);
-                if( displayName.Length() > 0 )
+                if ( displayName.Length() > 0 )
                 {
                     displayName = displayName.Prepend(wxT("::"));
                 }
@@ -483,9 +504,10 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
             cursor = clang_getCursorSemanticParent(cursor);
         }
 
-        TokenDatabase* database = static_cast<TokenDatabase*>(client_data);
+        struct ClangVisitorContext* ctx = static_cast<struct ClangVisitorContext*>(client_data);
         //fprintf(stdout,"Inserting token '%s', file='%s', line=%d, col=%d\n", (const char*)identifier.mb_str(), (const char*)filename.mb_str(), line, col);
-        database->InsertToken(identifier, AbstractToken(typ,database->GetFilenameId(filename), line, col, displayName, tokenHash));
+        ctx->database->InsertToken(identifier, AbstractToken(typ,ctx->database->GetFilenameId(filename), ClTokenPosition(line, col), displayName, tokenHash));
+        ctx->tokenCount++;
     }
     return ret;
 }

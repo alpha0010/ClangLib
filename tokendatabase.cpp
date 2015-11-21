@@ -63,18 +63,23 @@ TokenId TokenDatabase::InsertToken(const wxString& identifier, const AbstractTok
 {
     wxMutexLocker lock(m_Mutex);
 
-    //fprintf(stdout,"InsertToken '%s'\n", (const char*)identifier.mbc_str());
-    TokenId tId = GetTokenId(identifier, token.tokenHash);
+    if ( token.fileId == 0 )
+        fprintf(stdout, "InsertToken '%s' %s fileId=%d (%x)\n", (const char*)identifier.mb_str(), (const char*)token.displayName.mb_str(), (int)token.fileId, (int)token.tokenHash);
+    TokenId tId = GetTokenId(identifier, token.fileId, token.tokenHash);
     if (tId == wxNOT_FOUND)
     {
+        if (token.fileId == 0 )
+            fprintf(stdout,"Token '%s' not found...\n", (const char*)identifier.mb_str());
         tId = m_pTokens->Insert(wxString(identifier.c_str()), token);
         wxString filen = wxString::Format(wxT("%d"), token.fileId);
         m_pFileTokens->Insert(filen, tId);
+        if( token.fileId == 0 )
+            fprintf(stdout,"FileTokens: %d\n", (int)m_pFileTokens->GetIdSet(filen).size());
     }
     return tId;
 }
 
-TokenId TokenDatabase::GetTokenId(const wxString& identifier, unsigned tokenHash)
+TokenId TokenDatabase::GetTokenId(const wxString& identifier, FileId fileId, unsigned tokenHash)
 {
     wxMutexLocker lock( m_Mutex);
     std::vector<int> ids = m_pTokens->GetIdSet(identifier);
@@ -82,8 +87,11 @@ TokenId TokenDatabase::GetTokenId(const wxString& identifier, unsigned tokenHash
             itr != ids.end(); ++itr)
     {
         if (m_pTokens->HasValue(*itr))
-            if (m_pTokens->GetValue(*itr).tokenHash == tokenHash)
+        {
+            AbstractToken tok = m_pTokens->GetValue(*itr);
+            if( (tok.tokenHash == tokenHash)&&((tok.fileId == fileId)||(fileId == wxNOT_FOUND)) )
                 return *itr;
+        }
     }
     return wxNOT_FOUND;
 }

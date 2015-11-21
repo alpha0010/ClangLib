@@ -145,7 +145,8 @@ private: // Internal utility functions
 
 public: // IClangPlugin
     ClTranslUnitId GetTranslationUnitId( const wxString& filename );
-    wxString GetFunctionScope( ClTranslUnitId id, const wxString& filename, int line, int column );
+    wxString GetFunctionScopeName( ClTranslUnitId id, const wxString& filename, const ClTokenPosition& location );
+    ClTokenPosition GetFunctionScopeLocation( ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname);
     wxStringVec GetFunctionScopes( ClTranslUnitId, const wxString& filename );
 
 private: // Members

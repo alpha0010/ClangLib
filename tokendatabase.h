@@ -1,9 +1,12 @@
 #ifndef TOKENDATABASE_H
 #define TOKENDATABASE_H
 
+#include "clangpluginapi.h"
+
 #include <vector>
 #include <wx/thread.h>
 #include <wx/string.h>
+
 
 template<typename _Tp> class TreeMap;
 class wxString;
@@ -22,15 +25,14 @@ typedef enum _TokenType
 
 struct AbstractToken
 {
-    AbstractToken( TokenType typ, FileId fId, int ln, int col, wxString displayName, unsigned tknHash) :
-        type(typ), fileId(fId), line(ln), column(col), displayName(displayName.c_str()), tokenHash(tknHash) {}
+    AbstractToken( TokenType typ, FileId fId, ClTokenPosition location, wxString displayName, unsigned tknHash) :
+        type(typ), fileId(fId), location(location), displayName(displayName.c_str()), tokenHash(tknHash) {}
     AbstractToken( const AbstractToken& other ) :
-        type(other.type), fileId(other.fileId), line(other.line), column(other.column), displayName( other.displayName.c_str()), tokenHash(other.tokenHash) {}
+        type(other.type), fileId(other.fileId), location(other.location), displayName( other.displayName.c_str()), tokenHash(other.tokenHash) {}
 
     TokenType type;
     FileId fileId;
-    int line;
-    int column;
+    ClTokenPosition location;
     wxString displayName;
     unsigned tokenHash;
 };
@@ -43,7 +45,7 @@ public:
 
     FileId GetFilenameId(const wxString& filename);
     wxString GetFilename(FileId fId);
-    TokenId GetTokenId(const wxString& identifier, unsigned tokenHash); // returns wxNOT_FOUND on failure
+    TokenId GetTokenId(const wxString& identifier, FileId fId, unsigned tokenHash); // returns wxNOT_FOUND on failure
     TokenId InsertToken(const wxString& identifier, const AbstractToken& token); // duplicate tokens are discarded
     AbstractToken GetToken(TokenId tId);
     std::vector<TokenId> GetTokenMatches(const wxString& identifier);
