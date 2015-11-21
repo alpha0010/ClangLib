@@ -63,13 +63,9 @@ TokenId TokenDatabase::InsertToken(const wxString& identifier, const AbstractTok
 {
     wxMutexLocker lock(m_Mutex);
 
-    if ( token.fileId == 0 )
-        fprintf(stdout, "InsertToken '%s' %s fileId=%d (%x)\n", (const char*)identifier.mb_str(), (const char*)token.displayName.mb_str(), (int)token.fileId, (int)token.tokenHash);
     TokenId tId = GetTokenId(identifier, token.fileId, token.tokenHash);
     if (tId == wxNOT_FOUND)
     {
-        if (token.fileId == 0 )
-            fprintf(stdout,"Token '%s' not found...\n", (const char*)identifier.mb_str());
         tId = m_pTokens->Insert(wxString(identifier.c_str()), token);
         wxString filen = wxString::Format(wxT("%d"), token.fileId);
         m_pFileTokens->Insert(filen, tId);

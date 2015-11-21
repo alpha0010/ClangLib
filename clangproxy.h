@@ -232,7 +232,7 @@ public:
             return new ReparseJob(*this);
         }
         void Execute(ClangProxy& clangproxy);
-
+#if 0
         virtual void Completed(ClangProxy& /*clangProxy*/)
         {
             return; // Override: the event will be posted after AsyncReparse
@@ -241,6 +241,7 @@ public:
         {
             EventJob::Completed(clangProxy);
         }
+#endif
     public:
         int m_TranslId;
         std::map<wxString, wxString> m_UnsavedFiles;

@@ -152,28 +152,26 @@ void ClangToolbar::OnUpdateSelection( wxCommandEvent& event )
         int pos = stc->GetCurrentPos();
         int line = stc->LineFromPosition(pos);
         ClTokenPosition loc(line + 1, pos - stc->PositionFromLine(line) + 1);
-        wxString str = m_pClangPlugin->GetFunctionScopeName(GetCurrentTranslationUnitId(), ed->GetFilename(), loc );
-        if (str.CompareTo(wxT("::")) == 0 )
+        std::pair<wxString,wxString> scopePair = m_pClangPlugin->GetFunctionScopeAt(GetCurrentTranslationUnitId(), ed->GetFilename(), loc );
+        if (scopePair.first.Length() == 0 )
         {
             return;
         }
-        pos = str.Find(':',true);
-        line = m_Scope->FindString(str.Left(pos-1));
+        line = m_Scope->FindString(scopePair.first);
         if (line < 0 )
         {
-            m_Scope->Append(str.Left(pos-1));
-            line = m_Scope->FindString(str.Left(pos-1));
+            m_Scope->Append(scopePair.first);
+            line = m_Scope->FindString(scopePair.first);
         }
         m_Scope->SetSelection(line);
-        pos = str.Len() - pos + 1;
-        line = m_Function->FindString( str.Right(pos-2) );
+        line = m_Function->FindString( scopePair.second );
         if (line < 0 )
         {
-            m_Function->Append(str.Right(pos-2));
-            line = m_Function->FindString( str.Right(pos-2));
+            m_Function->Append(scopePair.second);
+            line = m_Function->FindString( scopePair.second);
         }
         m_Function->SetSelection(line);
-        fprintf(stdout,"Function scope: %s\n", (const char*)str.mb_str());
+        fprintf(stdout,"Function scope: %s :: %s\n", (const char*)scopePair.first.mb_str(), (const char*)scopePair.second.mb_str());
         EnableToolbarTools(true);
     }
     else
@@ -225,10 +223,17 @@ void ClangToolbar::OnScope( wxCommandEvent& evt )
 
 void ClangToolbar::OnFunction( wxCommandEvent& evt )
 {
-    fprintf(stdout, "ClangToolbar::OnFunction\n");
-    int sel = m_Function->GetSelection();
-    wxString scope = m_Scope->GetString( m_Scope->GetSelection() );
+    cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!ed)
+    {
+        return;
+    }
 
+    fprintf(stdout, "ClangToolbar::OnFunction\n");
+    wxString func = m_Function->GetString(m_Function->GetSelection());
+    wxString scope = m_Scope->GetString( m_Scope->GetSelection() );
+    ClTokenPosition tokenPos = m_pClangPlugin->GetFunctionScopeLocation(GetCurrentTranslationUnitId(), ed->GetFilename(), scope, func);
+    ed->GetControl()->GotoLine(tokenPos.line-1);
 }
 
 bool ClangToolbar::BuildToolBar(wxToolBar* toolBar)
@@ -264,7 +269,7 @@ void ClangToolbar::UpdateToolBar()
     {
         m_Scope = new wxChoice(m_ToolBar, wxNewId(), wxPoint(0, 0), wxSize(280, -1), 0, 0);
         m_ToolBar->InsertControl(0, m_Scope);
-        m_Scope->Connect(m_Scope->GetId(),    wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler(ClangToolbar::OnScope), nullptr, this);
+        m_Scope->Connect(m_Scope->GetId(), wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler(ClangToolbar::OnScope), nullptr, this);
     }
     else if ((!showScope) && m_Scope)
     {
@@ -289,7 +294,7 @@ void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
     m_Function->Freeze();
     m_Function->Clear();
 
-    std::vector<std::pair<wxString, wxString> > funcList = m_pClangPlugin->GetFunctionScopes(this->GetCurrentTranslationUnitId(), ed->GetFilename());
+    std::vector<std::pair<wxString, wxString> > funcList = m_pClangPlugin->GetFunctionScopes(GetCurrentTranslationUnitId(), ed->GetFilename());
     for( std::vector<std::pair<wxString, wxString> >::const_iterator it = funcList.begin(); it != funcList.end(); ++it)
     {
         if( it->first == scopeItem )

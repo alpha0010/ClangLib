@@ -1429,7 +1429,7 @@ void ClangProxy::GetFunctionScopeAt(int translUnitId, const wxString& filename, 
     CXCursor cursor = m_TranslUnits[translUnitId].GetTokensAt(filename, location);
     if (clang_Cursor_isNull(cursor))
     {
-        //fprintf(stdout,"NULL cursor\n");
+        fprintf(stdout,"NULL cursor\n");
         //out_ClassName = wxT("");
         //out_MethodName = wxT("");
         //return;

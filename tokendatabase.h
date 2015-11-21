@@ -26,9 +26,9 @@ typedef enum _TokenType
 struct AbstractToken
 {
     AbstractToken( TokenType typ, FileId fId, ClTokenPosition location, wxString displayName, wxString scopeName, unsigned tknHash) :
-        type(typ), fileId(fId), location(location), displayName(displayName.c_str()), tokenHash(tknHash) {}
+        type(typ), fileId(fId), location(location), displayName(displayName.c_str()), scopeName(scopeName.c_str()), tokenHash(tknHash) {}
     AbstractToken( const AbstractToken& other ) :
-        type(other.type), fileId(other.fileId), location(other.location), displayName( other.displayName.c_str()), tokenHash(other.tokenHash) {}
+        type(other.type), fileId(other.fileId), location(other.location), displayName( other.displayName.c_str()), scopeName(other.scopeName.c_str()), tokenHash(other.tokenHash) {}
 
     TokenType type;
     FileId fileId;

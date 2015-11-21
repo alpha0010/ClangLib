@@ -276,6 +276,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
         if (editor && editor->GetModified())
             unsavedFiles.insert(std::make_pair(editor->GetFilename(), editor->GetControl()->GetText()));
     }
+
     const int lnStart = stc->PositionFromLine(line);
     int column = tknStart - lnStart;
     for (; column > 0; --column)
@@ -1488,16 +1489,26 @@ ClTranslUnitId ClangPlugin::GetTranslationUnitId( const wxString& filename )
     return m_TranslUnitId;
 }
 
-wxString ClangPlugin::GetFunctionScopeName( ClTranslUnitId id, const wxString& filename, const ClTokenPosition& location )
+std::pair<wxString,wxString> ClangPlugin::GetFunctionScopeAt( ClTranslUnitId id, const wxString& filename, const ClTokenPosition& location )
 {
     wxString scope;
     wxString func;
     m_Proxy.GetFunctionScopeAt(id, filename, location, scope, func);
-    return scope + wxT("::") + func;
+    return std::make_pair(scope,func);
 }
 
 ClTokenPosition ClangPlugin::GetFunctionScopeLocation( ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname)
 {
+    FileId fId = m_Database.GetFilenameId(filename);
+    std::vector<TokenId> tokenIdList = m_Database.GetFileTokens(fId);
+    for( std::vector<TokenId>::const_iterator it = tokenIdList.begin(); it != tokenIdList.end(); ++it)
+    {
+        AbstractToken token = m_Database.GetToken(*it);
+        if ((token.scopeName == scope)&&(token.displayName == functioname))
+        {
+            return token.location;
+        }
+    }
     return ClTokenPosition(0,0);
 }
 
@@ -1511,7 +1522,7 @@ std::vector<std::pair<wxString, wxString> >  ClangPlugin::GetFunctionScopes( ClT
         AbstractToken token = m_Database.GetToken(*it);
         if ( token.type == TokenType_FuncDecl )
         {
-            ret.push_back( std::make_pair(token.scopeName, token.displayName ));
+            ret.push_back( std::make_pair(token.scopeName, token.displayName) );
         }
     }
     return ret;
