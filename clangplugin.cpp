@@ -4,6 +4,7 @@
 
 #include <sdk.h>
 #include <stdio.h>
+#include <iostream>
 #include "clangplugin.h"
 #include "clangtoolbar.h"
 
