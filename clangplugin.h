@@ -152,7 +152,7 @@ public: // IClangPlugin
 private: // Members
     std::vector<ClangPluginComponent*> m_ComponentList;
 
-    TokenDatabase m_Database;
+    ClTokenDatabase m_Database;
     wxStringVec m_CppKeywords;
     ClangProxy m_Proxy;
     wxImageList m_ImageList;

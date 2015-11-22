@@ -12,12 +12,12 @@
 
 #undef CLANGPROXY_TRACE_FUNCTIONS
 
-class TranslationUnit;
-class TokenDatabase;
+class ClTranslationUnit;
+class ClTokenDatabase;
 class ClangProxy;
 
 typedef void* CXIndex;
-typedef int FileId;
+typedef int ClFileId;
 
 enum TokenCategory
 {
@@ -605,31 +605,31 @@ public:
     };
 
 public:
-    ClangProxy( wxEvtHandler* pEvtHandler, TokenDatabase& database, const std::vector<wxString>& cppKeywords);
+    ClangProxy( wxEvtHandler* pEvtHandler, ClTokenDatabase& database, const std::vector<wxString>& cppKeywords);
     ~ClangProxy();
 
     void AppendPendingJob( ClangProxy::ClangJob& job );
     //void PrependPendingJob( ClangProxy::ClangJob& job );
 
-    int GetTranslationUnitId(int CtxTranslUnitId, FileId fId);
-    int GetTranslationUnitId(int CtxTranslUnitId, const wxString& filename);
+    ClTranslUnitId GetTranslationUnitId(ClTranslUnitId CtxTranslUnitId, ClFileId fId);
+    ClTranslUnitId GetTranslationUnitId(ClTranslUnitId CtxTranslUnitId, const wxString& filename);
 
 protected: // jobs that are run only on the thread
-    void CreateTranslationUnit(const wxString& filename, const wxString& compileCommand, int& out_TranslId);
-    void RemoveTranslationUnit(int TranslUnitId);
+    void CreateTranslationUnit(const wxString& filename, const wxString& compileCommand, ClTranslUnitId& out_TranslId);
+    void RemoveTranslationUnit(ClTranslUnitId TranslUnitId);
     /** Reparse translation id
      *
      * @param unsavedFiles reference to the unsaved files data. This function takes the data and this list will be empty after this call
      */
-    void Reparse(int translId, const wxString& compileCommand, std::map<wxString, wxString>& unsavedFiles);
-    void GetDiagnostics(int translId, std::vector<ClDiagnostic>& diagnostics);
-    void CodeCompleteAt(bool isAuto, const wxString& filename, const ClTokenPosition& location, int translId,
+    void Reparse(ClTranslUnitId translId, const wxString& compileCommand, std::map<wxString, wxString>& unsavedFiles);
+    void GetDiagnostics(ClTranslUnitId translId, std::vector<ClDiagnostic>& diagnostics);
+    void CodeCompleteAt(bool isAuto, const wxString& filename, const ClTokenPosition& location, ClTranslUnitId translId,
             const std::map<wxString, wxString>& unsavedFiles, std::vector<ClToken>& results);
-    void GetTokensAt(const wxString& filename, const ClTokenPosition& location, int translId, std::vector<wxString>& results);
-    void GetCallTipsAt(const wxString& filename, const ClTokenPosition& location, int translId,
+    void GetTokensAt(const wxString& filename, const ClTokenPosition& location, ClTranslUnitId translId, std::vector<wxString>& results);
+    void GetCallTipsAt(const wxString& filename, const ClTokenPosition& location, ClTranslUnitId translId,
             const wxString& tokenStr, std::vector<wxStringVec>& results);
     void GetOccurrencesOf(const wxString& filename, const ClTokenPosition& location,
-            int translId, std::vector< std::pair<int, int> >& results);
+            ClTranslUnitId translId, std::vector< std::pair<int, int> >& results);
 
 
 public:
@@ -637,15 +637,15 @@ public:
     wxString GetCCInsertSuffix(ClTranslUnitId translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets);
     void RefineTokenType(ClTranslUnitId translId, int tknId, int& tknType); // TODO: cache TokenId (if resolved) for DocumentCCToken()
 
-    void ResolveDeclTokenAt(wxString& filename, ClTokenPosition& out_location, int translId);
+    void ResolveDeclTokenAt(wxString& filename, ClTokenPosition& out_location, ClTranslUnitId translId);
     void GetFunctionScopeAt(ClTranslUnitId translId, const wxString& filename, const ClTokenPosition& location, wxString &out_ClassName, wxString &out_FunctionName );
     std::vector<std::pair<wxString, wxString> > GetFunctionScopes( ClTranslUnitId, const wxString& filename );
 
 private:
     mutable wxMutex m_Mutex;
-    TokenDatabase& m_Database;
+    ClTokenDatabase& m_Database;
     const std::vector<wxString>& m_CppKeywords;
-    std::vector<TranslationUnit> m_TranslUnits;
+    std::vector<ClTranslationUnit> m_TranslUnits;
     CXIndex m_ClIndex[2];
 private: // Thread
     wxEvtHandler* m_pEventCallbackHandler;

@@ -308,7 +308,11 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
         ClTokenPosition loc(line+1, column+1);
         ClangProxy::CodeCompleteAtJob job( cbEVT_CLANG_SYNCTASK_FINISHED, idClangCodeCompleteTask, isAuto, ed->GetFilename(), loc, m_TranslUnitId, unsavedFiles);
         m_Proxy.AppendPendingJob(job);
-        unsigned long timeout = 100;
+        unsigned long timeout = 50;
+        if( !isAuto )
+        {
+            timeout = 500;
+        }
 
         if (wxCOND_TIMEOUT == job.WaitCompletion(timeout))
         {
@@ -1410,6 +1414,7 @@ void ClangPlugin::OnClangSyncTaskFinished( wxEvent& event )
                     if ( m_CCOutstandingResults.size() > 0 )
                     {
                         CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
+                        evt.SetInt(1);
                         Manager::Get()->ProcessEvent(evt);
                         return;
                     }
@@ -1500,11 +1505,11 @@ std::pair<wxString,wxString> ClangPlugin::GetFunctionScopeAt( ClTranslUnitId id,
 
 ClTokenPosition ClangPlugin::GetFunctionScopeLocation( ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname)
 {
-    FileId fId = m_Database.GetFilenameId(filename);
-    std::vector<TokenId> tokenIdList = m_Database.GetFileTokens(fId);
-    for( std::vector<TokenId>::const_iterator it = tokenIdList.begin(); it != tokenIdList.end(); ++it)
+    ClFileId fId = m_Database.GetFilenameId(filename);
+    std::vector<ClTokenId> tokenIdList = m_Database.GetFileTokens(fId);
+    for( std::vector<ClTokenId>::const_iterator it = tokenIdList.begin(); it != tokenIdList.end(); ++it)
     {
-        AbstractToken token = m_Database.GetToken(*it);
+        ClAbstractToken token = m_Database.GetToken(*it);
         if ((token.scopeName == scope)&&(token.displayName == functioname))
         {
             return token.location;
@@ -1516,12 +1521,12 @@ ClTokenPosition ClangPlugin::GetFunctionScopeLocation( ClTranslUnitId id, const 
 std::vector<std::pair<wxString, wxString> >  ClangPlugin::GetFunctionScopes( ClTranslUnitId, const wxString& filename )
 {
     std::vector<std::pair<wxString, wxString> >  ret;
-    FileId fId = m_Database.GetFilenameId(filename);
-    std::vector<TokenId> tokenIdList = m_Database.GetFileTokens(fId);
-    for( std::vector<TokenId>::const_iterator it = tokenIdList.begin(); it != tokenIdList.end(); ++it)
+    ClFileId fId = m_Database.GetFilenameId(filename);
+    std::vector<ClTokenId> tokenIdList = m_Database.GetFileTokens(fId);
+    for( std::vector<ClTokenId>::const_iterator it = tokenIdList.begin(); it != tokenIdList.end(); ++it)
     {
-        AbstractToken token = m_Database.GetToken(*it);
-        if ( token.type == TokenType_FuncDecl )
+        ClAbstractToken token = m_Database.GetToken(*it);
+        if ( token.type == ClTokenType_FuncDecl )
         {
             ret.push_back( std::make_pair(token.scopeName, token.displayName) );
         }

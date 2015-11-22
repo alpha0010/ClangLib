@@ -10,21 +10,21 @@
 
 #include "treemap.h"
 
-TokenDatabase::TokenDatabase() :
-    m_pTokens(new TreeMap<AbstractToken>()),
-    m_pFileTokens(new TreeMap<int>()),
-    m_pFilenames(new TreeMap<wxString>()),
+ClTokenDatabase::ClTokenDatabase() :
+    m_pTokens(new ClTreeMap<ClAbstractToken>()),
+    m_pFileTokens(new ClTreeMap<int>()),
+    m_pFilenames(new ClTreeMap<wxString>()),
     m_Mutex(wxMUTEX_RECURSIVE)
 {
 }
 
-TokenDatabase::~TokenDatabase()
+ClTokenDatabase::~ClTokenDatabase()
 {
     delete m_pFilenames;
     delete m_pTokens;
 }
 
-FileId TokenDatabase::GetFilenameId(const wxString& filename)
+ClFileId ClTokenDatabase::GetFilenameId(const wxString& filename)
 {
     wxMutexLocker lock(m_Mutex);
     assert(m_pFilenames);
@@ -36,14 +36,14 @@ FileId TokenDatabase::GetFilenameId(const wxString& filename)
     if (id.empty())
     {
         wxString f = wxString(normFile.c_str());
-        FileId id = m_pFilenames->Insert( f, f );
+        ClFileId id = m_pFilenames->Insert( f, f );
         //fprintf(stdout,"%s this=%p Storing %s(%p) as %d\n", __PRETTY_FUNCTION__, (void*)this, (const char*)f.mb_str(), (void*)f.c_str(), (int)id );
         return id;
     }
     return id.front();
 }
 
-wxString TokenDatabase::GetFilename(FileId fId)
+wxString ClTokenDatabase::GetFilename(ClFileId fId)
 {
     wxMutexLocker lock( m_Mutex);
 
@@ -59,11 +59,11 @@ wxString TokenDatabase::GetFilename(FileId fId)
     return wxString(val);
 }
 
-TokenId TokenDatabase::InsertToken(const wxString& identifier, const AbstractToken& token)
+ClTokenId ClTokenDatabase::InsertToken(const wxString& identifier, const ClAbstractToken& token)
 {
     wxMutexLocker lock(m_Mutex);
 
-    TokenId tId = GetTokenId(identifier, token.fileId, token.tokenHash);
+    ClTokenId tId = GetTokenId(identifier, token.fileId, token.tokenHash);
     if (tId == wxNOT_FOUND)
     {
         tId = m_pTokens->Insert(wxString(identifier.c_str()), token);
@@ -75,7 +75,7 @@ TokenId TokenDatabase::InsertToken(const wxString& identifier, const AbstractTok
     return tId;
 }
 
-TokenId TokenDatabase::GetTokenId(const wxString& identifier, FileId fileId, unsigned tokenHash)
+ClTokenId ClTokenDatabase::GetTokenId(const wxString& identifier, ClFileId fileId, unsigned tokenHash)
 {
     wxMutexLocker lock( m_Mutex);
     std::vector<int> ids = m_pTokens->GetIdSet(identifier);
@@ -84,7 +84,7 @@ TokenId TokenDatabase::GetTokenId(const wxString& identifier, FileId fileId, uns
     {
         if (m_pTokens->HasValue(*itr))
         {
-            AbstractToken tok = m_pTokens->GetValue(*itr);
+            ClAbstractToken tok = m_pTokens->GetValue(*itr);
             if( (tok.tokenHash == tokenHash)&&((tok.fileId == fileId)||(fileId == wxNOT_FOUND)) )
                 return *itr;
         }
@@ -92,29 +92,29 @@ TokenId TokenDatabase::GetTokenId(const wxString& identifier, FileId fileId, uns
     return wxNOT_FOUND;
 }
 
-AbstractToken TokenDatabase::GetToken(TokenId tId)
+ClAbstractToken ClTokenDatabase::GetToken(ClTokenId tId)
 {
     wxMutexLocker lock( m_Mutex);
     assert( m_pTokens->HasValue(tId) );
     return m_pTokens->GetValue(tId);
 }
 
-std::vector<TokenId> TokenDatabase::GetTokenMatches(const wxString& identifier)
+std::vector<ClTokenId> ClTokenDatabase::GetTokenMatches(const wxString& identifier)
 {
     wxMutexLocker lock( m_Mutex);
     return m_pTokens->GetIdSet(identifier);
 }
 
-std::vector<TokenId> TokenDatabase::GetFileTokens(FileId fId)
+std::vector<ClTokenId> ClTokenDatabase::GetFileTokens(ClFileId fId)
 {
     wxMutexLocker lock( m_Mutex);
     wxString key = wxString::Format(wxT("%d"), fId);
-    std::vector<TokenId> tokens = m_pFileTokens->GetIdSet(key);
+    std::vector<ClTokenId> tokens = m_pFileTokens->GetIdSet(key);
 
     return tokens;
 }
 
-void TokenDatabase::Shrink()
+void ClTokenDatabase::Shrink()
 {
     wxMutexLocker lock(m_Mutex);
     m_pFilenames->Shrink();

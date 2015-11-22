@@ -8,57 +8,57 @@
 #include <wx/string.h>
 
 
-template<typename _Tp> class TreeMap;
+template<typename _Tp> class ClTreeMap;
 class wxString;
-typedef int FileId;
-typedef int TokenId;
+typedef int ClFileId;
+typedef int ClTokenId;
 
 typedef enum _TokenType
 {
-    TokenType_Unknown = 0,
-    TokenType_FuncDecl  = 1<<0,
-    TokenType_VarDecl   = 1<<1,
-    TokenType_ParmDecl  = 1<<2,
-    TokenType_ScopeDecl = 1<<3,
+    ClTokenType_Unknown = 0,
+    ClTokenType_FuncDecl  = 1<<0,
+    ClTokenType_VarDecl   = 1<<1,
+    ClTokenType_ParmDecl  = 1<<2,
+    ClTokenType_ScopeDecl = 1<<3,
 
-}CBTokenType;
+}ClTokenType;
 
-struct AbstractToken
+struct ClAbstractToken
 {
-    AbstractToken( CBTokenType typ, FileId fId, ClTokenPosition location, wxString displayName, wxString scopeName, unsigned tknHash) :
+    ClAbstractToken( ClTokenType typ, ClFileId fId, ClTokenPosition location, wxString displayName, wxString scopeName, unsigned tknHash) :
         type(typ), fileId(fId), location(location), displayName(displayName.c_str()), scopeName(scopeName.c_str()), tokenHash(tknHash) {}
-    AbstractToken( const AbstractToken& other ) :
+    ClAbstractToken( const ClAbstractToken& other ) :
         type(other.type), fileId(other.fileId), location(other.location), displayName( other.displayName.c_str()), scopeName(other.scopeName.c_str()), tokenHash(other.tokenHash) {}
 
-    CBTokenType type;
-    FileId fileId;
+    ClTokenType type;
+    ClFileId fileId;
     ClTokenPosition location;
     wxString displayName;
     wxString scopeName;
     unsigned tokenHash;
 };
 
-class TokenDatabase
+class ClTokenDatabase
 {
 public:
-    TokenDatabase();
-    ~TokenDatabase();
+    ClTokenDatabase();
+    ~ClTokenDatabase();
 
-    FileId GetFilenameId(const wxString& filename);
-    wxString GetFilename(FileId fId);
-    TokenId GetTokenId(const wxString& identifier, FileId fId, unsigned tokenHash); // returns wxNOT_FOUND on failure
-    TokenId InsertToken(const wxString& identifier, const AbstractToken& token); // duplicate tokens are discarded
-    AbstractToken GetToken(TokenId tId);
-    std::vector<TokenId> GetTokenMatches(const wxString& identifier);
-    std::vector<TokenId> GetFileTokens(FileId fId);
+    ClFileId GetFilenameId(const wxString& filename);
+    wxString GetFilename(ClFileId fId);
+    ClTokenId GetTokenId(const wxString& identifier, ClFileId fId, unsigned tokenHash); // returns wxNOT_FOUND on failure
+    ClTokenId InsertToken(const wxString& identifier, const ClAbstractToken& token); // duplicate tokens are discarded
+    ClAbstractToken GetToken(ClTokenId tId);
+    std::vector<ClTokenId> GetTokenMatches(const wxString& identifier);
+    std::vector<ClTokenId> GetFileTokens(ClFileId fId);
 
     void Shrink();
 
 private:
 
-    TreeMap<AbstractToken>* m_pTokens;
-    TreeMap<int>* m_pFileTokens;
-    TreeMap<wxString>* m_pFilenames;
+    ClTreeMap<ClAbstractToken>* m_pTokens;
+    ClTreeMap<int>* m_pFileTokens;
+    ClTreeMap<wxString>* m_pFilenames;
     wxMutex m_Mutex;
 };
 

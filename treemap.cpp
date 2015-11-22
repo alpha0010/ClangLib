@@ -159,17 +159,17 @@ struct TreeNode
 #endif // USE_TREE_MAP
 
 
-TreeMap<int>::TreeMap() :
+ClTreeMap<int>::ClTreeMap() :
     m_Root(new TreeNode())
 {
 }
 
-TreeMap<int>::~TreeMap()
+ClTreeMap<int>::~ClTreeMap()
 {
     delete m_Root;
 }
 
-int TreeMap<int>::Insert(const wxString& key, int value)
+int ClTreeMap<int>::Insert(const wxString& key, int value)
 {
 #ifdef USE_TREE_MAP
     TreeNode leaf(key, value);
@@ -180,7 +180,7 @@ int TreeMap<int>::Insert(const wxString& key, int value)
     return value;
 }
 
-void TreeMap<int>::Shrink()
+void ClTreeMap<int>::Shrink()
 {
 #ifdef USE_TREE_MAP
     if (m_Root->children.size() == 1) // do not let the root node gain a value
@@ -190,7 +190,7 @@ void TreeMap<int>::Shrink()
 #endif // USE_TREE_MAP
 }
 
-std::vector<int> TreeMap<int>::GetIdSet(const wxString& key) const
+std::vector<int> ClTreeMap<int>::GetIdSet(const wxString& key) const
 {
 #ifdef USE_TREE_MAP
     return m_Root->GetLeaves(key);
@@ -205,7 +205,7 @@ std::vector<int> TreeMap<int>::GetIdSet(const wxString& key) const
 }
 
 // Function just returns itself.
-int TreeMap<int>::GetValue(int id) const
+int ClTreeMap<int>::GetValue(int id) const
 {
     return id;
 }

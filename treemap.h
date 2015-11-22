@@ -5,14 +5,14 @@
 
 struct TreeNode;
 class wxString;
-template<typename _TpVal> class TreeMap;
+template<typename _TpVal> class ClTreeMap;
 
 template<>
-class TreeMap<int>
+class ClTreeMap<int>
 {
     public:
-        TreeMap();
-        ~TreeMap();
+        ClTreeMap();
+        ~ClTreeMap();
         int Insert(const wxString& key, int value); // returns value
         void Shrink();
         std::vector<int> GetIdSet(const wxString& key) const;
@@ -22,7 +22,7 @@ class TreeMap<int>
 };
 
 template<typename _TpVal>
-class TreeMap
+class ClTreeMap
 {
     public:
         // returns the id of the value inserted
@@ -62,7 +62,7 @@ class TreeMap
         }
 
     private:
-        TreeMap<int> m_Tree;
+        ClTreeMap<int> m_Tree;
         std::vector<_TpVal> m_Data;
 };
 
