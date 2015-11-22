@@ -21,16 +21,16 @@ typedef enum _TokenType
     TokenType_ParmDecl  = 1<<2,
     TokenType_ScopeDecl = 1<<3,
 
-}TokenType;
+}CBTokenType;
 
 struct AbstractToken
 {
-    AbstractToken( TokenType typ, FileId fId, ClTokenPosition location, wxString displayName, wxString scopeName, unsigned tknHash) :
+    AbstractToken( CBTokenType typ, FileId fId, ClTokenPosition location, wxString displayName, wxString scopeName, unsigned tknHash) :
         type(typ), fileId(fId), location(location), displayName(displayName.c_str()), scopeName(scopeName.c_str()), tokenHash(tknHash) {}
     AbstractToken( const AbstractToken& other ) :
         type(other.type), fileId(other.fileId), location(other.location), displayName( other.displayName.c_str()), scopeName(other.scopeName.c_str()), tokenHash(other.tokenHash) {}
 
-    TokenType type;
+    CBTokenType type;
     FileId fileId;
     ClTokenPosition location;
     wxString displayName;

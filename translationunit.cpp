@@ -3,7 +3,7 @@
  */
 
 #include <sdk.h>
-
+#include <iostream>
 #include "translationunit.h"
 
 #ifndef CB_PRECOMP
@@ -413,7 +413,7 @@ static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* WXUNUSED(
 
 static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(parent), CXClientData client_data)
 {
-    TokenType typ = TokenType_Unknown;
+    CBTokenType typ = TokenType_Unknown;
     CXChildVisitResult ret = CXChildVisit_Break; // should never happen
     switch (cursor.kind)
     {

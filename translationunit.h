@@ -2,6 +2,7 @@
 #define TRANSLATION_UNIT_H
 
 #include <clang-c/Index.h>
+#include <clang-c/Documentation.h>
 #include "clangpluginapi.h"
 #include "tokendatabase.h"
 
