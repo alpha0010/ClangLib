@@ -17,7 +17,7 @@
 
 namespace ProxyHelper
 {
-    static TokenCategory GetTokenCategory(CXCursorKind kind, CX_CXXAccessSpecifier access = CX_CXXInvalidAccessSpecifier)
+    static ClTokenCategory GetTokenCategory(CXCursorKind kind, CX_CXXAccessSpecifier access = CX_CXXInvalidAccessSpecifier)
     {
         switch (kind)
         {
@@ -1072,7 +1072,7 @@ void ClangProxy::RefineTokenType(ClTranslUnitId translUnitId, int tknId, int& tk
                     aTkn.location);
             if (!clang_Cursor_isNull(clTkn) && !clang_isInvalid(clTkn.kind))
             {
-                TokenCategory tkCat
+                ClTokenCategory tkCat
                     = ProxyHelper::GetTokenCategory(token->CursorKind, clang_getCXXAccessSpecifier(clTkn));
                 if (tkCat != tcNone)
                     tknType = tkCat;

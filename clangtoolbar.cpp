@@ -54,8 +54,6 @@ void ClangToolbar::OnAttach(IClangPlugin* pClangPlugin)
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new ClToolbarEvent(this, &ClangToolbar::OnEditorActivate));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_CLOSE,     new ClToolbarEvent(this, &ClangToolbar::OnEditorClose));
 
-    Manager::Get()->GetCCManager();
-
     Connect(idToolbarUpdateSelection,clEVT_COMMAND_UPDATETOOLBARSELECTION, wxCommandEventHandler(ClangToolbar::OnUpdateSelection), nullptr, this );
     Connect(idToolbarUpdateContents, clEVT_COMMAND_UPDATETOOLBARCONTENTS, wxCommandEventHandler(ClangToolbar::OnUpdateContents), nullptr, this );
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangToolbar>(this, &ClangToolbar::OnEditorHook));
@@ -125,7 +123,6 @@ void ClangToolbar::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     //cbStyledTextCtrl* stc = ed->GetControl();
     if (event.GetEventType() == wxEVT_SCI_UPDATEUI)
     {
-        //fprintf(stdout,"wxEVT_SCI_UPDATEUI\n");
         if (event.GetUpdated() & wxSCI_UPDATE_SELECTION)
         {
             cbStyledTextCtrl* stc = ed->GetControl();
@@ -173,7 +170,6 @@ void ClangToolbar::OnUpdateSelection( wxCommandEvent& event )
             line = m_Function->FindString( scopePair.second);
         }
         m_Function->SetSelection(line);
-        fprintf(stdout,"Function scope: %s :: %s\n", (const char*)scopePair.first.mb_str(), (const char*)scopePair.second.mb_str());
         EnableToolbarTools(true);
     }
     else
@@ -191,13 +187,13 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& event )
     }
     int sel = m_Scope->GetSelection();
     wxString selScope = m_Scope->GetString(sel);
-    std::vector<std::pair<wxString, wxString> > list = m_pClangPlugin->GetFunctionScopes( GetCurrentTranslationUnitId(), ed->GetFilename() );
-    fprintf(stdout,"Function scopes: %d\n", (int)list.size());
-    if (list.size() == 0)
+    std::vector<std::pair<wxString, wxString> > scopes;
+    m_pClangPlugin->GetFunctionScopes( GetCurrentTranslationUnitId(), ed->GetFilename(), scopes );
+    if (scopes.size() == 0)
         return;
     m_Scope->Freeze();
     m_Scope->Clear();
-    for( std::vector<std::pair<wxString, wxString> >::iterator it = list.begin(); it != list.end(); ++it )
+    for( std::vector<std::pair<wxString, wxString> >::iterator it = scopes.begin(); it != scopes.end(); ++it )
     {
         wxString scope = it->first;
         if( scope.Length() == 0 )
@@ -215,7 +211,6 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& event )
 
 void ClangToolbar::OnScope( wxCommandEvent& evt )
 {
-    fprintf(stdout, "ClangToolbar::OnScope\n");
     int sel = m_Scope->GetSelection();
     if (sel == -1)
         return;
@@ -231,7 +226,6 @@ void ClangToolbar::OnFunction( wxCommandEvent& evt )
         return;
     }
 
-    fprintf(stdout, "ClangToolbar::OnFunction\n");
     wxString func = m_Function->GetString(m_Function->GetSelection());
     wxString scope = m_Scope->GetString( m_Scope->GetSelection() );
     ClTokenPosition tokenPos = m_pClangPlugin->GetFunctionScopeLocation(GetCurrentTranslationUnitId(), ed->GetFilename(), scope, func);
@@ -248,7 +242,6 @@ bool ClangToolbar::BuildToolBar(wxToolBar* toolBar)
 
     if (m_Function )
         Manager::Get()->GetAppWindow()->Connect(m_Function->GetId(), wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler(ClangToolbar::OnFunction), nullptr, this);
-        //m_Function->Connect(m_Function->GetId(), wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler(ClangToolbar::OnFunction), nullptr, this);
     if (m_Scope )
         Manager::Get()->GetAppWindow()->Connect(m_Scope->GetId(), wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler(ClangToolbar::OnScope), nullptr, this);
     m_ToolBar = toolBar;
@@ -287,7 +280,6 @@ void ClangToolbar::UpdateToolBar()
 
 void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
 {
-    fprintf(stdout,"UpdateFunctions %s\n", (const char*)scopeItem.mb_str());
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
     {
@@ -296,7 +288,8 @@ void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
     m_Function->Freeze();
     m_Function->Clear();
 
-    std::vector<std::pair<wxString, wxString> > funcList = m_pClangPlugin->GetFunctionScopes(GetCurrentTranslationUnitId(), ed->GetFilename());
+    std::vector<std::pair<wxString, wxString> > funcList;
+    m_pClangPlugin->GetFunctionScopes(GetCurrentTranslationUnitId(), ed->GetFilename(), funcList);
     for( std::vector<std::pair<wxString, wxString> >::const_iterator it = funcList.begin(); it != funcList.end(); ++it)
     {
         if( it->first == scopeItem )

@@ -19,6 +19,7 @@
 				<Option projectCompilerOptionsRelation="2" />
 				<Compiler>
 					<Add option="-g" />
+					<Add option="-g" />
 					<Add option="$(#CB_RELEASE_TYPE)" />
 					<Add option="`/home/yves/wxWidgets-2.8/bin/wx-config --cflags`" />
 					<Add option="-I`/home/yves/llvm-3.6/bin/llvm-config --includedir`" />
@@ -70,6 +71,8 @@
 		<Unit filename="README.md">
 			<Option target="&lt;{~None~}&gt;" />
 		</Unit>
+		<Unit filename="clangcc.cpp" />
+		<Unit filename="clangcc.h" />
 		<Unit filename="clangplugin.cpp" />
 		<Unit filename="clangplugin.h" />
 		<Unit filename="clangpluginapi.h" />

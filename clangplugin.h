@@ -53,6 +53,8 @@ private:
      * @return Include search flags pointing to said locations
      */
     wxString GetCompilerInclDirs(const wxString& compId);
+
+#if 0
     /**
      * Search for the source file associated with a given header
      *
@@ -78,7 +80,7 @@ private:
      * @return true if files match close enough
      */
     bool IsSourceOf(const wxFileName& candidateFile, const wxFileName& activeFile, bool& isCandidate);
-
+#endif
     /// Start up parsing timers
     void OnEditorOpen(CodeBlocksEvent& event);
     /// Start up parsing timers
@@ -93,7 +95,7 @@ private:
     /// Close project
     void OnProjectClose(CodeBlocksEvent& event);
     /// Generic handler for various timers
-    void OnTimer(wxTimerEvent& event);
+    //void OnTimer(wxTimerEvent& event);
     /// Start re-parse and highlight timers
     void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
     /// Resolve the token under the cursor and open the relevant location
@@ -131,36 +133,48 @@ private:
      *
      * @param ed The editor to work in
      */
-    void HighlightOccurrences(cbEditor* ed);
+    //void HighlightOccurrences(cbEditor* ed);
 
 
 
 private: // Internal utility functions
-
     // Builds compile command
     int UpdateCompileCommand(cbEditor* ed);
 
     void RequestReparse();
 
+    bool ProcessEvent(ClangEvent& event);
 
 public: // IClangPlugin
+    bool IsProviderFor(cbEditor* ed);
     ClTranslUnitId GetTranslationUnitId( const wxString& filename );
-    std::pair<wxString,wxString> GetFunctionScopeAt( ClTranslUnitId id, const wxString& filename, const ClTokenPosition& location );
-    ClTokenPosition GetFunctionScopeLocation( ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname);
-    std::vector<std::pair<wxString, wxString> >   GetFunctionScopes( ClTranslUnitId, const wxString& filename );
+    void RegisterEventSink( wxEventType, IEventFunctorBase<ClangEvent>* functor);
+    void RemoveAllEventSinksFor(void* owner);
 
+    void RequestReparse(const ClTranslUnitId& id, const wxString& filename);
+    std::pair<wxString,wxString> GetFunctionScopeAt( const ClTranslUnitId& id, const wxString& filename, const ClTokenPosition& location );
+    ClTokenPosition GetFunctionScopeLocation( const ClTranslUnitId& id, const wxString& filename, const wxString& scope, const wxString& functioname);
+    void GetFunctionScopes( const ClTranslUnitId&, const wxString& filename, std::vector<std::pair<wxString, wxString> >& out_scopes );
+    wxCondError GetOccurrencesOf( const ClTranslUnitId&, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector< std::pair<int, int> >& out_occurrences );
+    wxCondError GetCodeCompletionAt( const ClTranslUnitId& id, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector<ClToken>& out_tknResults);
+
+    const wxImageList& GetImageList(const ClTranslUnitId& /*id*/ ) { return m_ImageList; }
+    const wxStringVec& GetKeywords( const ClTranslUnitId& /*id*/ ) { return m_CppKeywords; }
 private: // Members
     std::vector<ClangPluginComponent*> m_ComponentList;
+
+    typedef std::vector< IEventFunctorBase<ClangEvent>* > EventSinksArray;
+    typedef std::map< wxEventType, EventSinksArray >   EventSinksMap;
+    EventSinksMap       m_EventSinks;
 
     ClTokenDatabase m_Database;
     wxStringVec m_CppKeywords;
     ClangProxy m_Proxy;
     wxImageList m_ImageList;
 
-    //wxTimer m_EdOpenTimer;
     wxTimer m_ReparseTimer;
-    wxTimer m_DiagnosticTimer;
-    wxTimer m_HightlightTimer;
+    //wxTimer m_DiagnosticTimer;
+    //wxTimer m_HightlightTimer;
     std::map<wxString, wxString> m_compInclDirs;
     cbEditor* m_pLastEditor;
     int m_TranslUnitId;
@@ -169,10 +183,10 @@ private: // Members
     std::vector<wxStringVec> m_LastCallTips;
     wxString m_CompileCommand;
     int m_UpdateCompileCommand;
-    unsigned int m_CCOutstanding;
-    long m_CCOutstandingLastMessageTime;
-    int m_CCOutstandingPos;
-    std::vector<ClToken> m_CCOutstandingResults;
+    //unsigned int m_CCOutstanding;
+    //long m_CCOutstandingLastMessageTime;
+    //int m_CCOutstandingPos;
+    //std::vector<ClToken> m_CCOutstandingResults;
     int m_ReparseNeeded;
     //int m_ReparseBusy;
 };

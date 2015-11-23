@@ -19,51 +19,6 @@ class ClangProxy;
 typedef void* CXIndex;
 typedef int ClFileId;
 
-enum TokenCategory
-{
-    tcClassFolder,
-    tcClass,            tcClassPrivate,
-    tcClassProtected,   tcClassPublic,
-    tcCtorPrivate,      tcCtorProtected,
-    tcCtorPublic,
-    tcDtorPrivate,      tcDtorProtected,
-    tcDtorPublic,
-    tcFuncPrivate,      tcFuncProtected,
-    tcFuncPublic,
-    tcVarPrivate,       tcVarProtected,
-    tcVarPublic,
-    tcMacroDef,
-    tcEnum,             tcEnumPrivate,
-    tcEnumProtected,    tcEnumPublic,
-    tcEnumerator,
-    tcNamespace,
-    tcTypedef,          tcTypedefPrivate,
-    tcTypedefProtected, tcTypedefPublic,
-    tcSymbolsFolder,
-    tcVarsFolder,
-    tcFuncsFolder,
-    tcEnumsFolder,
-    tcPreprocFolder,
-    tcOthersFolder,
-    tcTypedefFolder,
-    tkMacroUse,         tcMacroPrivate,
-    tcMacroProtected,   tcMacroPublic,
-    tcMacroFolder,
-    tcLangKeyword, // added
-    tcNone = -1
-};
-
-struct ClToken // TODO: do we want this, or is just using CCToken good enough?
-{
-    ClToken(const wxString& nm, int _id, int _weight, int categ) :
-        id(_id), category(categ), weight(_weight), name(nm) {}
-
-    int id;
-    int category;
-    int weight;
-    wxString name;
-};
-
 class ClangProxy
 {
 public:
@@ -172,6 +127,8 @@ public:
                 clangproxy.CreateTranslationUnit(m_Filename, m_Commands, m_TranslationUnitId);
             }
         }
+        const ClTranslUnitId GetTranslationUnitId() { return m_TranslationUnitId; }
+        const wxString& GetFilename() const { return m_Filename; }
     protected:
         CreateTranslationUnitJob(const CreateTranslationUnitJob& other):
             EventJob(other),
@@ -242,6 +199,8 @@ public:
             EventJob::Completed(clangProxy);
         }
 #endif
+        const ClTranslUnitId GetTranslationUnitId() { return m_TranslId; }
+        const wxString& GetFilename() const { return m_Filename; }
     public:
         int m_TranslId;
         std::map<wxString, wxString> m_UnsavedFiles;
@@ -420,10 +379,10 @@ public:
         {
             SyncJob::Finalize();
         }
-        const std::vector<ClToken>& GetResults()
-        {
-            return *m_pResults;
-        }
+        const ClTranslUnitId GetTranslationUnitId() { return m_TranslId; }
+        const wxString& GetFilename() const { return m_Filename; }
+        const ClTokenPosition& GetLocation() const { return m_Location; }
+        const std::vector<ClToken>& GetResults() const { return *m_pResults; }
     protected:
         CodeCompleteAtJob( const CodeCompleteAtJob& other ) :
             SyncJob(other),
@@ -534,7 +493,7 @@ public:
     class GetOccurrencesOfJob : public SyncJob
     {
     public:
-        GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, int translId ):
+        GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, ClTranslUnitId translId ):
             SyncJob( GetOccurrencesOfType, evtType, evtId),
             m_Filename(filename.c_str()),
             m_Location(location),
@@ -554,22 +513,22 @@ public:
 #endif
             clangproxy.GetOccurrencesOf( m_Filename, m_Location, m_TranslId, *m_pResults);
         }
-        const std::vector< std::pair<int, int> >& GetResults()
-        {
-            return *m_pResults;
-        }
+        const ClTranslUnitId GetTranslationUnitId() { return m_TranslId; }
+        const wxString& GetFilename() const { return m_Filename; }
+        const ClTokenPosition& GetLocation() const { return m_Location; }
+        const std::vector< std::pair<int, int> >& GetResults() const { return *m_pResults; }
     protected:
         GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, int translId,
                 wxMutex* pMutex, wxCondition* pCond,
                 std::vector< std::pair<int, int> >* pResults ):
             SyncJob(GetOccurrencesOfType, evtType, evtId, pMutex, pCond),
+            m_TranslId(translId),
             m_Filename(filename.c_str()),
             m_Location(location),
-            m_TranslId(translId),
             m_pResults(pResults) {}
+        ClTranslUnitId m_TranslId;
         wxString m_Filename;
         ClTokenPosition m_Location;
-        int m_TranslId;
         std::vector< std::pair<int, int> >* m_pResults;
     };
 

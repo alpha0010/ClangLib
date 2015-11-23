@@ -47,10 +47,6 @@ private:
     wxChoice*               m_Function;
     /** namespace/scope choice control, it is the first choice control */
     wxChoice*               m_Scope;
-
-    typedef std::vector<int> ScopeMarksVec;
-
-    ScopeMarksVec           m_ScopeMarks;
 };
 
 #endif
