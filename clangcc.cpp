@@ -73,9 +73,11 @@ void ClangCodeCompletion::OnAttach(IClangPlugin* pClangPlugin)
 
 void ClangCodeCompletion::OnRelease(IClangPlugin* pClangPlugin)
 {
-    ClangPluginComponent::OnRelease(pClangPlugin);
+    pClangPlugin->RemoveAllEventSinksFor(this);
     EditorHooks::UnregisterHook(m_EditorHookId);
     Manager::Get()->RemoveAllEventSinksFor(this);
+
+    ClangPluginComponent::OnRelease(pClangPlugin);
 }
 
 void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
@@ -165,15 +167,11 @@ void ClangCodeCompletion::OnTimer(wxTimerEvent& event)
     {
         //wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
         //AddPendingEvent(evt);
-        m_pClangPlugin->RequestReparse( this->GetCurrentTranslationUnitId(), ed->GetFilename() );
+        m_pClangPlugin->RequestReparse( GetCurrentTranslationUnitId(), ed->GetFilename() );
 
     }
     else if (evId == idHighlightTimer)
     {
-        //if (ed != m_pLastEditor)
-        //{
-        //    return;
-        //}
         //if (m_TranslUnitId == wxNOT_FOUND)
         //{
         //    return;
@@ -243,12 +241,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     }
 
     m_CCOutstanding = 0;
-    //if (ed  != m_pLastEditor)
-    //{
-        // Switching files
-    //    return tokens;
-    //}
-    ClTranslUnitId translUnitId = this->GetCurrentTranslationUnitId();
+    ClTranslUnitId translUnitId = GetCurrentTranslationUnitId();
     if (translUnitId == wxNOT_FOUND)
     {
         Manager::Get()->GetLogManager()->LogWarning(wxT("ClangLib: m_TranslUnitId == wxNOT_FOUND, "
@@ -313,7 +306,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         ClTokenPosition loc(line+1, column+1);
         //ClangProxy::CodeCompleteAtJob job( cbEVT_CLANG_SYNCTASK_FINISHED, idClangCodeCompleteTask, isAuto, ed->GetFilename(), loc, m_TranslUnitId, unsavedFiles);
         //m_Proxy.AppendPendingJob(job);
-        unsigned long timeout = 50;
+        unsigned long timeout = 40;
         if( !isAuto )
         {
             timeout = 500;

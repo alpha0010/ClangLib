@@ -57,6 +57,22 @@ struct ClTokenPosition{
     unsigned int column;
 };
 
+enum ClDiagnosticLevel { dlMinimal, dlFull };
+
+enum ClSeverity { sWarning, sError };
+
+struct ClDiagnostic
+{
+    ClDiagnostic(int ln, int rgStart, int rgEnd, ClSeverity level, const wxString& fl, const wxString& msg) :
+        line(ln), range(rgStart, rgEnd), severity(level), file(fl), message(msg) {}
+
+    int line;
+    std::pair<int, int> range;
+    ClSeverity severity;
+    wxString file;
+    wxString message;
+};
+
 class ClangEvent : public wxCommandEvent{
 public:
     ClangEvent( wxEventType evtId, const ClTranslUnitId& id, const wxString& filename ) :
@@ -76,32 +92,42 @@ public:
         m_Filename(filename),
         m_Location(pos),
         m_GetCodeCompletionResults(completions){}
+    ClangEvent( wxEventType evtId, const ClTranslUnitId& id, const wxString& filename, const ClTokenPosition& loc, const std::vector<ClDiagnostic>& diag ) :
+        wxCommandEvent(wxEVT_NULL, evtId),
+        m_TranslationUnitId(id),
+        m_Filename(filename),
+        m_Location(loc),
+        m_DiagnosticResults(diag){}
     ClangEvent( const ClangEvent& other) :
         wxCommandEvent(other),
         m_TranslationUnitId(other.m_TranslationUnitId),
         m_Filename(other.m_Filename),
         m_Location(other.m_Location),
         m_GetOccurrencesResults(other.m_GetOccurrencesResults),
-        m_GetCodeCompletionResults(other.m_GetCodeCompletionResults){}
+        m_GetCodeCompletionResults(other.m_GetCodeCompletionResults),
+        m_DiagnosticResults((other.m_DiagnosticResults)){}
     virtual ~ClangEvent(){}
     virtual wxEvent *Clone() const { return new ClangEvent(*this); }
 
     const ClTranslUnitId& GetTranslationUnitId() const { return m_TranslationUnitId; }
+    const ClTokenPosition& GetLocation() const { return m_Location; }
     const std::vector< std::pair<int, int> >& GetOccurrencesResults(){ return m_GetOccurrencesResults; }
     const std::vector<ClToken>& GetCodeCompletionResults(){ return m_GetCodeCompletionResults; }
+    const std::vector<ClDiagnostic>& GetDiagnosticResults(){ return m_DiagnosticResults; }
 private:
     ClTranslUnitId m_TranslationUnitId;
     wxString m_Filename;
     ClTokenPosition m_Location;
     std::vector< std::pair<int, int> > m_GetOccurrencesResults;
     std::vector<ClToken> m_GetCodeCompletionResults;
+    std::vector<ClDiagnostic> m_DiagnosticResults;
 };
 
 extern const wxEventType clEVT_TRANSLATIONUNIT_CREATED;
 extern const wxEventType clEVT_REPARSE_FINISHED;
 extern const wxEventType clEVT_GETCODECOMPLETE_FINISHED;
 extern const wxEventType clEVT_GETOCCURRENCES_FINISHED;
-
+extern const wxEventType clEVT_DIAGNOSTICS_UPDATED;
 
 /* interface */
 class IClangPlugin
@@ -115,12 +141,13 @@ public:
     virtual void RegisterEventSink( wxEventType, IEventFunctorBase<ClangEvent>* functor) = 0;
     virtual void RemoveAllEventSinksFor(void* owner) = 0;
 
-    /* Parsing */
+    /** Request reparsing of a Translation unit */
     virtual void RequestReparse(const ClTranslUnitId& id, const wxString& filename) = 0;
-    /* Function scopes */
+    /** Retrieve unction scope */
     virtual std::pair<wxString,wxString>    GetFunctionScopeAt( const ClTranslUnitId& id, const wxString& filename, const ClTokenPosition& location ) = 0;
     virtual ClTokenPosition                 GetFunctionScopeLocation( const ClTranslUnitId& id, const wxString& filename, const wxString& scope, const wxString& functioname) = 0;
     virtual void                            GetFunctionScopes( const ClTranslUnitId&, const wxString& filename, std::vector<std::pair<wxString, wxString> >& out_scopes  ) = 0;
+    /** Occurrences highlighting */
     virtual wxCondError                     GetOccurrencesOf( const ClTranslUnitId&, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector< std::pair<int, int> >& out_occurrences ) = 0;
     /* Code completion */
     virtual wxCondError                     GetCodeCompletionAt( const ClTranslUnitId& id, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector<ClToken>& out_tknResults) = 0;

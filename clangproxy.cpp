@@ -643,6 +643,35 @@ void ClangProxy::ReparseJob::Execute(ClangProxy& clangproxy)
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 #endif
     clangproxy.Reparse( m_TranslId, m_CompileCommand, m_UnsavedFiles);
+
+    if( m_Parents )
+    {
+            // Following code also includes children. Will fix that later
+        ClFileId fileId = clangproxy.m_Database.GetFilenameId(m_Filename);
+        std::set<ClTranslUnitId> parentTranslUnits;
+        {
+            wxMutexLocker l(clangproxy.m_Mutex);
+            for (std::vector<ClTranslationUnit>::iterator it = clangproxy.m_TranslUnits.begin(); it != clangproxy.m_TranslUnits.end(); ++it)
+            {
+                if( it->Contains(fileId) )
+                {
+                    if( it->GetId() != m_TranslId )
+                    {
+                        parentTranslUnits.insert(it->GetId());
+                    }
+                }
+            }
+        }
+        for (std::set<ClTranslUnitId>::iterator it = parentTranslUnits.begin(); it != parentTranslUnits.end(); ++it)
+        {
+            fprintf(stdout,"Reparsing parent/child %d\n", (int)*it);
+            clangproxy.Reparse( *it, m_CompileCommand, m_UnsavedFiles );
+        }
+    }
+
+    // Get rid of some copied memory
+    m_UnsavedFiles.clear();
+
     //wxMutexLocker lock(clangproxy.m_Mutex);
     //AbstractJob* pJob = new AsyncParseJob( &clangproxy, m_TranslId, m_Filename, m_CompileCommand, m_UnsavedFiles, &clangproxy.m_Database, this );
     //clangproxy.m_pParsingThread->Queue(pJob);
@@ -681,6 +710,9 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
 
+    if( filename.Length() == 0 )
+        return;
+
     wxString cmd = commands + wxT(" -ferror-limit=0");
     wxStringTokenizer tokenizer(cmd);
     if (!filename.EndsWith(wxT(".c"))) // force language reduces chance of error on STL headers
@@ -702,23 +734,36 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
     std::map<wxString, wxString> unsavedFiles;
     std::vector<ClTranslationUnit>::iterator it;
     int id = 0;
-    wxMutexLocker lock(m_Mutex);
-    for( it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it, ++id)
+    ClTranslUnitId translId = -1;
     {
-        if (it->IsEmpty())
+        wxMutexLocker lock(m_Mutex);
+        for( it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it, ++id)
         {
-            *it = ClTranslationUnit(id, m_ClIndex[0]);
-            it->Parse(filename, m_Database.GetFilenameId(filename), args, unsavedFiles, &m_Database);
-            out_TranslId = it - m_TranslUnits.begin();
-            break;
+            if (it->IsEmpty())
+            {
+                translId = it->GetId();
+                break;
+            }
+        }
+        if (it == m_TranslUnits.end())
+        {
+            translId = m_TranslUnits.size();
         }
     }
-    if (it == m_TranslUnits.end())
+    ClTranslationUnit tu = ClTranslationUnit(translId, m_ClIndex[0]);
+    tu.Parse(filename, m_Database.GetFilenameId(filename), args, unsavedFiles, &m_Database);
     {
-        m_TranslUnits.push_back(ClTranslationUnit(id, m_ClIndex[0]));
-        m_TranslUnits.back().Parse(filename, m_Database.GetFilenameId(filename), args, unsavedFiles, &m_Database);
-        out_TranslId = m_TranslUnits.size() - 1;
+        wxMutexLocker lock(m_Mutex);
+        if (it == m_TranslUnits.end())
+        {
+            m_TranslUnits.push_back(tu);
+        }
+        else
+        {
+            swap(m_TranslUnits[translId], tu);
+        }
     }
+    out_TranslId = translId;
 
 #if 0
     wxMutexLocker lock(m_Mutex);
@@ -789,13 +834,13 @@ ClTranslUnitId ClangProxy::GetTranslationUnitId( ClTranslUnitId CtxTranslUnitId,
     return GetTranslationUnitId( CtxTranslUnitId, m_Database.GetFilenameId(filename));
 }
 
-void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename,
-        const ClTokenPosition& location, ClTranslUnitId translUnitId,
+void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& filename,
+        const ClTokenPosition& location, bool isAuto,
         const std::map<wxString, wxString>& unsavedFiles,
-        std::vector<ClToken>& results)
+        std::vector<ClToken>& results,
+        std::vector<ClDiagnostic>& diagnostics )
 {
     //fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-    wxCharBuffer chName = filename.ToUTF8();
     std::vector<CXUnsavedFile> clUnsavedFiles;
     std::vector<wxCharBuffer> clFileBuffer;
     for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
@@ -820,7 +865,7 @@ void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename,
     wxMutexLocker locker(m_Mutex);
     if (translUnitId >= (int)m_TranslUnits.size())
         return;
-    CXCodeCompleteResults* clResults = m_TranslUnits[translUnitId].CodeCompleteAt(chName.data(), location,
+    CXCodeCompleteResults* clResults = m_TranslUnits[translUnitId].CodeCompleteAt(filename, location,
             clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
             clUnsavedFiles.size());
     if (!clResults)
@@ -898,6 +943,15 @@ void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename,
             }
         }
     }
+
+    unsigned numDiag = clang_codeCompleteGetNumDiagnostics(clResults);
+    unsigned int diagIdx = 0;
+    for(diagIdx=0; diagIdx < numDiag; ++diagIdx)
+    {
+        CXDiagnostic diag = clang_codeCompleteGetDiagnostic( clResults, diagIdx );
+        m_TranslUnits[translUnitId].ExpandDiagnostic( diag, filename, diagnostics );
+    }
+
     fprintf(stdout,"CodeCompleteAt done (%p) (%d elements)\n", (void*)m_TranslUnits[translUnitId].m_ClTranslUnit, (int)results.size());
 }
 
@@ -1081,9 +1135,9 @@ void ClangProxy::RefineTokenType(ClTranslUnitId translUnitId, int tknId, int& tk
     }
 }
 
-void ClangProxy::GetCallTipsAt(const wxString& filename, const ClTokenPosition& location,
-        ClTranslUnitId translUnitId, const wxString& tokenStr,
-        std::vector<wxStringVec>& results)
+void ClangProxy::GetCallTipsAt( ClTranslUnitId translUnitId, const wxString& filename,
+                                const ClTokenPosition& location, const wxString& tokenStr,
+                                std::vector<wxStringVec>& results )
 {
     if (translUnitId < 0)
     {
@@ -1245,8 +1299,8 @@ void ClangProxy::GetCallTipsAt(const wxString& filename, const ClTokenPosition& 
     }
 }
 
-void ClangProxy::GetTokensAt(const wxString& filename, const ClTokenPosition& location,
-        ClTranslUnitId translUnitId, wxStringVec& results)
+void ClangProxy::GetTokensAt( ClTranslUnitId translUnitId, const wxString& filename, const ClTokenPosition& location,
+        wxStringVec& results )
 {
     if (translUnitId < 0)
     {
@@ -1354,8 +1408,8 @@ void ClangProxy::GetTokensAt(const wxString& filename, const ClTokenPosition& lo
  * Get all occurences of the token under the supplied cursor.
  */
 
-void ClangProxy::GetOccurrencesOf(const wxString& filename, const ClTokenPosition& location,
-        ClTranslUnitId translUnitId, std::vector< std::pair<int, int> >& results)
+void ClangProxy::GetOccurrencesOf(ClTranslUnitId translUnitId, const wxString& filename, const ClTokenPosition& location,
+        std::vector< std::pair<int, int> >& results)
 {
     if (translUnitId < 0)
     {
@@ -1374,7 +1428,7 @@ void ClangProxy::GetOccurrencesOf(const wxString& filename, const ClTokenPositio
     clang_findReferencesInFile(token, m_TranslUnits[translUnitId].GetFileHandle(filename), visitor);
 }
 
-void ClangProxy::ResolveDeclTokenAt(wxString& filename, ClTokenPosition& inout_location, ClTranslUnitId translUnitId)
+void ClangProxy::ResolveDeclTokenAt( ClTranslUnitId translUnitId, wxString& filename, ClTokenPosition& inout_location)
 {
     if (translUnitId < 0)
     {
@@ -1469,9 +1523,9 @@ void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString&
 }
 
 
-void ClangProxy::Reparse(ClTranslUnitId translUnitId, const wxString& compileCommand, std::map<wxString, wxString>& unsavedFiles)
+void ClangProxy::Reparse(ClTranslUnitId translUnitId, const wxString& /*compileCommand*/, const std::map<wxString, wxString>& unsavedFiles)
 {
-#if 0
+    #if 0
     std::vector<CXUnsavedFile> clUnsavedFiles;
     std::vector<wxCharBuffer> clFileBuffer;
     for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
@@ -1489,13 +1543,25 @@ void ClangProxy::Reparse(ClTranslUnitId translUnitId, const wxString& compileCom
 #endif
         clUnsavedFiles.push_back(unit);
     }
-
-    wxMutexLocker lock(m_Mutex);
-    m_TranslUnits[translId].Reparse(clUnsavedFiles.size(), clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0]);
-#endif
+    #endif
+    if (translUnitId < 0 )
+        return;
+    ClTranslationUnit tu(translUnitId);
+    {
+        wxMutexLocker lock(m_Mutex);
+        if (translUnitId >= (int)m_TranslUnits.size())
+            return;
+        swap(m_TranslUnits[translUnitId], tu);
+    }
+    if( tu.IsValid() )
+        tu.Reparse(unsavedFiles, &m_Database);
+    {
+        wxMutexLocker lock(m_Mutex);
+        swap(m_TranslUnits[translUnitId], tu);
+    }
 }
 
-void ClangProxy::GetDiagnostics(ClTranslUnitId translUnitId, std::vector<ClDiagnostic>& diagnostics)
+void ClangProxy::GetDiagnostics(ClTranslUnitId translUnitId, const wxString& filename, std::vector<ClDiagnostic>& diagnostics)
 {
     if (translUnitId < 0)
     {
@@ -1506,7 +1572,7 @@ void ClangProxy::GetDiagnostics(ClTranslUnitId translUnitId, std::vector<ClDiagn
     {
        return;
     }
-    m_TranslUnits[translUnitId].GetDiagnostics(diagnostics);
+    m_TranslUnits[translUnitId].GetDiagnostics(filename, diagnostics);
 }
 
 void ClangProxy::AppendPendingJob( ClangProxy::ClangJob& job )
