@@ -706,9 +706,9 @@ ClangProxy::~ClangProxy()
     clang_disposeIndex(m_ClIndex[1]);
 }
 
-void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands, ClTranslUnitId& out_TranslId)
+void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands, const std::map<wxString, wxString>& unsavedFiles, ClTranslUnitId& out_TranslId)
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    fprintf(stdout,"%s '%s'\n", __PRETTY_FUNCTION__, (const char*)filename.mb_str());
 
     if( filename.Length() == 0 )
         return;
@@ -731,7 +731,6 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
         argsBuffer.push_back(compilerSwitch.ToUTF8());
         args.push_back(argsBuffer.back().data());
     }
-    std::map<wxString, wxString> unsavedFiles;
     std::vector<ClTranslationUnit>::iterator it;
     int id = 0;
     ClTranslUnitId translId = -1;
@@ -777,7 +776,7 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
 
     out_TranslId = translUnitId;
 #endif
-    fprintf(stdout,"%s done. New TU id: %d\n", __PRETTY_FUNCTION__, (int)out_TranslId);
+    fprintf(stdout,"CreateTU done. New TU id: %d, filename='%s'\n", (int)out_TranslId, (const char*)filename.mb_str());
 }
 
 void ClangProxy::RemoveTranslationUnit(ClTranslUnitId translUnitId)
@@ -961,75 +960,77 @@ wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)
     {
         return wxT("");
     }
-    wxMutexLocker  lock(m_Mutex);
-    if (translUnitId >= (int)m_TranslUnits.size())
-    {
-        return wxT("");
-    }
-    const CXCompletionResult* token = m_TranslUnits[translUnitId].GetCCResult(tknId);
-    if (!token)
-        return wxEmptyString;
-
-    int upperBound = clang_getNumCompletionChunks(token->CompletionString);
     wxString doc;
-    if (token->CursorKind == CXCursor_Namespace)
-        doc = wxT("namespace ");
-    for (int i = 0; i < upperBound; ++i)
+    wxString descriptor;
     {
-        CXCompletionChunkKind kind = clang_getCompletionChunkKind(token->CompletionString, i);
-        if (kind == CXCompletionChunk_TypedText)
+        wxMutexLocker  lock(m_Mutex);
+        if (translUnitId >= (int)m_TranslUnits.size())
         {
-            CXString str = clang_getCompletionParent(token->CompletionString, nullptr);
-            wxString parent = wxString::FromUTF8(clang_getCString(str));
-            if (!parent.IsEmpty())
-                doc += parent + wxT("::");
+            return wxT("");
+        }
+        const CXCompletionResult* token = m_TranslUnits[translUnitId].GetCCResult(tknId);
+        if (!token)
+            return wxEmptyString;
+
+        int upperBound = clang_getNumCompletionChunks(token->CompletionString);
+        if (token->CursorKind == CXCursor_Namespace)
+            doc = wxT("namespace ");
+        for (int i = 0; i < upperBound; ++i)
+        {
+            CXCompletionChunkKind kind = clang_getCompletionChunkKind(token->CompletionString, i);
+            if (kind == CXCompletionChunk_TypedText)
+            {
+                CXString str = clang_getCompletionParent(token->CompletionString, nullptr);
+                wxString parent = wxString::FromUTF8(clang_getCString(str));
+                if (!parent.IsEmpty())
+                    doc += parent + wxT("::");
+                clang_disposeString(str);
+            }
+            CXString str = clang_getCompletionChunkText(token->CompletionString, i);
+            doc += wxString::FromUTF8(clang_getCString(str));
+            if (kind == CXCompletionChunk_ResultType)
+            {
+                if (doc.Length() > 2 && doc[doc.Length() - 2] == wxT(' '))
+                    doc.RemoveLast(2) += doc.Last();
+                doc += wxT(' ');
+            }
             clang_disposeString(str);
         }
-        CXString str = clang_getCompletionChunkText(token->CompletionString, i);
-        doc += wxString::FromUTF8(clang_getCString(str));
-        if (kind == CXCompletionChunk_ResultType)
-        {
-            if (doc.Length() > 2 && doc[doc.Length() - 2] == wxT(' '))
-                doc.RemoveLast(2) += doc.Last();
-            doc += wxT(' ');
-        }
-        clang_disposeString(str);
-    }
 
-    wxString descriptor;
-    wxString identifier;
-    unsigned tokenHash = HashToken(token->CompletionString, identifier);
-    if (!identifier.IsEmpty())
-    {
-        ClTokenId tId = m_Database.GetTokenId(identifier, wxNOT_FOUND, tokenHash);
-        if (tId != wxNOT_FOUND)
+        wxString identifier;
+        unsigned tokenHash = HashToken(token->CompletionString, identifier);
+        if (!identifier.IsEmpty())
         {
-            ClAbstractToken aTkn = m_Database.GetToken(tId);
-            CXCursor clTkn = m_TranslUnits[translUnitId].GetTokensAt(m_Database.GetFilename(aTkn.fileId),
-                    aTkn.location);
-            if (!clang_Cursor_isNull(clTkn) && !clang_isInvalid(clTkn.kind))
+            ClTokenId tId = m_Database.GetTokenId(identifier, wxNOT_FOUND, tokenHash);
+            if (tId != wxNOT_FOUND)
             {
-                CXComment docComment = clang_Cursor_getParsedComment(clTkn);
-                HTML_Writer::FormatDocumentation(docComment, descriptor, m_CppKeywords);
-                if (clTkn.kind == CXCursor_EnumConstantDecl)
-                    doc += wxT("=") + ProxyHelper::GetEnumValStr(clTkn);
-                else if (clTkn.kind == CXCursor_TypedefDecl)
+                ClAbstractToken aTkn = m_Database.GetToken(tId);
+                CXCursor clTkn = m_TranslUnits[translUnitId].GetTokensAt(m_Database.GetFilename(aTkn.fileId),
+                        aTkn.location);
+                if (!clang_Cursor_isNull(clTkn) && !clang_isInvalid(clTkn.kind))
                 {
-                    CXString str = clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(clTkn));
-                    wxString type = wxString::FromUTF8(clang_getCString(str));
-                    if (!type.IsEmpty())
-                        doc.Prepend(wxT("typedef ") + type + wxT(" "));
-                    clang_disposeString(str);
+                    CXComment docComment = clang_Cursor_getParsedComment(clTkn);
+                    HTML_Writer::FormatDocumentation(docComment, descriptor, m_CppKeywords);
+                    if (clTkn.kind == CXCursor_EnumConstantDecl)
+                        doc += wxT("=") + ProxyHelper::GetEnumValStr(clTkn);
+                    else if (clTkn.kind == CXCursor_TypedefDecl)
+                    {
+                        CXString str = clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(clTkn));
+                        wxString type = wxString::FromUTF8(clang_getCString(str));
+                        if (!type.IsEmpty())
+                            doc.Prepend(wxT("typedef ") + type + wxT(" "));
+                        clang_disposeString(str);
+                    }
                 }
             }
         }
-    }
 
-    if (descriptor.IsEmpty())
-    {
-        CXString comment = clang_getCompletionBriefComment(token->CompletionString);
-        descriptor = HTML_Writer::Escape(wxT("\n") + wxString::FromUTF8(clang_getCString(comment)));
-        clang_disposeString(comment);
+        if (descriptor.IsEmpty())
+        {
+            CXString comment = clang_getCompletionBriefComment(token->CompletionString);
+            descriptor = HTML_Writer::Escape(wxT("\n") + wxString::FromUTF8(clang_getCString(comment)));
+            clang_disposeString(comment);
+        }
     }
 
     return wxT("<html><body><br><tt>") + HTML_Writer::SyntaxHl(doc, m_CppKeywords)

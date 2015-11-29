@@ -37,7 +37,7 @@ static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion
 
 static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data);
 
-ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId& id, CXIndex clIndex ) :
+ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id, CXIndex clIndex ) :
     m_Id(id),
     m_FileId(-1),
     m_ClIndex(clIndex),
@@ -48,7 +48,7 @@ ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId& id, CXIndex clIndex 
 {
     //fprintf(stdout,"%p %s %d\n",this, __PRETTY_FUNCTION__, m_Id);
 }
-ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId& id ) :
+ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id ) :
     m_Id(id),
     m_FileId(-1),
     m_ClIndex(nullptr),

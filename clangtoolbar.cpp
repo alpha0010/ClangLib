@@ -54,6 +54,10 @@ void ClangToolbar::OnAttach(IClangPlugin* pClangPlugin)
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new ClToolbarEvent(this, &ClangToolbar::OnEditorActivate));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_CLOSE,     new ClToolbarEvent(this, &ClangToolbar::OnEditorClose));
 
+    typedef cbEventFunctor<ClangToolbar, ClangEvent> ClangToolbarEvent;
+    pClangPlugin->RegisterEventSink(clEVT_TRANSLATIONUNIT_CREATED, new ClangToolbarEvent(this, &ClangToolbar::OnTranslationUnitCreated));
+    pClangPlugin->RegisterEventSink(clEVT_REPARSE_FINISHED, new ClangToolbarEvent(this, &ClangToolbar::OnReparseFinished) );
+
     Connect(idToolbarUpdateSelection,clEVT_COMMAND_UPDATETOOLBARSELECTION, wxCommandEventHandler(ClangToolbar::OnUpdateSelection), nullptr, this );
     Connect(idToolbarUpdateContents, clEVT_COMMAND_UPDATETOOLBARCONTENTS, wxCommandEventHandler(ClangToolbar::OnUpdateContents), nullptr, this );
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangToolbar>(this, &ClangToolbar::OnEditorHook));
@@ -139,6 +143,23 @@ void ClangToolbar::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     }
 }
 
+void ClangToolbar::OnTranslationUnitCreated( ClangEvent& /*event*/ )
+{
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    wxCommandEvent evt(clEVT_COMMAND_UPDATETOOLBARCONTENTS, idToolbarUpdateContents);
+    AddPendingEvent(evt);
+    wxCommandEvent evt2(clEVT_COMMAND_UPDATETOOLBARSELECTION, idToolbarUpdateSelection);
+    AddPendingEvent(evt2);
+}
+
+void ClangToolbar::OnReparseFinished( ClangEvent& /*event*/)
+{
+    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    wxCommandEvent evt(clEVT_COMMAND_UPDATETOOLBARCONTENTS, idToolbarUpdateContents);
+    AddPendingEvent(evt);
+    wxCommandEvent evt2(clEVT_COMMAND_UPDATETOOLBARSELECTION, idToolbarUpdateSelection);
+    AddPendingEvent(evt2);
+}
 
 void ClangToolbar::OnUpdateSelection( wxCommandEvent& event )
 {
@@ -178,6 +199,16 @@ void ClangToolbar::OnUpdateSelection( wxCommandEvent& event )
     }
 }
 
+static int SortByScopeName( const std::pair<wxString, wxString>& first, const std::pair<wxString, wxString>& second )
+{
+    return first.first < second.first;
+}
+
+static int SortByFunctionName( const std::pair<wxString, wxString>& first, const std::pair<wxString, wxString>& second )
+{
+    return first.second < second.second;
+}
+
 void ClangToolbar::OnUpdateContents( wxCommandEvent& event )
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
@@ -191,6 +222,7 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& event )
     m_pClangPlugin->GetFunctionScopes( GetCurrentTranslationUnitId(), ed->GetFilename(), scopes );
     if (scopes.size() == 0)
         return;
+    std::sort(scopes.begin(), scopes.end() , SortByScopeName );
     m_Scope->Freeze();
     m_Scope->Clear();
     for( std::vector<std::pair<wxString, wxString> >::iterator it = scopes.begin(); it != scopes.end(); ++it )
@@ -285,11 +317,11 @@ void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
     {
         return;
     }
-    m_Function->Freeze();
-    m_Function->Clear();
-
     std::vector<std::pair<wxString, wxString> > funcList;
     m_pClangPlugin->GetFunctionScopes(GetCurrentTranslationUnitId(), ed->GetFilename(), funcList);
+    std::sort(funcList.begin(), funcList.end() , SortByFunctionName);
+    m_Function->Freeze();
+    m_Function->Clear();
     for( std::vector<std::pair<wxString, wxString> >::const_iterator it = funcList.begin(); it != funcList.end(); ++it)
     {
         if( it->first == scopeItem )
@@ -297,7 +329,6 @@ void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
             m_Function->Append(it->second);
         }
     }
-
     m_Function->Thaw();
 }
 

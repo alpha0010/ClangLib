@@ -151,15 +151,16 @@ public: // IClangPlugin
     void RegisterEventSink( wxEventType, IEventFunctorBase<ClangEvent>* functor);
     void RemoveAllEventSinksFor(void* owner);
 
-    void RequestReparse(const ClTranslUnitId& id, const wxString& filename);
-    std::pair<wxString,wxString> GetFunctionScopeAt( const ClTranslUnitId& id, const wxString& filename, const ClTokenPosition& location );
-    ClTokenPosition GetFunctionScopeLocation( const ClTranslUnitId& id, const wxString& filename, const wxString& scope, const wxString& functioname);
-    void GetFunctionScopes( const ClTranslUnitId&, const wxString& filename, std::vector<std::pair<wxString, wxString> >& out_scopes );
-    wxCondError GetOccurrencesOf( const ClTranslUnitId&, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector< std::pair<int, int> >& out_occurrences );
-    wxCondError GetCodeCompletionAt( const ClTranslUnitId& id, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector<ClToken>& out_tknResults);
+    void RequestReparse(const ClTranslUnitId id, const wxString& filename);
+    std::pair<wxString,wxString> GetFunctionScopeAt( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& location );
+    ClTokenPosition GetFunctionScopeLocation( const ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname);
+    void GetFunctionScopes( const ClTranslUnitId, const wxString& filename, std::vector<std::pair<wxString, wxString> >& out_scopes );
+    wxCondError GetOccurrencesOf( const ClTranslUnitId, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector< std::pair<int, int> >& out_occurrences );
+    wxCondError GetCodeCompletionAt( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector<ClToken>& out_tknResults);
+    wxString GetCodeCompletionTokenDocumentation( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc, ClTokenId tokenId );
 
-    const wxImageList& GetImageList(const ClTranslUnitId& /*id*/ ) { return m_ImageList; }
-    const wxStringVec& GetKeywords( const ClTranslUnitId& /*id*/ ) { return m_CppKeywords; }
+    const wxImageList& GetImageList(const ClTranslUnitId /*id*/ ) { return m_ImageList; }
+    const wxStringVec& GetKeywords( const ClTranslUnitId /*id*/ ) { return m_CppKeywords; }
 private: // Members
     std::vector<ClangPluginComponent*> m_ComponentList;
 

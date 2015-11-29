@@ -17,6 +17,9 @@ public: // Code::Blocks events
     void OnEditorActivate(CodeBlocksEvent& event);
     void OnEditorClose(CodeBlocksEvent& event);
     void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
+public: // Clang events
+    void OnTranslationUnitCreated( ClangEvent& event );
+    void OnReparseFinished( ClangEvent& /*event*/);
 
 public: // Command events
     void OnUpdateSelection( wxCommandEvent& evt );

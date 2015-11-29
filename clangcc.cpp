@@ -241,7 +241,9 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     }
 
     m_CCOutstanding = 0;
-    ClTranslUnitId translUnitId = GetCurrentTranslationUnitId();
+    ClTranslUnitId translUnitId = m_TranslUnitId;
+    if( translUnitId != GetCurrentTranslationUnitId() )
+        return tokens;
     if (translUnitId == wxNOT_FOUND)
     {
         Manager::Get()->GetLogManager()->LogWarning(wxT("ClangLib: m_TranslUnitId == wxNOT_FOUND, "
@@ -426,6 +428,17 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     return tokens;
 }
 
+wxString ClangCodeCompletion::GetDocumentation( const cbCodeCompletionPlugin::CCToken &token )
+{
+    EditorManager* edMgr = Manager::Get()->GetEditorManager();
+    cbEditor* ed = edMgr->GetBuiltinActiveEditor();
+    if (ed)
+    {
+        return m_pClangPlugin->GetCodeCompletionTokenDocumentation( m_TranslUnitId, ed->GetFilename(), ClTokenPosition(0,0), token.id );
+    }
+    return wxEmptyString;
+}
+
 void ClangCodeCompletion::HighlightOccurrences(cbEditor* ed)
 {
     ClTranslUnitId translId = GetCurrentTranslationUnitId();
@@ -492,6 +505,10 @@ void ClangCodeCompletion::OnReparseFinished( ClangEvent& event )
 void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
 {
     //fprintf(stdout,"%s\n", __PRETTY_FUNCTION__ );
+    if( event.GetTranslationUnitId() != m_TranslUnitId )
+    {
+        return;
+    }
     if (m_CCOutstanding > 0)
     {
         EditorManager* edMgr = Manager::Get()->GetEditorManager();

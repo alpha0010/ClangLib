@@ -17,7 +17,7 @@ public:
 
     cbCodeCompletionPlugin::CCProviderStatus GetProviderStatusFor( cbEditor* ed );
     std::vector<cbCodeCompletionPlugin::CCToken> GetAutocompList(bool isAuto, cbEditor* ed, int& tknStart, int& tknEnd);
-
+    wxString GetDocumentation( const cbCodeCompletionPlugin::CCToken& token );
 public: // Code::Blocks events
     void OnEditorActivate(CodeBlocksEvent& event);
     void OnEditorClose(CodeBlocksEvent& event);

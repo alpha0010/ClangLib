@@ -11,7 +11,6 @@
 template<typename _Tp> class ClTreeMap;
 class wxString;
 typedef int ClFileId;
-typedef int ClTokenId;
 
 typedef enum _TokenType
 {

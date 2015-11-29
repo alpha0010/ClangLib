@@ -13,8 +13,8 @@ unsigned HashToken(CXCompletionString token, wxString& identifier);
 class ClTranslationUnit
 {
 public:
-    ClTranslationUnit( const ClTranslUnitId& id );
-    ClTranslationUnit( const ClTranslUnitId& id, CXIndex clIndex );
+    ClTranslationUnit( const ClTranslUnitId id );
+    ClTranslationUnit( const ClTranslUnitId id, CXIndex clIndex );
     // move ctor
 #if __cplusplus >= 201103L
     ClTranslationUnit(ClTranslationUnit&& other);
@@ -77,6 +77,7 @@ public:
 
     void ExpandDiagnosticSet(CXDiagnosticSet diagSet, const wxString& filename, std::vector<ClDiagnostic>& diagnostics);
     void ExpandDiagnostic( CXDiagnostic diag, const wxString& filename, std::vector<ClDiagnostic>& diagnostics );
+    //wxString GetCCDocumentation(const CXCompletionResult* token, ClTokenDatabase* pDatabase);
 
     ClTranslUnitId m_Id;
     ClFileId m_FileId;

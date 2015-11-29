@@ -90,7 +90,7 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     stc->SetIndicatorCurrent(errorIndicator);
     if ( !update )
         stc->IndicatorClearRange(0, stc->GetLength());
-    const wxString& fileNm = ed->GetFilename();
+    const wxString& filename = ed->GetFilename();
     if ( (diagLv == dlFull)&&(update) )
     {
         int line = event.GetLocation().line-1;
@@ -100,8 +100,8 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
             dgItr != diagnostics.end(); ++dgItr )
     {
         //Manager::Get()->GetLogManager()->Log(dgItr->file + wxT(" ") + dgItr->message + F(wxT(" %d, %d"), dgItr->range.first, dgItr->range.second));
-        //if (dgItr->file != fileNm)
-        //    continue;
+        if (dgItr->file != filename)
+            continue;
         if (diagLv == dlFull)
         {
             if( (!update) || ((int)dgItr->line == (int)event.GetLocation().line) )
