@@ -7,14 +7,13 @@ Code::Blocks plugin integrating various features of LLVM Clang.
 
 ========
 ### Wish/todo list
-- [ ] Threaded parsing
 - [ ] Settings page
   - [ ] Autocomplete output format
-  - [ ] Diagnostics visualization
+  - [ ] Clang extra commandline flags
   - [ ] More...
 - [ ] Preemptive codecomplete results caching
-- [ ] Asynchronous codecomplete queries
-- [ ] Resolve crash on fast exit
+- [ ] Support for Clang 'Fixit'
+- [ ] Support for refactoring (add method, rename method, add implementation)
 - [ ] Support MSVC projects/unrecognized command line flags
 - [ ] Resolve mysterious crashes...
 - [ ] Display more information in documentation popups
