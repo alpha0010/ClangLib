@@ -60,6 +60,8 @@
 		<Unit filename="clangplugin.h" />
 		<Unit filename="clangproxy.cpp" />
 		<Unit filename="clangproxy.h" />
+		<Unit filename="parsethread.cpp" />
+		<Unit filename="parsethread.h" />
 		<Unit filename="resources/manifest.xml" />
 		<Unit filename="tokendatabase.cpp" />
 		<Unit filename="tokendatabase.h" />

@@ -107,7 +107,8 @@ class ClangPlugin : public cbCodeCompletionPlugin
 
         TokenDatabase m_Database;
         wxStringVec m_CppKeywords;
-        ClangProxy m_Proxy;
+        ClangProxy m_Proxy; //!< Acquire m_ProxyMutex before use
+        wxMutex m_ProxyMutex;
         wxImageList m_ImageList;
         wxTimer m_EdOpenTimer;
         wxTimer m_ReparseTimer;

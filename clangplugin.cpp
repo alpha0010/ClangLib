@@ -29,10 +29,27 @@
     #include <wx/dir.h>
 #endif // CB_PRECOMP
 
+#include "parsethread.h"
+
 // this auto-registers the plugin
 namespace
 {
     PluginRegistrant<ClangPlugin> reg(wxT("ClangLib"));
+
+
+    struct MutexUnlocker
+    {
+        MutexUnlocker(wxMutex& mutex)
+            : m_Mutex(mutex)
+        {}
+
+        ~MutexUnlocker()
+        {
+            m_Mutex.Unlock();
+        }
+
+        wxMutex& m_Mutex;
+    };
 }
 
 static const wxString g_InvalidStr(wxT("invalid"));
@@ -178,6 +195,13 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
                                                                int& tknStart, int& tknEnd)
 {
     std::vector<CCToken> tokens;
+    if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+    {
+        Manager::Get()->GetLogManager()->Log(wxT("ClangLib: still parsing..."));
+        return tokens;
+    }
+    MutexUnlocker unlocker(m_ProxyMutex);
+
     if (ed != m_pLastEditor)
     {
         m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
@@ -334,14 +358,21 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
 
 wxString ClangPlugin::GetDocumentation(const CCToken& token)
 {
-    if (token.id >= 0)
+    if (token.id >= 0 && m_ProxyMutex.TryLock() == wxMUTEX_NO_ERROR)
+    {
+        MutexUnlocker unlocker(m_ProxyMutex);
         return m_Proxy.DocumentCCToken(m_TranslUnitId, token.id);
+    }
     return wxEmptyString;
 }
 
 std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int style, cbEditor* ed, int& argsPos)
 {
     std::vector<CCCallTip> tips;
+    if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+        return tips;
+    MutexUnlocker unlocker(m_ProxyMutex);
+
     if (ed != m_pLastEditor)
     {
         m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
@@ -432,6 +463,10 @@ std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int style,
 std::vector<ClangPlugin::CCToken> ClangPlugin::GetTokenAt(int pos, cbEditor* ed, bool& allowCallTip)
 {
     std::vector<CCToken> tokens;
+    if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+        return tokens;
+    MutexUnlocker unlocker(m_ProxyMutex);
+
     if (ed != m_pLastEditor)
     {
         m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
@@ -459,6 +494,10 @@ wxString ClangPlugin::OnDocumentationLink(wxHtmlLinkEvent& event, bool& dismissP
 
 void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
 {
+    if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+        return;
+    MutexUnlocker unlocker(m_ProxyMutex);
+
     wxString tknText = token.name;
     int idx = tknText.Find(wxT(':'));
     if (idx != wxNOT_FOUND)
@@ -531,6 +570,9 @@ void ClangPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu,
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
         return;
+    if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+        return;
+    MutexUnlocker unlocker(m_ProxyMutex);
     if (ed != m_pLastEditor)
     {
         m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
@@ -585,6 +627,10 @@ void ClangPlugin::OnGotoDeclaration(wxCommandEvent& WXUNUSED(event))
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed || m_TranslUnitId == wxNOT_FOUND)
         return;
+    if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+        return;
+    MutexUnlocker unlocker(m_ProxyMutex);
+
     cbStyledTextCtrl* stc = ed->GetControl();
     const int pos = stc->GetCurrentPos();
     wxString filename = ed->GetFilename();
@@ -853,24 +899,33 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
         if (!ed || !IsProviderFor(ed))
             return;
-        else if (m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND)
+
+        if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+            return;
+        MutexUnlocker unlocker(m_ProxyMutex);
+        if (m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND)
         {
             m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
             return;
         }
 
+        ParseThreadCreate* parseThread = nullptr;
         if (FileTypeOf(ed->GetFilename()) == ftHeader) // try to find the associated source
         {
             const wxString& source = GetSourceOf(ed);
             if (!source.IsEmpty())
-            {
-                m_Proxy.CreateTranslationUnit(source, m_CompileCommand);
-                if (m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND)
-                    return; // got it
-            }
+                parseThread = new ParseThreadCreate(m_Proxy, m_ProxyMutex, m_CompileCommand, ed->GetFilename(), source);
         }
-        m_Proxy.CreateTranslationUnit(ed->GetFilename(), m_CompileCommand);
-        m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
+        if (!parseThread)
+            parseThread = new ParseThreadCreate(m_Proxy, m_ProxyMutex, m_CompileCommand, ed->GetFilename());
+        parseThread->Create();
+        if (parseThread->Run() != wxTHREAD_NO_ERROR)
+        {
+            delete parseThread;
+            parseThread = nullptr;
+        }
+        else
+            m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
     }
     else if (evId == idReparseTimer) // m_ReparseTimer
     {
@@ -878,6 +933,10 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         cbEditor* ed = edMgr->GetBuiltinActiveEditor();
         if (!ed)
             return;
+        if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+            return;
+        MutexUnlocker unlocker(m_ProxyMutex);
+
         if (ed != m_pLastEditor)
         {
             m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
@@ -901,6 +960,10 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
         if (!ed)
             return;
+        if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+            return;
+        MutexUnlocker unlocker(m_ProxyMutex);
+
         if (ed != m_pLastEditor)
         {
             m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
