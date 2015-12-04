@@ -3,12 +3,12 @@
     <SdkVersion major="1" minor="10" release="0" />
     <Plugin name="ClangLib">
         <Value title="ClangLib" />
-        <Value version="0.2" />
+        <Value version="0.3" />
         <Value description="Code::Blocks plugin integrating various features of LLVM Clang." />
-        <Value author="Alpha" />
+        <Value author="yvesdm3000" />
         <Value authorEmail="" />
         <Value authorWebsite="http://www.codeblocks.org" />
-        <Value thanksTo="" />
+        <Value thanksTo="Alpha" />
         <Value license="GPL" />
     </Plugin>
 </CodeBlocks_plugin_manifest_file>
