@@ -212,17 +212,16 @@ namespace ProxyHelper
             token = resolve;
     }
 
-    static void ResolveCursorImpl(CXCursor& token)
+    static bool ResolveCursorDefinition(CXCursor& token)
     {
-        CXCursor resolve = clang_getCursorReferenced(token);
+        CXCursor resolve = clang_getCursorDefinition(token);
         if (clang_Cursor_isNull(resolve) || clang_isInvalid(token.kind))
         {
-            resolve = clang_getCursorDefinition(token);
-            if (!clang_Cursor_isNull(resolve) && !clang_isInvalid(token.kind))
-                token = resolve;
+            return false;
         }
-        else
-            token = resolve;
+
+        token = resolve;
+        return true;
     }
 
     static CXVisitorResult ReferencesVisitor(CXClientData context,
@@ -1005,7 +1004,7 @@ wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)
             if (tId != wxNOT_FOUND)
             {
                 ClAbstractToken aTkn = m_Database.GetToken(tId);
-                CXCursor clTkn = m_TranslUnits[translUnitId].GetTokensAt(m_Database.GetFilename(aTkn.fileId),
+                CXCursor clTkn = m_TranslUnits[translUnitId].GetTokenAt(m_Database.GetFilename(aTkn.fileId),
                         aTkn.location);
                 if (!clang_Cursor_isNull(clTkn) && !clang_isInvalid(clTkn.kind))
                 {
@@ -1123,7 +1122,7 @@ void ClangProxy::RefineTokenType(ClTranslUnitId translUnitId, int tknId, int& tk
         if (tId != wxNOT_FOUND)
         {
             const ClAbstractToken& aTkn = m_Database.GetToken(tId);
-            CXCursor clTkn = m_TranslUnits[translUnitId].GetTokensAt(m_Database.GetFilename(aTkn.fileId),
+            CXCursor clTkn = m_TranslUnits[translUnitId].GetTokenAt(m_Database.GetFilename(aTkn.fileId),
                     aTkn.location);
             if (!clang_Cursor_isNull(clTkn) && !clang_isInvalid(clTkn.kind))
             {
@@ -1154,7 +1153,7 @@ void ClangProxy::GetCallTipsAt( ClTranslUnitId translUnitId, const wxString& fil
     if (loc.column > static_cast<unsigned int>(tokenStr.Length()))
     {
         loc.column -= tokenStr.Length() / 2;
-        CXCursor token = m_TranslUnits[translUnitId].GetTokensAt(filename, loc);
+        CXCursor token = m_TranslUnits[translUnitId].GetTokenAt(filename, loc);
         if (!clang_Cursor_isNull(token))
         {
             CXCursor resolve = clang_getCursorDefinition(token);
@@ -1175,7 +1174,7 @@ void ClangProxy::GetCallTipsAt( ClTranslUnitId translUnitId, const wxString& fil
     for (std::vector<ClTokenId>::const_iterator itr = tknIds.begin(); itr != tknIds.end(); ++itr)
     {
         const ClAbstractToken& aTkn = m_Database.GetToken(*itr);
-        CXCursor token = m_TranslUnits[translUnitId].GetTokensAt(m_Database.GetFilename(aTkn.fileId),
+        CXCursor token = m_TranslUnits[translUnitId].GetTokenAt(m_Database.GetFilename(aTkn.fileId),
                 aTkn.location);
         if (!clang_Cursor_isNull(token) && !clang_isInvalid(token.kind))
             tokenSet.push_back(token);
@@ -1312,7 +1311,7 @@ void ClangProxy::GetTokensAt( ClTranslUnitId translUnitId, const wxString& filen
     {
        return;
     }
-    CXCursor token = m_TranslUnits[translUnitId].GetTokensAt(filename, location);
+    CXCursor token = m_TranslUnits[translUnitId].GetTokenAt(filename, location);
     if (clang_Cursor_isNull(token))
         return;
     ProxyHelper::ResolveCursorDecl(token);
@@ -1421,7 +1420,7 @@ void ClangProxy::GetOccurrencesOf(ClTranslUnitId translUnitId, const wxString& f
     {
        return;
     }
-    CXCursor token = m_TranslUnits[translUnitId].GetTokensAt(filename, location);
+    CXCursor token = m_TranslUnits[translUnitId].GetTokenAt(filename, location);
     if (clang_Cursor_isNull(token))
         return;
     ProxyHelper::ResolveCursorDecl(token);
@@ -1429,20 +1428,23 @@ void ClangProxy::GetOccurrencesOf(ClTranslUnitId translUnitId, const wxString& f
     clang_findReferencesInFile(token, m_TranslUnits[translUnitId].GetFileHandle(filename), visitor);
 }
 
-void ClangProxy::ResolveDeclTokenAt( ClTranslUnitId translUnitId, wxString& filename, ClTokenPosition& inout_location)
+bool ClangProxy::ResolveDeclTokenAt( const ClTranslUnitId translUnitId, wxString& filename, ClTokenPosition& inout_location)
 {
     if (translUnitId < 0)
     {
-       return;
+        return false;
     }
     wxMutexLocker lock(m_Mutex);
     if (translUnitId >= (int)m_TranslUnits.size())
     {
-       return;
+        return false;
     }
-    CXCursor token = m_TranslUnits[translUnitId].GetTokensAt(filename, inout_location);
+    CXCursor token = clang_getNullCursor();
+    token = m_TranslUnits[translUnitId].GetTokenAt(filename, inout_location);
     if (clang_Cursor_isNull(token))
-        return;
+    {
+        return false;
+    }
     ProxyHelper::ResolveCursorDecl(token);
     CXFile file;
     if (token.kind == CXCursor_InclusionDirective)
@@ -1462,6 +1464,60 @@ void ClangProxy::ResolveDeclTokenAt( ClTranslUnitId translUnitId, wxString& file
     CXString str = clang_getFileName(file);
     filename = wxString::FromUTF8(clang_getCString(str));
     clang_disposeString(str);
+    return true;
+}
+
+bool ClangProxy::ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wxString& filename, ClTokenPosition& inout_location)
+{
+    wxMutexLocker lock(m_Mutex);
+    CXCursor token = clang_getNullCursor();
+    if( (translUnitId >= 0)&&(translUnitId < (int)m_TranslUnits.size() ) )
+    {
+        token = m_TranslUnits[translUnitId].GetTokenAt(filename, inout_location);
+        if( !ProxyHelper::ResolveCursorDefinition(token) )
+        {
+            token = clang_getNullCursor();
+        }
+    }
+    if (clang_Cursor_isNull(token))
+    {
+        for ( std::vector<ClTranslationUnit>::iterator it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it )
+        {
+            token = it->GetTokenAt( wxT(""), inout_location );
+            if( !ProxyHelper::ResolveCursorDefinition(token) )
+            {
+                token = clang_getNullCursor();
+            }
+            if (!clang_Cursor_isNull(token))
+            {
+                break;
+            }
+        }
+    }
+    if (clang_Cursor_isNull(token))
+    {
+        return false;
+    }
+    ProxyHelper::ResolveCursorDefinition(token);
+    CXFile file;
+    if (token.kind == CXCursor_InclusionDirective)
+    {
+        file = clang_getIncludedFile(token);
+        inout_location.line = 1;
+        inout_location.column = 1;
+    }
+    else
+    {
+        CXSourceLocation loc = clang_getCursorLocation(token);
+        unsigned ln, col;
+        clang_getSpellingLocation(loc, &file, &ln, &col, nullptr);
+        inout_location.line   = ln;
+        inout_location.column = col;
+    }
+    CXString str = clang_getFileName(file);
+    filename = wxString::FromUTF8(clang_getCString(str));
+    clang_disposeString(str);
+    return true;
 }
 
 void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString& filename, const ClTokenPosition& location, wxString &out_ClassName, wxString &out_MethodName )
@@ -1481,7 +1537,7 @@ void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString&
         out_MethodName = wxT("");
         return;
     }
-    CXCursor cursor = m_TranslUnits[translUnitId].GetTokensAt(filename, location);
+    CXCursor cursor = m_TranslUnits[translUnitId].GetTokenAt(filename, location);
     if (clang_Cursor_isNull(cursor))
     {
         fprintf(stdout,"NULL cursor\n");
@@ -1496,9 +1552,17 @@ void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString&
     CXString str;
     while( !clang_Cursor_isNull(cursor) )
     {
-        //fprintf(stdout,"Cursor kind: %x\n", cursor.kind);
+        fprintf(stdout,"Cursor kind: %x\n", cursor.kind);
         switch( cursor.kind )
         {
+        case CXCursor_TypeRef:
+            str = clang_getCursorDisplayName(cursor);
+            methodName = wxString::FromUTF8(clang_getCString(str));
+            clang_disposeString(str);
+            //cursor = clang_getCursorLexicalParent(cursor);
+            //cursor = clang_getCursorReferenced(cursor);
+            cursor = clang_getCursorDefinition(cursor);
+            continue;
         case CXCursor_StructDecl:
         case CXCursor_ClassDecl:
         case CXCursor_ClassTemplate:

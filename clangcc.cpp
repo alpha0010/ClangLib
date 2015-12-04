@@ -234,13 +234,23 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
 #endif
     std::vector<cbCodeCompletionPlugin::CCToken> tokens;
 
-    int CCOutstanding = m_CCOutstanding;
-    if ((CCOutstanding > 0)&&(m_CCOutstandingPos != ed->GetControl()->GetCurrentPos()))
+    cbStyledTextCtrl* stc = ed->GetControl();
+    const int style = stc->GetStyleAt( tknEnd );
+    const int lineIndentPos = stc->GetLineIndentPosition(stc->GetCurrentLine());
+    const wxChar lineFirstChar = stc->GetCharAt(lineIndentPos);
+
+    if (lineFirstChar == wxT('#'))
     {
-        CCOutstanding = 0;
+        const int startPos = stc->WordStartPosition(lineIndentPos + 1, true);
+        const int endPos = stc->WordEndPosition(lineIndentPos + 1, true);
+        const wxString str = stc->GetTextRange(startPos, endPos);
+
+        if (str == wxT("include") && tknEnd > endPos)
+        {
+            return GetAutocompListIncludes( isAuto, ed, tknStart, tknEnd);
+        }
     }
 
-    m_CCOutstanding = 0;
     ClTranslUnitId translUnitId = m_TranslUnitId;
     if( translUnitId != GetCurrentTranslationUnitId() )
         return tokens;
@@ -251,8 +261,6 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         return tokens;
     }
 
-    cbStyledTextCtrl* stc = ed->GetControl();
-    const int style = stc->GetStyleAt(tknEnd);
     const wxChar curChar = stc->GetCharAt(tknEnd - 1);
     if (isAuto) // filter illogical cases of auto-launch
     {
@@ -266,6 +274,16 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
             return tokens;
         }
     }
+
+    if ( stc->IsString(style)||stc->IsComment(style)||stc->IsCharacter(style))
+        return tokens;
+
+    int CCOutstanding = m_CCOutstanding;
+    if ((CCOutstanding > 0)&&(m_CCOutstandingPos != ed->GetControl()->GetCurrentPos()))
+    {
+        CCOutstanding = 0;
+    }
+    m_CCOutstanding = 0;
 
     const int line = stc->LineFromPosition(tknStart);
 /*
@@ -308,10 +326,10 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         ClTokenPosition loc(line+1, column+1);
         //ClangProxy::CodeCompleteAtJob job( cbEVT_CLANG_SYNCTASK_FINISHED, idClangCodeCompleteTask, isAuto, ed->GetFilename(), loc, m_TranslUnitId, unsavedFiles);
         //m_Proxy.AppendPendingJob(job);
-        unsigned long timeout = 40;
+        unsigned long timeout = 20;
         if( !isAuto )
         {
-            timeout = 500;
+            timeout = 100;
         }
         if( wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, timeout, tknResults))
         {
@@ -428,6 +446,14 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     return tokens;
 }
 
+std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompListIncludes(bool isAuto, cbEditor* ed, int& tknStart, int& tknEnd)
+{
+    std::vector<cbCodeCompletionPlugin::CCToken> result;
+
+    return result;
+}
+
+
 wxString ClangCodeCompletion::GetDocumentation( const cbCodeCompletionPlugin::CCToken &token )
 {
     EditorManager* edMgr = Manager::Get()->GetEditorManager();
@@ -488,18 +514,30 @@ void ClangCodeCompletion::RequestReparse()
 {
     m_ReparseTimer.Stop();
     m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
-    //m_DiagnosticTimer.Stop();
-    //m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
 }
 
 void ClangCodeCompletion::OnTranslationUnitCreated( ClangEvent& event )
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    if( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
+    {
+        return;
+    }
+    m_CCOutstanding = 0;
+    m_CCOutstandingPos = 0;
+    m_CCOutstandingResults.clear();
 }
 
 void ClangCodeCompletion::OnReparseFinished( ClangEvent& event )
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    if( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
+    {
+        return;
+    }
+    m_CCOutstanding = 0;
+    m_CCOutstandingPos = 0;
+    m_CCOutstandingResults.clear();
 }
 
 void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
@@ -528,5 +566,126 @@ void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
             }
         }
         m_CCOutstanding--;
+    }
+}
+// Sorting in GetLocalIncludeDirs()
+static int CompareStringLen(const wxString& first, const wxString& second)
+{
+    return second.Len() - first.Len();
+}
+
+wxArrayString ClangCodeCompletion::GetLocalIncludeDirs(cbProject* project, const wxArrayString& buildTargets)
+{
+    wxArrayString dirs;
+#if 0 //TODO
+    // Do not try to operate include directories if the project is not for this platform
+    if (m_CCEnablePlatformCheck && !project->SupportsCurrentPlatform())
+        return dirs;
+#endif
+    const wxString prjPath = project->GetCommonTopLevelPath();
+    GetAbsolutePath(prjPath, project->GetIncludeDirs(), dirs);
+
+    for (size_t i = 0; i < buildTargets.GetCount(); ++i)
+    {
+        ProjectBuildTarget* tgt = project->GetBuildTarget(buildTargets[i]);
+        // Do not try to operate include directories if the target is not for this platform
+#if 0 //TODO
+        if (   !m_CCEnablePlatformCheck
+            || (m_CCEnablePlatformCheck && tgt->SupportsCurrentPlatform()) )
+        {
+#endif
+            GetAbsolutePath(prjPath, tgt->GetIncludeDirs(), dirs);
+#if 0 //TODO
+        }
+#endif
+    }
+
+    // if a path has prefix with the project's path, it is a local include search dir
+    // other wise, it is a system level include search dir, we try to collect all the system dirs
+    wxArrayString sysDirs;
+    for (size_t i = 0; i < dirs.GetCount();)
+    {
+        if (dirs[i].StartsWith(prjPath))
+            ++i;
+        else
+        {
+#if 0 //TODO
+            wxCriticalSectionLocker locker(m_SystemHeadersThreadCS);
+            if (m_SystemHeadersMap.find(dirs[i]) == m_SystemHeadersMap.end())
+                sysDirs.Add(dirs[i]);
+#endif
+            dirs.RemoveAt(i);
+        }
+    }
+
+    if (!sysDirs.IsEmpty())
+    {
+#if 0 //TODO
+        SystemHeadersThread* thread = new SystemHeadersThread(this, &m_SystemHeadersThreadCS, m_SystemHeadersMap, sysDirs);
+        m_SystemHeadersThreads.push_back(thread);
+        if (!m_SystemHeadersThreads.front()->IsRunning() && m_NativeParser.Done())
+            thread->Run();
+#endif
+    }
+
+    dirs.Sort(CompareStringLen);
+    return dirs;
+}
+
+wxArrayString& ClangCodeCompletion::GetSystemIncludeDirs(cbProject* project, bool force)
+{
+    static cbProject*    lastProject = nullptr;
+    static wxArrayString incDirs;
+
+    if (!force && project == lastProject) // force == false means we can use the cached dirs
+        return incDirs;
+    else
+    {
+        incDirs.Clear();
+        lastProject = project;
+    }
+    wxString prjPath;
+    if (project)
+        prjPath = project->GetCommonTopLevelPath();
+#if 0
+    ParserBase* parser = m_NativeParser.GetParserByProject(project);
+    if (!parser)
+        return incDirs;
+
+    incDirs = parser->GetIncludeDirs();
+    // we try to remove the dirs which belong to the project
+    for (size_t i = 0; i < incDirs.GetCount();)
+    {
+        if (incDirs[i].Last() != wxFILE_SEP_PATH)
+            incDirs[i].Append(wxFILE_SEP_PATH);
+        // the dirs which have prjPath prefix are local dirs, so they should be removed
+        if (project && incDirs[i].StartsWith(prjPath))
+            incDirs.RemoveAt(i);
+        else
+            ++i;
+    }
+#endif
+
+    return incDirs;
+}
+
+void ClangCodeCompletion::GetAbsolutePath(const wxString& basePath, const wxArrayString& targets, wxArrayString& dirs)
+{
+    for (size_t i = 0; i < targets.GetCount(); ++i)
+    {
+        wxString includePath = targets[i];
+        Manager::Get()->GetMacrosManager()->ReplaceMacros(includePath);
+        wxFileName fn(includePath, wxEmptyString);
+        if (fn.IsRelative())
+        {
+            const wxArrayString oldDirs = fn.GetDirs();
+            fn.SetPath(basePath);
+            for (size_t j = 0; j < oldDirs.GetCount(); ++j)
+                fn.AppendDir(oldDirs[j]);
+        }
+
+        const wxString path = fn.GetFullPath();
+        if (dirs.Index(path) == wxNOT_FOUND)
+            dirs.Add(path);
     }
 }

@@ -184,8 +184,13 @@ const CXCompletionResult* ClTranslationUnit::GetCCResult(unsigned index)
     return nullptr;
 }
 
-CXCursor ClTranslationUnit::GetTokensAt(const wxString& filename, const ClTokenPosition& location)
+CXCursor ClTranslationUnit::GetTokenAt(const wxString& filename, const ClTokenPosition& location)
 {
+    if (m_ClTranslUnit == nullptr )
+    {
+        fprintf(stdout,"%s: m_ClTranslUnit is NULL!\n", __PRETTY_FUNCTION__);
+        return clang_getNullCursor();
+    }
     return clang_getCursor(m_ClTranslUnit, clang_getLocation(m_ClTranslUnit, GetFileHandle(filename), location.line, location.column));
 }
 
@@ -408,12 +413,32 @@ void ClTranslationUnit::ExpandDiagnostic( CXDiagnostic diag, const wxString& fil
         if (rgEnd < column || rgStart > column) // out of bounds?
             rgStart = rgEnd = column;
         str = clang_formatDiagnostic(diag, 0);
-        diagnostics.push_back(ClDiagnostic( line, rgStart, rgEnd,
-                clang_getDiagnosticSeverity(diag) >= CXDiagnostic_Error ? sError : sWarning,
-                flName, wxString::FromUTF8(clang_getCString(str)) ));
+        wxString diagText = wxString::FromUTF8(clang_getCString(str));
+        if (diagText.StartsWith(wxT("warning: ")) )
+        {
+            diagText = diagText.Right( diagText.Length() - 9 );
+        }
+        else if (diagText.StartsWith(wxT("error: ")) )
+        {
+            diagText = diagText.Right( diagText.Length() - 7 );
+        }
+        ClSeverity sev = sWarning;
+        switch( clang_getDiagnosticSeverity(diag)){
+        case CXDiagnostic_Error:
+        case CXDiagnostic_Fatal:
+            sev = sError;
+            break;
+        case CXDiagnostic_Note:
+            sev = sNote;
+            break;
+        case CXDiagnostic_Warning:
+        case CXDiagnostic_Ignored:
+            sev = sWarning;
+            break;
+        }
+        diagnostics.push_back(ClDiagnostic( line, rgStart, rgEnd, sev, flName, diagText ));
         clang_disposeString(str);
     }
-
 }
 
 void ClTranslationUnit::ExpandDiagnosticSet(CXDiagnosticSet diagSet, const wxString& filename, std::vector<ClDiagnostic>& diagnostics)

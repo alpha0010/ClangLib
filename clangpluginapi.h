@@ -60,7 +60,7 @@ struct ClTokenPosition{
 
 enum ClDiagnosticLevel { dlMinimal, dlFull };
 
-enum ClSeverity { sWarning, sError };
+enum ClSeverity { sWarning, sError, sNote };
 
 struct ClDiagnostic
 {

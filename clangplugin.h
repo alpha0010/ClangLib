@@ -8,15 +8,22 @@
 #include "clangpluginapi.h"
 #include "clangproxy.h"
 #include "tokendatabase.h"
+#include "clangtoolbar.h"
+#include "clangcc.h"
+#include "clangdiagnostics.h"
 
 /* final */
 class ClangPlugin : public cbCodeCompletionPlugin, public IClangPlugin
 {
+    friend class ClangSettingsDlg;
 public:
     ClangPlugin();
     virtual ~ClangPlugin();
 
     /*-- Public interface --*/
+    virtual int GetConfigurationGroup() const { return cgEditor; }
+    virtual cbConfigurationPanel* GetConfigurationPanel(wxWindow* parent);
+
 
     // Does this plugin handle code completion for the editor ed?
     virtual CCProviderStatus GetProviderStatusFor(cbEditor* ed);
@@ -41,6 +48,8 @@ public:
     /** build CC Toolbar */
     virtual bool BuildToolBar(wxToolBar* toolBar);
 
+public:
+    void UpdateComponents();
 protected:
     virtual void OnAttach();
     virtual void OnRelease(bool appShutDown);
@@ -100,6 +109,8 @@ private:
     void OnEditorHook( cbEditor* ed, wxScintillaEvent& event );
     /// Resolve the token under the cursor and open the relevant location
     void OnGotoDeclaration( wxCommandEvent& event );
+    /// Find the token implementation under the cursor and open the relevant location
+    void OnGotoImplementation( wxCommandEvent& event );
 
     // Async
     //void OnReparse( wxCommandEvent& evt );
@@ -162,7 +173,7 @@ public: // IClangPlugin
     const wxImageList& GetImageList(const ClTranslUnitId /*id*/ ) { return m_ImageList; }
     const wxStringVec& GetKeywords( const ClTranslUnitId /*id*/ ) { return m_CppKeywords; }
 private: // Members
-    std::vector<ClangPluginComponent*> m_ComponentList;
+    std::vector<ClangPluginComponent*> m_ActiveComponentList;
 
     typedef std::vector< IEventFunctorBase<ClangEvent>* > EventSinksArray;
     typedef std::map< wxEventType, EventSinksArray >   EventSinksMap;
@@ -184,7 +195,10 @@ private: // Members
     int m_UpdateCompileCommand;
     int m_ReparseNeeded;
     int m_LastModifyLine;
-    //int m_ReparseBusy;
+
+    ClangCodeCompletion m_CodeCompletion;
+    ClangDiagnostics m_Diagnostics;
+    ClangToolbar m_Toolbar;
 };
 
 #endif // CLANGPLUGIN_H

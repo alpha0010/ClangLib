@@ -29,7 +29,7 @@
 					<Add directory="../codeblocks-1510/src/include" />
 				</Compiler>
 				<ExtraCommands>
-					<Add after="zip -j9 /home/yves/codeblocks-1510/share/codeblocks/clanglib.zip resources/manifest.xml" />
+					<Add after="zip -j9 /home/yves/codeblocks-1510/share/codeblocks/clanglib.zip resources/manifest.xml resources/ccsettings.xrc" />
 				</ExtraCommands>
 			</Target>
 		</Build>
@@ -69,6 +69,8 @@
 		</Unit>
 		<Unit filename="clangcc.cpp" />
 		<Unit filename="clangcc.h" />
+		<Unit filename="clangccsettingsdlg.cpp" />
+		<Unit filename="clangccsettingsdlg.h" />
 		<Unit filename="clangdiagnostics.cpp" />
 		<Unit filename="clangdiagnostics.h" />
 		<Unit filename="clangplugin.cpp" />
@@ -78,6 +80,7 @@
 		<Unit filename="clangproxy.h" />
 		<Unit filename="clangtoolbar.cpp" />
 		<Unit filename="clangtoolbar.h" />
+		<Unit filename="resources/ccsettings.xrc" />
 		<Unit filename="resources/codecompletion_toolbar.xrc" />
 		<Unit filename="resources/manifest.xml" />
 		<Unit filename="tokendatabase.cpp" />

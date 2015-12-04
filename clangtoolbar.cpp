@@ -66,7 +66,6 @@ void ClangToolbar::OnAttach(IClangPlugin* pClangPlugin)
     AddPendingEvent(evt);
     wxCommandEvent evt2(clEVT_COMMAND_UPDATETOOLBARSELECTION, idToolbarUpdateSelection);
     AddPendingEvent(evt2);
-
 }
 
 void ClangToolbar::OnRelease(IClangPlugin* pClangPlugin)
@@ -272,9 +271,9 @@ bool ClangToolbar::BuildToolBar(wxToolBar* toolBar)
     m_Function = XRCCTRL(*toolBar, "chcCodeCompletionFunction", wxChoice);
     m_Scope    = XRCCTRL(*toolBar, "chcCodeCompletionScope",    wxChoice);
 
-    if (m_Function )
+    if (m_Function)
         Manager::Get()->GetAppWindow()->Connect(m_Function->GetId(), wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler(ClangToolbar::OnFunction), nullptr, this);
-    if (m_Scope )
+    if (m_Scope)
         Manager::Get()->GetAppWindow()->Connect(m_Scope->GetId(), wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler(ClangToolbar::OnScope), nullptr, this);
     m_ToolBar = toolBar;
 
@@ -290,7 +289,7 @@ bool ClangToolbar::BuildToolBar(wxToolBar* toolBar)
 
 void ClangToolbar::UpdateToolBar()
 {
-    bool showScope = Manager::Get()->GetConfigManager(_T("code_completion"))->ReadBool(_T("/scope_filter"), true);
+    bool showScope = Manager::Get()->GetConfigManager(_T("ClangLib"))->ReadBool(_T("/scope_filter"), true);
 
     if (showScope && !m_Scope)
     {

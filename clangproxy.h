@@ -588,9 +588,9 @@ public:
     public:
         GetOccurrencesOfJob( wxEventType evtType, int evtId, const wxString& filename, const ClTokenPosition& location, ClTranslUnitId translId ):
             SyncJob( GetOccurrencesOfType, evtType, evtId),
+            m_TranslId(translId),
             m_Filename(filename.c_str()),
-            m_Location(location),
-            m_TranslId(translId)
+            m_Location(location)
         {
             m_pResults = new std::vector< std::pair<int, int> >();
         }
@@ -631,7 +631,6 @@ public:
         ClTokenPosition m_Location;
         std::vector< std::pair<int, int> >* m_pResults;
     };
-
 
     /**
      * Helper class that manages the lifecycle of the Get/SetEventObject() object when passing threads
@@ -694,7 +693,8 @@ protected: // jobs that are run only on the thread
 
 public:
     wxString GetCCInsertSuffix( ClTranslUnitId translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets );
-    void ResolveDeclTokenAt( ClTranslUnitId translId, wxString& filename, ClTokenPosition& out_location);
+    bool ResolveDeclTokenAt( const ClTranslUnitId translId, wxString& filename, ClTokenPosition& out_location);
+    bool ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wxString& filename, ClTokenPosition& inout_location);
 
     void GetFunctionScopeAt( ClTranslUnitId translId, const wxString& filename, const ClTokenPosition& location, wxString &out_ClassName, wxString &out_FunctionName );
     std::vector<std::pair<wxString, wxString> > GetFunctionScopes( ClTranslUnitId, const wxString& filename );

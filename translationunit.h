@@ -60,7 +60,7 @@ public:
                                            struct CXUnsavedFile* unsaved_files,
                                            unsigned num_unsaved_files );
     const CXCompletionResult* GetCCResult(unsigned index);
-    CXCursor GetTokensAt(const wxString& filename, const ClTokenPosition& location);
+    CXCursor GetTokenAt(const wxString& filename, const ClTokenPosition& location);
     void Parse( const wxString& filename, ClFileId FileId, const std::vector<const char*>& args,
                 const std::map<wxString, wxString>& unsavedFiles,
                 ClTokenDatabase* pUpdateDatabase );
