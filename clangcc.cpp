@@ -29,8 +29,7 @@ const int idHighlightTimer = wxNewId();
 #define DIAGNOSTIC_DELAY 3000
 #define HIGHTLIGHT_DELAY 1700
 
-//DEFINE_EVENT_TYPE(clEVT_COMMAND_UPDATETOOLBARSELECTION)
-//DEFINE_EVENT_TYPE(clEVT_COMMAND_UPDATETOOLBARCONTENTS)
+const wxString ClangCodeCompletion::SettingName = _T("/code_completion");
 
 ClangCodeCompletion::ClangCodeCompletion() :
     ClangPluginComponent(),
@@ -165,23 +164,12 @@ void ClangCodeCompletion::OnTimer(wxTimerEvent& event)
 
     if (evId == idReparseTimer) // m_ReparseTimer
     {
-        //wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
-        //AddPendingEvent(evt);
         m_pClangPlugin->RequestReparse( GetCurrentTranslationUnitId(), ed->GetFilename() );
 
     }
     else if (evId == idHighlightTimer)
     {
-        //if (m_TranslUnitId == wxNOT_FOUND)
-        //{
-        //    return;
-        //}
         HighlightOccurrences(ed);
-    }
-    else if (evId == idDiagnosticTimer)
-    {
-        //wxCommandEvent evt(cbEVT_COMMAND_DIAGNOSEED, idDiagnoseEd);
-        //AddPendingEvent(evt);
     }
     else
     {
@@ -324,8 +312,6 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     if ((CCOutstanding == 0)||(m_CCOutstandingResults.size()==0))
     {
         ClTokenPosition loc(line+1, column+1);
-        //ClangProxy::CodeCompleteAtJob job( cbEVT_CLANG_SYNCTASK_FINISHED, idClangCodeCompleteTask, isAuto, ed->GetFilename(), loc, m_TranslUnitId, unsavedFiles);
-        //m_Proxy.AppendPendingJob(job);
         unsigned long timeout = 20;
         if( !isAuto )
         {
@@ -350,8 +336,6 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         tknResults = m_CCOutstandingResults;
     }
 
-    //m_Proxy.CodeCompleteAt(isAuto, ed->GetFilename(), line + 1, column + 1,
-    //        m_TranslUnitId, unsavedFiles, tknResults);
     if (prefix.Length() > 3) // larger context, match the prefix at any point in the token
     {
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
@@ -442,7 +426,6 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         }
     }
 
-    std::cout<<"CodeCompletion finished"<<std::endl;
     return tokens;
 }
 

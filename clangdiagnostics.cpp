@@ -1,26 +1,41 @@
 #include "clangdiagnostics.h"
 
+#include <sdk.h>
+
+#ifndef CB_PRECOMP
 #include <cbeditor.h>
 #include <cbproject.h>
+#include <compilerfactory.h>
 #include <configmanager.h>
+#include <editorcolourset.h>
 #include <editormanager.h>
 #include <logmanager.h>
 #include <macrosmanager.h>
+#include <projectfile.h>
 #include <projectmanager.h>
+
+#include <algorithm>
+#include <wx/dir.h>
+#endif // CB_PRECOMP
+
 #include <cbstyledtextctrl.h>
 #include <cbcolourmanager.h>
 
 const int idDiagnosticTimer = wxNewId();
+const int idGotoNextDiagnostic = wxNewId();
+const int idGotoPrevDiagnostic = wxNewId();
+
+const wxString ClangDiagnostics::SettingName = _T("/diagnostics");
 
 ClangDiagnostics::ClangDiagnostics() :
-    m_TranslUnitId(-1)
+    m_TranslUnitId(-1),
+    m_Diagnostics()
 {
 
 }
 
 ClangDiagnostics::~ClangDiagnostics()
 {
-
 }
 
 void ClangDiagnostics::OnAttach( IClangPlugin* pClangPlugin )
@@ -38,7 +53,9 @@ void ClangDiagnostics::OnAttach( IClangPlugin* pClangPlugin )
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new CBCCEvent(this, &ClangDiagnostics::OnEditorActivate));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_CLOSE,     new CBCCEvent(this, &ClangDiagnostics::OnEditorClose));
 
-    Connect(idDiagnosticTimer, wxEVT_TIMER, wxTimerEventHandler(ClangDiagnostics::OnTimer));
+    Connect(idDiagnosticTimer,    wxEVT_TIMER, wxTimerEventHandler(ClangDiagnostics::OnTimer));
+    Connect(idGotoNextDiagnostic, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ClangDiagnostics::OnGotoNextDiagnostic), nullptr, this);
+    Connect(idGotoPrevDiagnostic, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ClangDiagnostics::OnGotoPrevDiagnostic), nullptr, this);
 
     typedef cbEventFunctor<ClangDiagnostics, ClangEvent> ClCCEvent;
     pClangPlugin->RegisterEventSink(clEVT_DIAGNOSTICS_UPDATED, new ClCCEvent(this, &ClangDiagnostics::OnDiagnostics) );
@@ -46,7 +63,72 @@ void ClangDiagnostics::OnAttach( IClangPlugin* pClangPlugin )
 
 void ClangDiagnostics::OnRelease( IClangPlugin* pClangPlugin )
 {
+    Disconnect( idGotoPrevDiagnostic );
+    Disconnect( idGotoPrevDiagnostic );
+    ClangPluginComponent::OnRelease( pClangPlugin );
+}
 
+void ClangDiagnostics::BuildMenu( wxMenuBar* menuBar )
+{
+    int idx = menuBar->FindMenu(_("Sea&rch"));
+    if (idx != wxNOT_FOUND)
+    {
+        menuBar->GetMenu(idx)->AppendSeparator();
+        menuBar->GetMenu(idx)->Append(idGotoPrevDiagnostic, _("Goto previous error/warning (clang)\tCtrl+Shift+UP"));
+        menuBar->GetMenu(idx)->Append(idGotoNextDiagnostic, _("Goto next error/warning (clang)\tCtrl+Shift+DOWN"));
+    }
+}
+
+// Command handlers
+
+void ClangDiagnostics::OnGotoNextDiagnostic( wxCommandEvent& WXUNUSED(event) )
+{
+    fprintf(stdout, "%s\n", __PRETTY_FUNCTION__ );
+    EditorManager* edMgr = Manager::Get()->GetEditorManager();
+    cbEditor* ed = edMgr->GetBuiltinActiveEditor();
+    if (!ed)
+    {
+        std::cout<<"No editor..."<<std::endl;
+        return;
+    }
+
+    cbStyledTextCtrl* stc = ed->GetControl();
+    for (std::vector<ClDiagnostic>::const_iterator it = m_Diagnostics.begin(); it != m_Diagnostics.end(); ++it)
+    {
+        if ((it->line - 1) > stc->GetCurrentLine() )
+        {
+            stc->GotoLine( it->line - 1 );
+            break;
+        }
+    }
+}
+
+void ClangDiagnostics::OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) )
+{
+    fprintf(stdout, "%s\n", __PRETTY_FUNCTION__ );
+    EditorManager* edMgr = Manager::Get()->GetEditorManager();
+    cbEditor* ed = edMgr->GetBuiltinActiveEditor();
+    if (!ed)
+    {
+        std::cout<<"No editor..."<<std::endl;
+        return;
+    }
+
+    cbStyledTextCtrl* stc = ed->GetControl();
+    int prevLine = -1;
+    for (std::vector<ClDiagnostic>::const_iterator it = m_Diagnostics.begin(); it != m_Diagnostics.end(); ++it)
+    {
+        if ((it->line - 1) < stc->GetCurrentLine() )
+        {
+            prevLine = it->line - 1;
+        }
+        else
+        {
+            if( prevLine >= 0 )
+                stc->GotoLine( prevLine );
+            break;
+        }
+    }
 }
 
 // Code::Blocks events
@@ -83,13 +165,16 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     bool show_inline = cfg->ReadBool( _T("/diagnostics_show_inline"), true);
     bool show_warning = cfg->ReadBool( _T("/diagnostics_show_warnings"), true);
     bool show_error = cfg->ReadBool( _T("/diagnostics_show_errors"), true);
-    bool show_note = cfg->ReadBool( _T("/diagnostics_show_notes"), false);
 
+    const std::vector<ClDiagnostic>& diagnostics = event.GetDiagnosticResults();
     if( (diagLv == dlFull)&&(event.GetLocation().line != 0)&&(event.GetLocation().column != 0) )
     {
         update = true;
     }
-    const std::vector<ClDiagnostic>& diagnostics = event.GetDiagnosticResults();
+    else
+    {
+        m_Diagnostics = diagnostics;
+    }
     cbStyledTextCtrl* stc = ed->GetControl();
     stc->StyleSetBackground( 51, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_warnbg") ));
     stc->StyleSetForeground( 51, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_warntext") ));
@@ -156,6 +241,8 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
                             stc->AnnotationSetText(dgItr->line - 1, str + dgItr->message);
                             stc->AnnotationSetStyle(dgItr->line - 1, 52);
                         }
+                        break;
+                    case sNote:
                         break;
                     }
                 }

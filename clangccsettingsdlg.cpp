@@ -99,7 +99,7 @@ ClangSettingsDlg::ClangSettingsDlg(wxWindow* parent, ClangPlugin* pPlugin /*, Na
 
     // Page "Code Completion"
     //XRCCTRL(*this, "chkNoSemantic",         wxCheckBox)->SetValue(!cfg->ReadBool(_T("/semantic_keywords"),   false));
-    XRCCTRL(*this, "chkCodeCompletion",     wxCheckBox)->SetValue(cfg->ReadBool(_T("/code_completion"),   true));
+    XRCCTRL(*this, "chkCodeCompletion",     wxCheckBox)->SetValue(cfg->ReadBool(ClangCodeCompletion::SettingName,   true));
     XRCCTRL(*this, "chkAutoAddParentheses", wxCheckBox)->SetValue(cfg->ReadBool(_T("/auto_add_parentheses"), true));
     XRCCTRL(*this, "chkDetectImpl",         wxCheckBox)->SetValue(cfg->ReadBool(_T("/detect_implementation"),false));
     XRCCTRL(*this, "chkAddDoxgenComment",   wxCheckBox)->SetValue(cfg->ReadBool(_T("/add_doxgen_comment"),   false));
@@ -194,7 +194,7 @@ void ClangSettingsDlg::OnApply()
     // Page "Code Completion"
     //cfg->Write(_T("/semantic_keywords"),    (bool)!XRCCTRL(*this, "chkNoSemantic",         wxCheckBox)->GetValue());
     //cfg->Write(_T("/use_SmartSense"),       (bool) XRCCTRL(*this, "chkUseSmartSense",      wxCheckBox)->GetValue());
-    cfg->Write(_T("/code_completion"),       (bool) XRCCTRL(*this, "chkCodeCompletion",        wxCheckBox)->GetValue());
+    cfg->Write(ClangCodeCompletion::SettingName,       (bool) XRCCTRL(*this, "chkCodeCompletion",        wxCheckBox)->GetValue());
     cfg->Write(_T("/while_typing"),         (bool) XRCCTRL(*this, "chkWhileTyping",        wxCheckBox)->GetValue());
     //cfg->Write(_T("/auto_add_parentheses"), (bool) XRCCTRL(*this, "chkAutoAddParentheses", wxCheckBox)->GetValue());
     //cfg->Write(_T("/detect_implementation"),(bool) XRCCTRL(*this, "chkDetectImpl",         wxCheckBox)->GetValue());
@@ -316,7 +316,7 @@ void ClangSettingsDlg::OnUpdateUI(cb_unused wxUpdateUIEvent& event)
 {
     // ccmanager's config
     ConfigManager* ccmcfg = Manager::Get()->GetConfigManager(CLANG_CONFIGMANAGER);
-    bool en = ccmcfg->ReadBool(_T("/code_completion"), true);
+    bool en = ccmcfg->ReadBool(ClangCodeCompletion::SettingName, true);
     bool aap = XRCCTRL(*this, "chkAutoAddParentheses", wxCheckBox)->GetValue();
 
     // Page "Code Completion"

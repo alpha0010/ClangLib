@@ -1552,7 +1552,7 @@ void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString&
     CXString str;
     while( !clang_Cursor_isNull(cursor) )
     {
-        fprintf(stdout,"Cursor kind: %x\n", cursor.kind);
+        //fprintf(stdout,"Cursor kind: %x\n", cursor.kind);
         switch( cursor.kind )
         {
         case CXCursor_TypeRef:

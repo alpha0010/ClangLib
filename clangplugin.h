@@ -20,6 +20,8 @@ public:
     ClangPlugin();
     virtual ~ClangPlugin();
 
+    bool ProcessEvent( wxEvent& event );
+
     /*-- Public interface --*/
     virtual int GetConfigurationGroup() const { return cgEditor; }
     virtual cbConfigurationPanel* GetConfigurationPanel(wxWindow* parent);
@@ -153,6 +155,8 @@ private: // Internal utility functions
 
     void RequestReparse();
 
+    bool ActivateComponent( ClangPluginComponent* pComponent );
+    bool DeactivateComponent( ClangPluginComponent* pComponent );
     bool ProcessEvent(ClangEvent& event);
     bool HasEventSink( const wxEventType eventType);
 

@@ -12,6 +12,8 @@ public:
     ClangCodeCompletion();
     virtual ~ClangCodeCompletion();
 
+    static const wxString SettingName;
+
     void OnAttach( IClangPlugin* pClangPlugin );
     void OnRelease( IClangPlugin* pClangPlugin );
 
@@ -84,7 +86,6 @@ private:
     long m_CCOutstandingLastMessageTime;
     int m_CCOutstandingPos;
     std::vector<ClToken> m_CCOutstandingResults;
-
 };
 
 

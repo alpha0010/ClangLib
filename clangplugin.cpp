@@ -171,19 +171,37 @@ void ClangPlugin::OnAttach()
     Connect(idClangGetCCDocumentationTask,cbEVT_CLANG_SYNCTASK_FINISHED, wxEventHandler(ClangPlugin::OnClangSyncTaskFinished), nullptr, this);
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangPlugin>(this, &ClangPlugin::OnEditorHook));
 
-    if( cfg->ReadBool(_T("/code_completion"),   true))
+    if( cfg->ReadBool(ClangCodeCompletion::SettingName,   true))
     {
-        m_ActiveComponentList.push_back( &m_CodeCompletion );
+        ActivateComponent( &m_CodeCompletion );
     }
-    if( cfg->ReadBool(_T("/diagnostics"),   true))
+    if( cfg->ReadBool(ClangDiagnostics::SettingName,   true))
     {
-        m_ActiveComponentList.push_back( &m_Diagnostics );
+        ActivateComponent( &m_Diagnostics );
     }
     for ( std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
     {
         (*it)->OnAttach(this);
     }
+}
 
+/**
+ * Dispatch events to the components
+ */
+bool ClangPlugin::ProcessEvent( wxEvent& event )
+{
+    if (cbPlugin::ProcessEvent(event))
+    {
+        return true;
+    }
+    for ( std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
+    {
+        if ( (*it)->ProcessEvent(event) )
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 void ClangPlugin::OnRelease(bool WXUNUSED(appShutDown))
@@ -201,47 +219,54 @@ void ClangPlugin::OnRelease(bool WXUNUSED(appShutDown))
     m_ImageList.RemoveAll();
 }
 
-void ClangPlugin::UpdateComponents()
+bool ClangPlugin::ActivateComponent( ClangPluginComponent* pComponent )
 {
-    ConfigManager* cfg = Manager::Get()->GetConfigManager(CLANG_CONFIGMANAGER);
-    bool ccEnabled = cfg->ReadBool( _T("/code_completion"), true );
-    bool ccFound = false;
-    bool diagEnabled = cfg->ReadBool( _T("/diagnostics"), true );
-    bool diagFound = false;
     for (std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
     {
-        if( *it == &m_CodeCompletion )
+        if( *it == pComponent)
         {
-            if( !ccEnabled )
-            {
-                (*it)->OnRelease(this);
-                it = m_ActiveComponentList.erase(it);
-            }
-            ccFound = true;
+            return false;
         }
-        if( *it == &(m_Diagnostics) )
-        {
+    }
+    m_ActiveComponentList.push_back(pComponent);
+    pComponent->OnAttach(this);
 
-            if( !diagEnabled )
-            {
-                (*it)->OnRelease(this);
-                it = m_ActiveComponentList.erase(it);
-            }
-            diagFound = true;
+    return true;
+}
+
+bool ClangPlugin::DeactivateComponent(  ClangPluginComponent* pComponent  )
+{
+    for (std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
+    {
+        if( *it == pComponent)
+        {
+            (*it)->OnRelease(this);
+            it = m_ActiveComponentList.erase(it);
+            return true;
         }
     }
+    return false;
+}
+
+void ClangPlugin::UpdateComponents()
+{
     bool activationChanged = false;
-    if( ccEnabled &&(!ccFound))
+    ConfigManager* cfg = Manager::Get()->GetConfigManager(CLANG_CONFIGMANAGER);
+    if( cfg->ReadBool( ClangCodeCompletion::SettingName, true ) )
     {
-        m_CodeCompletion.OnAttach(this);
-        m_ActiveComponentList.push_back(&m_CodeCompletion);
-        activationChanged = true;
+        if (ActivateComponent( &m_CodeCompletion ))
+            activationChanged = true;
+    }else {
+        if (DeactivateComponent( &m_CodeCompletion ))
+            activationChanged = true;
     }
-    if( diagEnabled &&(!diagFound))
+    if( cfg->ReadBool( ClangDiagnostics::SettingName, true ) )
     {
-        m_Diagnostics.OnAttach(this);
-        m_ActiveComponentList.push_back(&m_Diagnostics);
-        activationChanged = true;
+        if (ActivateComponent( &m_Diagnostics ))
+            activationChanged = true;
+    }else {
+        if (DeactivateComponent( &m_Diagnostics ))
+            activationChanged = true;
     }
     if( activationChanged )
         Manager::Get()->GetEditorManager()->SetActiveEditor( Manager::Get()->GetEditorManager()->GetActiveEditor() );
@@ -519,6 +544,12 @@ void ClangPlugin::BuildMenu(wxMenuBar* menuBar)
         menuBar->GetMenu(idx)->Append(idGotoDeclaration, _("Find &declaration (clang)"));
         menuBar->GetMenu(idx)->Append(idGotoImplementation, _("Find &implementation (clang)"));
     }
+
+    for ( std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
+    {
+        (*it)->BuildMenu(menuBar);
+    }
+    //m_Diagnostics.BuildMenu( menuBar );
 }
 
 void ClangPlugin::BuildModuleMenu(const ModuleType type, wxMenu* menu,
@@ -684,7 +715,6 @@ void ClangPlugin::OnProjectOptionsChanged(CodeBlocksEvent& event)
         int compileCommandChanged = UpdateCompileCommand(ed);
         if (compileCommandChanged)
         {
-            std::cout<<"OnProjectOptionsChanged: Calling reparse (compile command changed)"<<std::endl;
             RequestReparse();
         }
     }
@@ -1088,52 +1118,6 @@ void ClangPlugin::OnClangCreateTUFinished( wxEvent& event )
     m_pLastEditor = ed;
 }
 
-#if 0
-void ClangPlugin::OnReparse( wxCommandEvent& /*event*/ )
-{
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
-
-    //m_DiagnosticTimer.Stop();
-
-    EditorManager* edMgr = Manager::Get()->GetEditorManager();
-    cbEditor* ed = edMgr->GetBuiltinActiveEditor();
-    if (!ed)
-    {
-        std::cout<<"No editor..."<<std::endl;
-        return;
-    }
-
-    m_ReparseNeeded = 0;
-
-    if (ed != m_pLastEditor)
-    {
-        //m_TranslUnitId = m_Proxy.GetTranslationUnitId(ed->GetFilename());
-        m_TranslUnitId = wxNOT_FOUND;
-        m_pLastEditor = ed;
-        std::cout<<"Reparse: TranslUnitId set to "<<m_TranslUnitId<<std::endl;
-    }
-    if (m_TranslUnitId == wxNOT_FOUND)
-    {
-        std::cout<<"Translation unit not found: "<<m_TranslUnitId<<" file="<<(const char*)ed->GetFilename().c_str()<<std::endl;
-        return;
-    }
-
-    //std::cout<<"Reparsing with translUnitId "<<m_TranslUnitId<<std::endl;
-    std::map<wxString, wxString> unsavedFiles;
-    for (int i = 0; i < edMgr->GetEditorsCount(); ++i)
-    {
-        ed = edMgr->GetBuiltinEditor(i);
-        if (ed && ed->GetModified())
-            unsavedFiles.insert(std::make_pair(ed->GetFilename(), ed->GetControl()->GetText()));
-    }
-    ClangProxy::ReparseJob job( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangReparse, m_TranslUnitId, m_CompileCommand, ed->GetFilename(), unsavedFiles);
-    m_Proxy.AppendPendingJob(job);
-    //m_ReparseBusy++;
-}
-#endif
-
 void ClangPlugin::OnClangReparseFinished( wxEvent& event )
 {
 //#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
@@ -1147,26 +1131,7 @@ void ClangPlugin::OnClangReparseFinished( wxEvent& event )
     }
     ClangEvent evt( clEVT_REPARSE_FINISHED, pJob->GetTranslationUnitId(), pJob->GetFilename());
     ProcessEvent(evt);
-#if 0
-    if (pJob->m_TranslId != this->m_TranslUnitId)
-    {
-        std::cout<<" Reparse finished but another file was loaded"<<std::endl;
-        return;
-    }
-    if (m_ReparseNeeded)
-    {
-        fprintf(stdout,"%s: Reparsing again, was modified while we were busy...\n", __PRETTY_FUNCTION__);
-        wxCommandEvent evt(cbEVT_COMMAND_REPARSE, idReparse);
-        AddPendingEvent(evt);
-    }
-    else
-    {
-        //m_DiagnosticTimer.Stop();
-        //m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
-    }
-#endif
 }
-
 
 void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 {
@@ -1205,73 +1170,6 @@ void ClangPlugin::OnClangGetDiagnosticsFinished( wxEvent& event )
 
     ClangEvent evt( clEVT_DIAGNOSTICS_UPDATED, pJob->GetTranslationUnitId(), pJob->GetFilename(), ClTokenPosition(0,0), pJob->GetResults());
     ProcessEvent(evt);
-
-#if 0
-    EditorManager* edMgr = Manager::Get()->GetEditorManager();
-    cbEditor* ed = edMgr->GetBuiltinActiveEditor();
-    if (!ed)
-    {
-        std::cout<<"No editor..."<<std::endl;
-        return;
-    }
-    if ((pJob->m_TranslId != m_TranslUnitId)||(ed != m_pLastEditor))
-    {
-        // No longer the current editor
-        std::cout<<"Diagnostics requested but another file was loaded..."<<std::endl;
-        return;
-    }
-    cbStyledTextCtrl* stc = ed->GetControl();
-    if (diagLv == dlFull)
-        stc->AnnotationClearAll();
-    const int warningIndicator = 0; // predefined
-    const int errorIndicator = 15; // hopefully we do not clash with someone else...
-    stc->SetIndicatorCurrent(warningIndicator);
-    stc->IndicatorClearRange(0, stc->GetLength());
-    stc->IndicatorSetStyle(errorIndicator, wxSCI_INDIC_SQUIGGLE);
-    stc->IndicatorSetForeground(errorIndicator, *wxRED);
-    stc->SetIndicatorCurrent(errorIndicator);
-    stc->IndicatorClearRange(0, stc->GetLength());
-    const wxString& fileNm = ed->GetFilename();
-    for ( std::vector<ClDiagnostic>::const_iterator dgItr = pJob->m_Diagnostic.begin();
-            dgItr != pJob->m_Diagnostic.end(); ++dgItr )
-    {
-        //Manager::Get()->GetLogManager()->Log(dgItr->file + wxT(" ") + dgItr->message + F(wxT(" %d, %d"), dgItr->range.first, dgItr->range.second));
-        if (dgItr->file != fileNm)
-            continue;
-        if (diagLv == dlFull)
-        {
-            wxString str = stc->AnnotationGetText(dgItr->line - 1);
-            if (!str.IsEmpty())
-                str += wxT('\n');
-            stc->AnnotationSetText(dgItr->line - 1, str + dgItr->message);
-            stc->AnnotationSetStyle(dgItr->line - 1, 50);
-        }
-        int pos = stc->PositionFromLine(dgItr->line - 1) + dgItr->range.first - 1;
-        int range = dgItr->range.second - dgItr->range.first;
-        if (range == 0)
-        {
-            range = stc->WordEndPosition(pos, true) - pos;
-            if (range == 0)
-            {
-                pos = stc->WordStartPosition(pos, true);
-                range = stc->WordEndPosition(pos, true) - pos;
-            }
-        }
-        if (dgItr->severity == sError)
-            stc->SetIndicatorCurrent(errorIndicator);
-        else if (  dgItr != pJob->m_Diagnostics.begin()
-                && dgItr->line == (dgItr - 1)->line
-                && dgItr->range.first <= (dgItr - 1)->range.second )
-        {
-            continue; // do not overwrite the last indicator
-        }
-        else
-            stc->SetIndicatorCurrent(warningIndicator);
-        stc->IndicatorFillRange(pos, range);
-    }
-    if (diagLv == dlFull)
-        stc->AnnotationSetVisible(wxSCI_ANNOTATION_BOXED);
-#endif
 }
 
 void ClangPlugin::OnClangSyncTaskFinished( wxEvent& event )
@@ -1480,8 +1378,6 @@ bool ClangPlugin::HasEventSink(wxEventType eventType)
 
 bool ClangPlugin::ProcessEvent(ClangEvent& event)
 {
-    //if (Manager::IsAppShuttingDown())
-    //    return false;
     int id = event.GetId();
     EventSinksMap::iterator mit = m_EventSinks.find(id);
     if (mit != m_EventSinks.end())

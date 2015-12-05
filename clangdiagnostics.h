@@ -11,8 +11,15 @@ public:
     ClangDiagnostics();
     virtual ~ClangDiagnostics();
 
+    static const wxString SettingName;
+
     void OnAttach( IClangPlugin* pClangPlugin );
     void OnRelease( IClangPlugin* pClangPlugin );
+    void BuildMenu( wxMenuBar* menuBar );
+
+public: // Command handlers
+    void OnGotoNextDiagnostic( wxCommandEvent& WXUNUSED(event) );
+    void OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) );
 
 public: // Code::Blocks events
     void OnEditorActivate(CodeBlocksEvent& event);
@@ -28,6 +35,7 @@ public:
 private:
     ClTranslUnitId m_TranslUnitId;
     int m_EditorHookId;
+    std::vector<ClDiagnostic> m_Diagnostics;
 
     wxTimer m_DiagnosticTimer;
 };

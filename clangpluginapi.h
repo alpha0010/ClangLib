@@ -174,6 +174,7 @@ public:
     virtual void OnRelease( IClangPlugin */*pClangPlugin*/ ){ m_pClangPlugin = NULL; }
     virtual bool IsAttached(){ return m_pClangPlugin != NULL;}
     virtual bool BuildToolBar(wxToolBar* /*toolBar*/){ return false; }
+    virtual void BuildMenu(wxMenuBar* /*menuBar*/){}
         // Does this plugin handle code completion for the editor ed?
     virtual cbCodeCompletionPlugin::CCProviderStatus GetProviderStatusFor(cbEditor* /*ed*/){ return cbCodeCompletionPlugin::ccpsInactive;}
         // Request code completion
