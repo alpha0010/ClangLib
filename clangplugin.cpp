@@ -477,61 +477,10 @@ wxString ClangPlugin::OnDocumentationLink(wxHtmlLinkEvent& /*event*/, bool& /*di
 
 void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
-    wxString tknText = token.name;
-    int idx = tknText.Find(wxT(':'));
-    if (idx != wxNOT_FOUND)
-        tknText.Truncate(idx);
-    std::pair<int, int> offsets = std::make_pair(0, 0);
-    cbStyledTextCtrl* stc = ed->GetControl();
-    wxString suffix = m_Proxy.GetCCInsertSuffix(m_TranslUnitId, token.id,
-            GetEOLStr(stc->GetEOLMode())
-            + ed->GetLineIndentString(stc->GetCurrentLine()),
-            offsets);
-
-    int pos = stc->GetCurrentPos();
-    int startPos = std::min(stc->WordStartPosition(pos, true), std::min(stc->GetSelectionStart(),
-            stc->GetSelectionEnd()));
-    int moveToPos = startPos + tknText.Length();
-    stc->SetTargetStart(startPos);
-    int endPos = stc->WordEndPosition(pos, true);
-    if (tknText.EndsWith(stc->GetTextRange(pos, endPos)))
+    for ( std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
     {
-        if (!suffix.IsEmpty())
-        {
-            if (stc->GetCharAt(endPos) == (int)suffix[0])
-            {
-                if (suffix.Length() != 2 || stc->GetCharAt(endPos + 1) != (int)suffix[1])
-                    offsets = std::make_pair(1, 1);
-            }
-            else
-                tknText += suffix;
-        }
-    }
-    else
-    {
-        endPos = pos;
-        tknText += suffix;
-    }
-    stc->SetTargetEnd(endPos);
-
-    stc->AutoCompCancel(); // so (wx)Scintilla does not insert the text as well
-
-    if (stc->GetTextRange(startPos, endPos) != tknText)
-        stc->ReplaceTarget(tknText);
-    stc->SetSelectionVoid(moveToPos + offsets.first, moveToPos + offsets.second);
-    stc->ChooseCaretX();
-    if (token.category != tcLangKeyword
-            && (offsets.first != offsets.second || offsets.first == 1))
-    {
-        int tooltipMode = Manager::Get()->GetConfigManager(wxT("ccmanager"))->ReadInt(wxT("/tooltip_mode"), 1);
-        if (tooltipMode != 3) // keybound only
-        {
-            CodeBlocksEvent evt(cbEVT_SHOW_CALL_TIP);
-            Manager::Get()->ProcessEvent(evt);
-        }
+        if( (*it)->DoAutocomplete(token, ed ) )
+            return;
     }
 }
 
@@ -1314,6 +1263,12 @@ wxString ClangPlugin::GetCodeCompletionTokenDocumentation( const ClTranslUnitId 
     }
     return job.GetResult();
 }
+
+wxString ClangPlugin::GetCodeCompletionInsertSuffix( const ClTranslUnitId translId, int tknId, const wxString& newLine, std::vector< std::pair<int, int> >& offsets )
+{
+    return m_Proxy.GetCCInsertSuffix( translId, tknId, newLine, offsets );
+}
+
 
 void ClangPlugin::RequestReparse(const ClTranslUnitId translUnitId, const wxString& filename)
 {

@@ -1036,7 +1036,7 @@ wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)
             + wxT("</tt>") + descriptor + wxT("</body></html>");
 }
 
-wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, const wxString& newLine, std::pair<int, int>& offsets)
+wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, const wxString& newLine, std::vector<std::pair<int, int> >& offsetsList)
 {
     if (translUnitId < 0)
     {
@@ -1061,23 +1061,67 @@ wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, c
         switch (clang_getCompletionChunkKind(clCompStr, i))
         {
         case CXCompletionChunk_TypedText:
+            fprintf(stdout, "TypedText\n");
             if (state == init)
                 state = store;
             break;
 
         case CXCompletionChunk_Placeholder:
+            fprintf(stdout, "placeholder\n");
             if (state == store)
             {
                 CXString str = clang_getCompletionChunkText(clCompStr, i);
                 const wxString& param = wxT("/*! ") + wxString::FromUTF8(clang_getCString(str)) + wxT(" !*/");
-                offsets = std::make_pair(suffix.Length(), suffix.Length() + param.Length());
+                offsetsList.push_back(std::make_pair(suffix.Length(), suffix.Length() + param.Length()));
                 suffix += param;
                 clang_disposeString(str);
+                //state = exit;
+            }
+            break;
+        case CXCompletionChunk_LeftParen:
+            if (state == store)
+            {
+                suffix += wxT("( ");
+            }
+            break;
+        case CXCompletionChunk_RightParen:
+            if (state == store)
+            {
+                if( offsetsList.size() == 0 )
+                {
+                    // When no arguments, we don't want spaces between (). Ideally we should get these rules from AStyle somehow
+                    suffix = suffix.Left( suffix.Length() - 1 );
+                    suffix += wxT(")");
+                }
+                else
+                    suffix += wxT(" )");
                 state = exit;
             }
             break;
-
+        case CXCompletionChunk_LeftAngle:
+            if (state == store)
+            {
+                suffix += wxT("< ");
+            }
+            break;
+        case CXCompletionChunk_RightAngle:
+            if (state == store)
+            {
+                suffix += wxT(" >");
+            }
+            break;
+        case CXCompletionChunk_Comma:
+            if (state == store)
+            {
+                suffix += wxT(", ");
+            }
+            break;
         case CXCompletionChunk_Informative:
+            {
+                CXString str = clang_getCompletionChunkText(clCompStr, i);
+                fprintf(stdout, "informative text: %s", clang_getCString(str) );
+                clang_disposeString(str);
+            }
             break;
 
         case CXCompletionChunk_VerticalSpace:
@@ -1095,8 +1139,8 @@ wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, c
             break;
         }
     }
-    if (state != exit)
-        offsets = std::make_pair(suffix.Length(), suffix.Length());
+    //if (state != exit)
+    //    offsets = std::make_pair(suffix.Length(), suffix.Length());
     return suffix;
 }
 

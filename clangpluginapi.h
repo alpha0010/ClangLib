@@ -163,6 +163,7 @@ public:
     /* Code completion */
     virtual wxCondError                     GetCodeCompletionAt( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector<ClToken>& out_tknResults) = 0;
     virtual wxString                        GetCodeCompletionTokenDocumentation( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& location, ClTokenId tokenId ) = 0;
+    virtual wxString                        GetCodeCompletionInsertSuffix( const ClTranslUnitId translId, int tknId, const wxString& newLine, std::vector< std::pair<int, int> >& offsets ) = 0;
 };
 
 /* abstract */
@@ -179,6 +180,8 @@ public:
     virtual cbCodeCompletionPlugin::CCProviderStatus GetProviderStatusFor(cbEditor* /*ed*/){ return cbCodeCompletionPlugin::ccpsInactive;}
         // Request code completion
     virtual std::vector<cbCodeCompletionPlugin::CCToken> GetAutocompList(bool /*isAuto*/, cbEditor* /*ed*/, int& /*tknStart*/, int& /*tknEnd*/) { return std::vector<cbCodeCompletionPlugin::CCToken>(); }
+    virtual bool DoAutocomplete( const cbCodeCompletionPlugin::CCToken& /*token*/, cbEditor* /*ed*/) { return false; }
+
     virtual wxString GetDocumentation( const cbCodeCompletionPlugin::CCToken& /*token*/ ){ return wxEmptyString; }
 
 protected:

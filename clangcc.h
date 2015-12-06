@@ -20,6 +20,8 @@ public:
     cbCodeCompletionPlugin::CCProviderStatus GetProviderStatusFor( cbEditor* ed );
     std::vector<cbCodeCompletionPlugin::CCToken> GetAutocompList(bool isAuto, cbEditor* ed, int& tknStart, int& tknEnd);
     wxString GetDocumentation( const cbCodeCompletionPlugin::CCToken& token );
+    bool DoAutocomplete( const cbCodeCompletionPlugin::CCToken& /*token*/, cbEditor* /*ed*/);
+
     /**
      * Semantically highlight all occurrences of the token under the cursor
      * within the editor
@@ -33,6 +35,7 @@ public: // Code::Blocks events
     void OnEditorClose(CodeBlocksEvent& event);
     void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
     void OnTimer(wxTimerEvent& event);
+    void OnKeyDown(wxKeyEvent& event);
 
 public: // Clang events
     void OnTranslationUnitCreated( ClangEvent& event );
@@ -86,6 +89,7 @@ private:
     long m_CCOutstandingLastMessageTime;
     int m_CCOutstandingPos;
     std::vector<ClToken> m_CCOutstandingResults;
+    std::vector<wxString> m_TabJumpArguments;
 };
 
 

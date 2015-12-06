@@ -21,7 +21,6 @@
 #include <cbstyledtextctrl.h>
 #include <cbcolourmanager.h>
 
-const int idDiagnosticTimer = wxNewId();
 const int idGotoNextDiagnostic = wxNewId();
 const int idGotoPrevDiagnostic = wxNewId();
 
@@ -53,7 +52,6 @@ void ClangDiagnostics::OnAttach( IClangPlugin* pClangPlugin )
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new CBCCEvent(this, &ClangDiagnostics::OnEditorActivate));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_CLOSE,     new CBCCEvent(this, &ClangDiagnostics::OnEditorClose));
 
-    Connect(idDiagnosticTimer,    wxEVT_TIMER, wxTimerEventHandler(ClangDiagnostics::OnTimer));
     Connect(idGotoNextDiagnostic, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ClangDiagnostics::OnGotoNextDiagnostic), nullptr, this);
     Connect(idGotoPrevDiagnostic, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ClangDiagnostics::OnGotoPrevDiagnostic), nullptr, this);
 
@@ -98,6 +96,7 @@ void ClangDiagnostics::OnGotoNextDiagnostic( wxCommandEvent& WXUNUSED(event) )
         if ((it->line - 1) > stc->GetCurrentLine() )
         {
             stc->GotoLine( it->line - 1 );
+            stc->MakeNearbyLinesVisible( it->line - 1 );
             break;
         }
     }
@@ -121,28 +120,35 @@ void ClangDiagnostics::OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) )
         if ((it->line - 1) < stc->GetCurrentLine() )
         {
             prevLine = it->line - 1;
+            fprintf(stdout, "prevline=%d\n", prevLine );
+        }
+        else break;
+    }
+    if ( prevLine >= 0 )
+    {
+        if ( prevLine < stc->GetFirstVisibleLine() )
+        {
+            stc->GotoLine( prevLine );
+            stc->ScrollLines( - stc->LinesOnScreen()/2 );
         }
         else
         {
-            if( prevLine >= 0 )
-                stc->GotoLine( prevLine );
-            break;
+            stc->GotoLine( prevLine );
+            stc->MakeNearbyLinesVisible(prevLine);
         }
+        fprintf(stdout, "goto line %d", prevLine );
     }
 }
 
 // Code::Blocks events
 void ClangDiagnostics::OnEditorActivate(CodeBlocksEvent& event)
 {
-
+    m_Diagnostics.clear();
 }
+
 void ClangDiagnostics::OnEditorClose(CodeBlocksEvent& event)
 {
-
-}
-void ClangDiagnostics::OnTimer(wxTimerEvent& event)
-{
-
+    m_Diagnostics.clear();
 }
 
 void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
@@ -282,7 +288,7 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
 
 ClTranslUnitId ClangDiagnostics::GetCurrentTranslationUnitId()
 {
-    if (m_TranslUnitId == -1 )
+    if ( m_TranslUnitId == -1 )
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
         if (!ed)

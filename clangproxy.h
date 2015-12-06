@@ -692,7 +692,7 @@ protected: // jobs that are run only on the thread
     void RefineTokenType( ClTranslUnitId translId, int tknId, int& tknType); // TODO: cache TokenId (if resolved) for DocumentCCToken()
 
 public:
-    wxString GetCCInsertSuffix( ClTranslUnitId translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets );
+    wxString GetCCInsertSuffix( ClTranslUnitId translId, int tknId, const wxString& newLine, std::vector< std::pair<int, int> >& offsets );
     bool ResolveDeclTokenAt( const ClTranslUnitId translId, wxString& filename, ClTokenPosition& out_location);
     bool ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wxString& filename, ClTokenPosition& inout_location);
 

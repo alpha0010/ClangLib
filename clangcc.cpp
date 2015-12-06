@@ -88,10 +88,10 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
         wxString fn = ed->GetFilename();
 
         ClTranslUnitId id = m_pClangPlugin->GetTranslationUnitId(fn);
-        if (m_TranslUnitId != id )
-        {
-        }
         m_TranslUnitId = id;
+        cbStyledTextCtrl* stc = ed->GetControl();
+        stc->Disconnect( wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ) );
+        stc->Connect( wxID_ANY, wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ), (wxObject*)NULL, this );
     }
 }
 
@@ -125,7 +125,6 @@ void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     }
     else if (event.GetEventType() == wxEVT_SCI_UPDATEUI)
     {
-        //fprintf(stdout,"wxEVT_SCI_UPDATEUI\n");
         if (event.GetUpdated() & wxSCI_UPDATE_SELECTION)
         {
             m_HightlightTimer.Stop();
@@ -175,6 +174,34 @@ void ClangCodeCompletion::OnTimer(wxTimerEvent& event)
     {
         event.Skip();
     }
+}
+
+void ClangCodeCompletion::OnKeyDown(wxKeyEvent& event)
+{
+    if( event.GetKeyCode() == WXK_TAB )
+    {
+        cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+        if (ed)
+        {
+            cbStyledTextCtrl* stc = ed->GetControl();
+            int pos = stc->PositionFromLine( stc->GetCurrentLine() );
+            int maxPos = stc->PositionFromLine( stc->GetCurrentLine() + 1 );
+            for (std::vector<wxString>::iterator it = m_TabJumpArguments.begin(); it != m_TabJumpArguments.end(); ++it)
+            {
+                int argPos = stc->FindText( pos, maxPos, *it );
+                if( argPos != wxNOT_FOUND )
+                {
+                    stc->SetSelectionVoid( argPos, argPos + it->Length() - 1 );
+                    wxString value = *it;
+                    it = m_TabJumpArguments.erase( it );
+                    m_TabJumpArguments.push_back( value );
+                    stc->EnableTabSmartJump();
+                    return;
+                }
+            }
+        }
+    }
+    event.Skip();
 }
 
 ClTranslUnitId ClangCodeCompletion::GetCurrentTranslationUnitId()
@@ -436,6 +463,93 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     return result;
 }
 
+bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken& token, cbEditor* ed)
+{
+    wxString tknText = token.name;
+    int idx = tknText.Find(wxT(':'));
+    if (idx != wxNOT_FOUND)
+        tknText.Truncate(idx);
+    std::vector<std::pair<int, int> > offsetsList;
+    cbStyledTextCtrl* stc = ed->GetControl();
+    wxString suffix = m_pClangPlugin->GetCodeCompletionInsertSuffix(GetCurrentTranslationUnitId(), token.id,
+            GetEOLStr(stc->GetEOLMode())
+            + ed->GetLineIndentString(stc->GetCurrentLine()),
+            offsetsList);
+    //if (offsetsList.size() == 0)
+    //    offsetsList.push_back( std::make_pair<int,int>(0,0) );
+    int pos = stc->GetCurrentPos();
+    int startPos = std::min(stc->WordStartPosition(pos, true), std::min(stc->GetSelectionStart(),
+            stc->GetSelectionEnd()));
+    int moveToPos = startPos + tknText.Length();
+    stc->SetTargetStart(startPos);
+    int endPos = stc->WordEndPosition(pos, true);
+    if (tknText.EndsWith(stc->GetTextRange(pos, endPos)))
+    {
+        // Inplace function renaming. We determine here if we insert the arguments or not
+        if (!suffix.IsEmpty())
+        {
+            if (stc->GetCharAt(endPos) == (int)suffix[0])
+            {
+                if ( (suffix.Length() != 2) || (stc->GetCharAt(endPos + 1) != (int)suffix[1]) )
+                {
+                    offsetsList.clear();
+                }
+            }
+            else
+            {
+                tknText += suffix;
+                if( suffix.Length() == 2 )
+                {
+                    moveToPos += 2;
+                }
+            }
+        }
+    }
+    else
+    {
+        endPos = pos;
+        tknText += suffix;
+    }
+    stc->SetTargetEnd(endPos);
+
+    stc->AutoCompCancel(); // so (wx)Scintilla does not insert the text as well
+
+    if (stc->GetTextRange(startPos, endPos) != tknText)
+        stc->ReplaceTarget(tknText);
+    if(offsetsList.size() > 0)
+    {
+        stc->SetSelectionVoid(moveToPos + offsetsList[0].first, moveToPos + offsetsList[0].second);
+    }
+    else
+    {
+        stc->SetSelectionVoid( moveToPos, moveToPos );
+    }
+    stc->ChooseCaretX();
+    if (m_TabJumpArguments.size() > 10 )
+        m_TabJumpArguments.clear();
+    for (std::vector< std::pair<int,int> >::const_iterator it = offsetsList.begin(); it != offsetsList.end(); ++it)
+    {
+        if (it->first != it->second)
+        {
+            m_TabJumpArguments.push_back( suffix.SubString( it->first, it->second ) );
+            stc->EnableTabSmartJump();
+        }
+    }
+    if( offsetsList.size() > 0 )
+    {
+        if ( (token.category != tcLangKeyword)
+                && ( (offsetsList[0].first != offsetsList[0].second) || (offsetsList[0].first == 1)) )
+        {
+            int tooltipMode = Manager::Get()->GetConfigManager(wxT("ccmanager"))->ReadInt(wxT("/tooltip_mode"), 1);
+            if (tooltipMode != 3) // keybound only
+            {
+                CodeBlocksEvent evt(cbEVT_SHOW_CALL_TIP);
+                Manager::Get()->ProcessEvent(evt);
+            }
+        }
+    }
+    return true;
+}
 
 wxString ClangCodeCompletion::GetDocumentation( const cbCodeCompletionPlugin::CCToken &token )
 {
@@ -501,7 +615,6 @@ void ClangCodeCompletion::RequestReparse()
 
 void ClangCodeCompletion::OnTranslationUnitCreated( ClangEvent& event )
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     if( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
     {
         return;
@@ -513,7 +626,6 @@ void ClangCodeCompletion::OnTranslationUnitCreated( ClangEvent& event )
 
 void ClangCodeCompletion::OnReparseFinished( ClangEvent& event )
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     if( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
     {
         return;
@@ -525,7 +637,6 @@ void ClangCodeCompletion::OnReparseFinished( ClangEvent& event )
 
 void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
 {
-    //fprintf(stdout,"%s\n", __PRETTY_FUNCTION__ );
     if( event.GetTranslationUnitId() != m_TranslUnitId )
     {
         return;

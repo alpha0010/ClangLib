@@ -24,7 +24,6 @@ public: // Command handlers
 public: // Code::Blocks events
     void OnEditorActivate(CodeBlocksEvent& event);
     void OnEditorClose(CodeBlocksEvent& event);
-    void OnTimer(wxTimerEvent& event);
 
 public: // Clang events
     void OnDiagnostics( ClangEvent& event );
