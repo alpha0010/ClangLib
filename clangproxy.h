@@ -666,6 +666,7 @@ public:
     ClangProxy( wxEvtHandler* pEvtHandler, ClTokenDatabase& database, const std::vector<wxString>& cppKeywords);
     ~ClangProxy();
 
+    /** Append a job to the end of the queue */
     void AppendPendingJob( ClangProxy::ClangJob& job );
     //void PrependPendingJob( ClangProxy::ClangJob& job );
 

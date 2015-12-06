@@ -14,6 +14,7 @@
 
 #include "tokendatabase.h"
 #include "translationunit.h"
+#include <cbcolourmanager.h>
 
 namespace ProxyHelper
 {
@@ -976,6 +977,7 @@ wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)
             doc = wxT("namespace ");
         for (int i = 0; i < upperBound; ++i)
         {
+
             CXCompletionChunkKind kind = clang_getCompletionChunkKind(token->CompletionString, i);
             if (kind == CXCompletionChunk_TypedText)
             {
@@ -1027,13 +1029,19 @@ wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)
         if (descriptor.IsEmpty())
         {
             CXString comment = clang_getCompletionBriefComment(token->CompletionString);
-            descriptor = HTML_Writer::Escape(wxT("\n") + wxString::FromUTF8(clang_getCString(comment)));
+            descriptor = wxT("<p><font size=\"1\">")+HTML_Writer::Escape(wxString::FromUTF8(clang_getCString(comment)))+wxT("</font></p>");
             clang_disposeString(comment);
         }
     }
+    ColourManager *colours = Manager::Get()->GetColourManager();
+    wxString html = _T("<html><body bgcolor=\"");
+    html += colours->GetColour(wxT("cc_docs_back")).GetAsString(wxC2S_HTML_SYNTAX) + _T("\" text=\"");
+    html += colours->GetColour(wxT("cc_docs_fore")).GetAsString(wxC2S_HTML_SYNTAX) + _T("\" link=\"");
+    html += colours->GetColour(wxT("cc_docs_link")).GetAsString(wxC2S_HTML_SYNTAX) + _T("\">");
+    html += _T("<p><a name=\"top\"></a>");
 
-    return wxT("<html><body><br><tt>") + HTML_Writer::SyntaxHl(doc, m_CppKeywords)
-            + wxT("</tt>") + descriptor + wxT("</body></html>");
+    return html + wxT("<font size=\"2\"><code>") + HTML_Writer::SyntaxHl(doc, m_CppKeywords)
+            + wxT("</code></font></p>") + descriptor + wxT("</body></html>");
 }
 
 wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, const wxString& newLine, std::vector<std::pair<int, int> >& offsetsList)
