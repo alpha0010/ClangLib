@@ -2,6 +2,7 @@
 #include <cbstyledtextctrl.h>
 #include <editor_hooks.h>
 #include <cbcolourmanager.h>
+#include <infowindow.h>
 
 //#ifndef CB_PRECOMP
 #include <cbeditor.h>
@@ -16,6 +17,7 @@
 #include <projectmanager.h>
 
 #include <algorithm>
+#include <vector>
 #include <wx/dir.h>
 #include <wx/tokenzr.h>
 #include <wx/choice.h>
@@ -40,7 +42,6 @@ ClangCodeCompletion::ClangCodeCompletion() :
     m_CCOutstanding(0),
     m_CCOutstandingLastMessageTime(0),
     m_CCOutstandingPos(-1)
-
 {
 
 }
@@ -89,9 +90,12 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
 
         ClTranslUnitId id = m_pClangPlugin->GetTranslationUnitId(fn);
         m_TranslUnitId = id;
+        m_CCOutstandingLastMessageTime = 0;
+#ifndef __WXMSW__
         cbStyledTextCtrl* stc = ed->GetControl();
         stc->Disconnect( wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ) );
         stc->Connect( wxID_ANY, wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ), (wxObject*)NULL, this );
+#endif
     }
 }
 
@@ -266,15 +270,20 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         }
     }
 
-    ClTranslUnitId translUnitId = m_TranslUnitId;
-    if( translUnitId != GetCurrentTranslationUnitId() )
-        return tokens;
+    ClTranslUnitId translUnitId = GetCurrentTranslationUnitId();
     if (translUnitId == wxNOT_FOUND)
     {
-        Manager::Get()->GetLogManager()->LogWarning(wxT("ClangLib: m_TranslUnitId == wxNOT_FOUND, "
+        Manager::Get()->GetLogManager()->LogWarning(wxT("ClangLib: translUnitId == wxNOT_FOUND, "
                 "cannot complete in file ") + ed->GetFilename());
+        if (wxGetLocalTime() + 10 > m_CCOutstandingLastMessageTime)
+        {
+            InfoWindow::Display(_("Code completion"), _("Busy parsing the document"), 1000);
+            m_CCOutstandingLastMessageTime = wxGetLocalTime();
+        }
         return tokens;
     }
+    if( translUnitId != m_TranslUnitId )
+        return tokens;
 
     const wxChar curChar = stc->GetCharAt(tknEnd - 1);
     if (isAuto) // filter illogical cases of auto-launch
@@ -346,11 +355,6 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         }
         if( wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, timeout, tknResults))
         {
-            if (wxGetLocalTime() - m_CCOutstandingLastMessageTime > 10)
-            {
-                //InfoWindow::Display(_("Code completion"), _("Busy parsing the document"), 1000);
-                m_CCOutstandingLastMessageTime = wxGetLocalTime();
-            }
             //std::cout<<"Timeout waiting for code completion"<<std::endl;
             m_CCOutstanding++;
             m_CCOutstandingPos = ed->GetControl()->GetCurrentPos();
