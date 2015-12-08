@@ -53,6 +53,11 @@ ClangCodeCompletion::~ClangCodeCompletion()
 void ClangCodeCompletion::OnAttach(IClangPlugin* pClangPlugin)
 {
     ClangPluginComponent::OnAttach(pClangPlugin);
+
+    ColourManager *pColours = Manager::Get()->GetColourManager();
+
+    pColours->RegisterColour( _("Code completion"), _("Documentation popup scope text") , _("cc_docs_scope_fore"), *wxBLUE );
+
     typedef cbEventFunctor<ClangCodeCompletion, CodeBlocksEvent> CBCCEvent;
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new CBCCEvent(this, &ClangCodeCompletion::OnEditorActivate));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_CLOSE,     new CBCCEvent(this, &ClangCodeCompletion::OnEditorClose));
@@ -184,19 +189,22 @@ void ClangCodeCompletion::OnKeyDown(wxKeyEvent& event)
         if (ed)
         {
             cbStyledTextCtrl* stc = ed->GetControl();
-            int pos = stc->PositionFromLine( stc->GetCurrentLine() );
-            int maxPos = stc->PositionFromLine( stc->GetCurrentLine() + 1 );
-            for (std::vector<wxString>::iterator it = m_TabJumpArguments.begin(); it != m_TabJumpArguments.end(); ++it)
+            if( !stc->AutoCompActive() )
             {
-                int argPos = stc->FindText( pos, maxPos, *it );
-                if( argPos != wxNOT_FOUND )
+                int pos = stc->PositionFromLine( stc->GetCurrentLine() );
+                int maxPos = stc->PositionFromLine( stc->GetCurrentLine() + 1 );
+                for (std::vector<wxString>::iterator it = m_TabJumpArguments.begin(); it != m_TabJumpArguments.end(); ++it)
                 {
-                    stc->SetSelectionVoid( argPos, argPos + it->Length() - 1 );
-                    wxString value = *it;
-                    it = m_TabJumpArguments.erase( it );
-                    m_TabJumpArguments.push_back( value );
-                    stc->EnableTabSmartJump();
-                    return;
+                    int argPos = stc->FindText( pos, maxPos, *it );
+                    if( argPos != wxNOT_FOUND )
+                    {
+                        stc->SetSelectionVoid( argPos, argPos + it->Length() - 1 );
+                        wxString value = *it;
+                        it = m_TabJumpArguments.erase( it );
+                        m_TabJumpArguments.push_back( value );
+                        stc->EnableTabSmartJump();
+                        return;
+                    }
                 }
             }
         }
@@ -537,6 +545,13 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
     }
     if( offsetsList.size() > 0 )
     {
+        if ( m_TabJumpArguments.size() > 0 )
+        {
+            // Move the first to the last since the first is allready selected
+            wxString first = m_TabJumpArguments.front();
+            m_TabJumpArguments.erase(  m_TabJumpArguments.begin() );
+            m_TabJumpArguments.push_back( first );
+        }
         if ( (token.category != tcLangKeyword)
                 && ( (offsetsList[0].first != offsetsList[0].second) || (offsetsList[0].first == 1)) )
         {
