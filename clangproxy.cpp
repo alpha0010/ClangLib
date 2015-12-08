@@ -12,6 +12,8 @@
 #include <algorithm>
 #endif // CB_PRECOMP
 
+#include <set>
+
 #include "tokendatabase.h"
 #include "translationunit.h"
 #include <cbcolourmanager.h>
@@ -1519,30 +1521,50 @@ bool ClangProxy::ResolveDeclTokenAt( const ClTranslUnitId translUnitId, wxString
     return true;
 }
 
-bool ClangProxy::ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wxString& filename, ClTokenPosition& inout_location)
+bool ClangProxy::ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wxString& inout_filename, ClTokenPosition& inout_location)
 {
+    //fprintf(stdout, "%s %d %s %d %d\n", __PRETTY_FUNCTION__, translUnitId, (const char*)inout_filename.mb_str(), inout_location.line, inout_location.column);
+    if (translUnitId < 0 )
+        return false;
     wxMutexLocker lock(m_Mutex);
+    if (translUnitId >= (int)m_TranslUnits.size() )
+        return false;
     CXCursor token = clang_getNullCursor();
-    if( (translUnitId >= 0)&&(translUnitId < (int)m_TranslUnits.size() ) )
+    token = m_TranslUnits[translUnitId].GetTokenAt(inout_filename, inout_location);
+    if( !ProxyHelper::ResolveCursorDefinition(token) )
     {
-        token = m_TranslUnits[translUnitId].GetTokenAt(filename, inout_location);
-        if( !ProxyHelper::ResolveCursorDefinition(token) )
+        std::set<ClTranslUnitId> translIdList;
+        std::vector< ClTokenId > tokenList;
+        wxString tokenName;
+
+        translIdList.insert( translUnitId );
+
+        CXString str;
+        str = clang_getCursorDisplayName(token);
+        tokenName = wxString::FromUTF8(clang_getCString(str));
+        clang_disposeString(str);
+        tokenList = m_Database.GetTokenMatches( tokenName );
+        for (std::vector<ClTokenId>::const_iterator tokenIt = tokenList.begin(); tokenIt != tokenList.end(); ++tokenIt)
         {
-            token = clang_getNullCursor();
-        }
-    }
-    if (clang_Cursor_isNull(token))
-    {
-        for ( std::vector<ClTranslationUnit>::iterator it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it )
-        {
-            token = it->GetTokenAt( wxT(""), inout_location );
-            if( !ProxyHelper::ResolveCursorDefinition(token) )
+            ClAbstractToken tok = m_Database.GetToken( *tokenIt );
+            for ( std::vector<ClTranslationUnit>::iterator it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it )
             {
-                token = clang_getNullCursor();
-            }
-            if (!clang_Cursor_isNull(token))
-            {
-                break;
+                if ( it->GetFileId() == tok.fileId ) // TODO: should also check children, if the definition is in a header-file that doesn't have its own TU
+                {
+                    if( translIdList.find( it->GetId() ) == translIdList.end())
+                    {
+                        translIdList.insert( it->GetId() );
+                        ClTokenPosition loc = tok.location;
+                        token = it->GetTokenAt(m_Database.GetFilename(tok.fileId), loc);
+                        if (ProxyHelper::ResolveCursorDefinition( token ))
+                        {
+                            break;
+                        }
+                        else {
+                            token = clang_getNullCursor();
+                        }
+                    }
+                }
             }
         }
     }
@@ -1550,7 +1572,6 @@ bool ClangProxy::ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wx
     {
         return false;
     }
-    ProxyHelper::ResolveCursorDefinition(token);
     CXFile file;
     if (token.kind == CXCursor_InclusionDirective)
     {
@@ -1567,7 +1588,7 @@ bool ClangProxy::ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wx
         inout_location.column = col;
     }
     CXString str = clang_getFileName(file);
-    filename = wxString::FromUTF8(clang_getCString(str));
+    inout_filename = wxString::FromUTF8(clang_getCString(str));
     clang_disposeString(str);
     return true;
 }

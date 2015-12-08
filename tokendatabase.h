@@ -48,7 +48,13 @@ public:
     ClTokenId GetTokenId(const wxString& identifier, ClFileId fId, unsigned tokenHash); // returns wxNOT_FOUND on failure
     ClTokenId InsertToken(const wxString& identifier, const ClAbstractToken& token); // duplicate tokens are discarded
     ClAbstractToken GetToken(ClTokenId tId);
+    /**
+     * Return a list of tokenId's for the given token identifier
+     */
     std::vector<ClTokenId> GetTokenMatches(const wxString& identifier);
+    /**
+     * Return a list of tokenId's that are found in the given file
+     */
     std::vector<ClTokenId> GetFileTokens(ClFileId fId);
 
     void Shrink();

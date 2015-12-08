@@ -64,6 +64,7 @@ ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id ) :
 #if __cplusplus >= 201103L
 ClTranslationUnit::ClTranslationUnit(ClTranslationUnit&& other) :
     m_Id(other.m_Id),
+    m_FileId(other.m_FileId),
     m_Files(std::move(other.m_Files)),
     m_ClIndex(other.m_ClIndex),
     m_ClTranslUnit(other.m_ClTranslUnit),
@@ -83,6 +84,7 @@ ClTranslationUnit::ClTranslationUnit(const ClTranslationUnit& WXUNUSED(other)) :
 #else
 ClTranslationUnit::ClTranslationUnit(const ClTranslationUnit& other) :
     m_Id(other.m_Id),
+    m_FileId( other.m_FileId ),
     m_ClIndex(other.m_ClIndex),
     m_ClTranslUnit(other.m_ClTranslUnit),
     m_LastCC(nullptr),
@@ -200,7 +202,7 @@ CXCursor ClTranslationUnit::GetTokenAt(const wxString& filename, const ClTokenPo
  */
 void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles, ClTokenDatabase* pDatabase )
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    fprintf(stdout,"%s %s %d\n", __PRETTY_FUNCTION__, (const char*)filename.mb_str(), fileId);
 
     if (m_LastCC)
     {
