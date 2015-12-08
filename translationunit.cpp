@@ -74,7 +74,8 @@ ClTranslationUnit::ClTranslationUnit(ClTranslationUnit&& other) :
     other.m_ClTranslUnit = nullptr;
 }
 
-ClTranslationUnit::ClTranslationUnit(const ClTranslationUnit& WXUNUSED(other))
+ClTranslationUnit::ClTranslationUnit(const ClTranslationUnit& WXUNUSED(other)) :
+    m_LastPos(-1, -1)
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     cbThrow(wxT("Illegal copy attempted of TranslationUnit object."));

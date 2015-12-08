@@ -86,7 +86,6 @@ void ClangDiagnostics::OnGotoNextDiagnostic( wxCommandEvent& WXUNUSED(event) )
     cbEditor* ed = edMgr->GetBuiltinActiveEditor();
     if (!ed)
     {
-        std::cout<<"No editor..."<<std::endl;
         return;
     }
 
@@ -109,7 +108,6 @@ void ClangDiagnostics::OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) )
     cbEditor* ed = edMgr->GetBuiltinActiveEditor();
     if (!ed)
     {
-        std::cout<<"No editor..."<<std::endl;
         return;
     }
 
@@ -159,7 +157,7 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     cbEditor* ed = edMgr->GetBuiltinActiveEditor();
     if (!ed)
     {
-        std::cout<<"No editor..."<<std::endl;
+
         return;
     }
     if( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
