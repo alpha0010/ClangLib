@@ -81,7 +81,6 @@ void ClangDiagnostics::BuildMenu( wxMenuBar* menuBar )
 
 void ClangDiagnostics::OnGotoNextDiagnostic( wxCommandEvent& WXUNUSED(event) )
 {
-    fprintf(stdout, "%s\n", __PRETTY_FUNCTION__ );
     EditorManager* edMgr = Manager::Get()->GetEditorManager();
     cbEditor* ed = edMgr->GetBuiltinActiveEditor();
     if (!ed)
@@ -103,7 +102,6 @@ void ClangDiagnostics::OnGotoNextDiagnostic( wxCommandEvent& WXUNUSED(event) )
 
 void ClangDiagnostics::OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) )
 {
-    fprintf(stdout, "%s\n", __PRETTY_FUNCTION__ );
     EditorManager* edMgr = Manager::Get()->GetEditorManager();
     cbEditor* ed = edMgr->GetBuiltinActiveEditor();
     if (!ed)
@@ -118,7 +116,6 @@ void ClangDiagnostics::OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) )
         if ((it->line - 1) < stc->GetCurrentLine() )
         {
             prevLine = it->line - 1;
-            fprintf(stdout, "prevline=%d\n", prevLine );
         }
         else break;
     }
@@ -134,30 +131,39 @@ void ClangDiagnostics::OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) )
             stc->GotoLine( prevLine );
             stc->MakeNearbyLinesVisible(prevLine);
         }
-        fprintf(stdout, "goto line %d", prevLine );
     }
 }
 
 // Code::Blocks events
 void ClangDiagnostics::OnEditorActivate(CodeBlocksEvent& event)
 {
+    cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
+    if (ed)
+    {
+        wxString fn = ed->GetFilename();
+
+        m_TranslUnitId = m_pClangPlugin->GetTranslationUnitId(fn);
+    }
     m_Diagnostics.clear();
+    event.Skip();
 }
 
 void ClangDiagnostics::OnEditorClose(CodeBlocksEvent& event)
 {
     m_Diagnostics.clear();
+    m_TranslUnitId = -1;
+    event.Skip();
 }
 
 void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
 {
+    event.Skip();
     ClDiagnosticLevel diagLv = dlFull; // TODO
     bool update = false;
     EditorManager* edMgr = Manager::Get()->GetEditorManager();
     cbEditor* ed = edMgr->GetBuiltinActiveEditor();
     if (!ed)
     {
-
         return;
     }
     if( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
