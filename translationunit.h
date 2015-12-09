@@ -32,6 +32,8 @@ public:
         swap(first.m_ClIndex, second.m_ClIndex);
         swap(first.m_ClTranslUnit, second.m_ClTranslUnit);
         swap(first.m_LastCC, second.m_LastCC);
+        swap(first.m_LastPos.line, second.m_LastPos.line);
+        swap(first.m_LastPos.column, second.m_LastPos.column);
     }
     ClTranslationUnit& operator=(ClTranslationUnit other)
     {
@@ -67,17 +69,14 @@ public:
     void Reparse( const std::map<wxString, wxString>& unsavedFiles, ClTokenDatabase* pDatabase );
     void GetDiagnostics( const wxString& filename, std::vector<ClDiagnostic>& diagnostics);
     CXFile GetFileHandle(const wxString& filename) const;
+    void ExpandDiagnosticSet(CXDiagnosticSet diagSet, const wxString& filename, std::vector<ClDiagnostic>& diagnostics);
+    void ExpandDiagnostic( CXDiagnostic diag, const wxString& filename, std::vector<ClDiagnostic>& diagnostics );
 
-//private:
-public:
+private:
 #if __cplusplus >= 201103L
     // copying not allowed (we can move)
     ClTranslationUnit(const ClTranslationUnit& other);
 #endif
-
-    void ExpandDiagnosticSet(CXDiagnosticSet diagSet, const wxString& filename, std::vector<ClDiagnostic>& diagnostics);
-    void ExpandDiagnostic( CXDiagnostic diag, const wxString& filename, std::vector<ClDiagnostic>& diagnostics );
-    //wxString GetCCDocumentation(const CXCompletionResult* token, ClTokenDatabase* pDatabase);
 
     ClTranslUnitId m_Id;
     ClFileId m_FileId;

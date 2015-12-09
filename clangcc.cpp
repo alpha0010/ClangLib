@@ -117,7 +117,6 @@ void ClangCodeCompletion::OnEditorClose(CodeBlocksEvent& event)
 
 void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 {
-    event.Skip();
     bool clearIndicator = false;
     bool reparse = false;
     //if (!m_pClangPlugin->IsProviderFor(ed))
@@ -145,6 +144,10 @@ void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     {
         //fprintf(stdout,"wxEVT_SCI_CHANGE\n");
     }
+    else if (event.GetEventType() == wxEVT_SCI_KEY)
+    {
+        //fprintf(stdout,"wxEVT_SCI_KEY\n");
+    }
     if (clearIndicator)
     {
         const int theIndicator = 16;
@@ -155,6 +158,7 @@ void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     {
         RequestReparse();
     }
+    event.Skip();
 }
 
 void ClangCodeCompletion::OnTimer(wxTimerEvent& event)
@@ -187,6 +191,7 @@ void ClangCodeCompletion::OnTimer(wxTimerEvent& event)
 
 void ClangCodeCompletion::OnKeyDown(wxKeyEvent& event)
 {
+    //fprintf(stdout,"OnKeyDown");
     if( event.GetKeyCode() == WXK_TAB )
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
@@ -213,6 +218,11 @@ void ClangCodeCompletion::OnKeyDown(wxKeyEvent& event)
             }
         }
     }
+    event.Skip();
+}
+
+void ClangCodeCompletion::OnCompleteCode( CodeBlocksEvent &event )
+{
     event.Skip();
 }
 

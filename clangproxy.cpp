@@ -953,7 +953,7 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
         m_TranslUnits[translUnitId].ExpandDiagnostic( diag, filename, diagnostics );
     }
 
-    fprintf(stdout,"CodeCompleteAt done (%p) (%d elements)\n", (void*)m_TranslUnits[translUnitId].m_ClTranslUnit, (int)results.size());
+    fprintf(stdout,"CodeCompleteAt done (%p) (%d elements)\n", (void*)m_TranslUnits[translUnitId].GetId(), (int)results.size());
 }
 
 wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)

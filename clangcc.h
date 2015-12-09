@@ -36,6 +36,7 @@ public: // Code::Blocks events
     void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
     void OnTimer(wxTimerEvent& event);
     void OnKeyDown(wxKeyEvent& event);
+    void OnCompleteCode(CodeBlocksEvent& event);
 
 public: // Clang events
     void OnTranslationUnitCreated( ClangEvent& event );
