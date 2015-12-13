@@ -595,10 +595,16 @@ int ClangProxy::GetTranslationUnitId(const wxString& filename)
     return GetTranslationUnitId(m_Database.GetFilenameId(filename));
 }
 
+bool ClangProxy::IsCodeCompleteCached(int line, int column, int translId)
+{
+    return m_TranslUnits[translId].IsCodeCompleteCached(line, column);
+}
+
 void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename,
                                 int line, int column, int translId,
                                 const std::map<wxString, wxString>& unsavedFiles,
-                                std::vector<ClToken>& results)
+                                std::vector<ClToken>& results,
+                                bool isCacheRun)
 {
     wxCharBuffer chName = filename.ToUTF8();
     std::vector<CXUnsavedFile> clUnsavedFiles;
@@ -622,7 +628,7 @@ void ClangProxy::CodeCompleteAt(bool isAuto, const wxString& filename,
         = m_TranslUnits[translId].CodeCompleteAt(chName.data(), line, column,
                                                  clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
                                                  clUnsavedFiles.size());
-    if (!clResults)
+    if (!clResults || isCacheRun)
         return;
 
     if (isAuto && clang_codeCompleteGetContexts(clResults) == CXCompletionContext_Unknown)

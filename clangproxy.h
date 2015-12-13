@@ -78,8 +78,10 @@ class ClangProxy
         int GetTranslationUnitId(FileId fId);
         int GetTranslationUnitId(const wxString& filename);
 
+        bool IsCodeCompleteCached(int line, int column, int translId);
         void CodeCompleteAt(bool isAuto, const wxString& filename, int line, int column, int translId,
-                            const std::map<wxString, wxString>& unsavedFiles, std::vector<ClToken>& results);
+                            const std::map<wxString, wxString>& unsavedFiles, std::vector<ClToken>& results,
+                            bool isCacheRun = false);
         wxString DocumentCCToken(int translId, int tknId);
         wxString GetCCInsertSuffix(int translId, int tknId, const wxString& newLine, std::pair<int, int>& offsets);
         void RefineTokenType(int translId, int tknId, int& tknType); // TODO: cache TokenId (if resolved) for DocumentCCToken()

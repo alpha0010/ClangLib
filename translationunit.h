@@ -22,6 +22,7 @@ class TranslationUnit
         void AddInclude(FileId fId);
         bool Contains(FileId fId);
 
+        bool IsCodeCompleteCached(int complete_line, int complete_column);
         // note that complete_line and complete_column are 1 index, not 0 index!
         CXCodeCompleteResults* CodeCompleteAt( const char* complete_filename, unsigned complete_line,
                                                unsigned complete_column, struct CXUnsavedFile* unsaved_files,

@@ -86,6 +86,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
         void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
         /// Resolve the token under the cursor and open the relevant location
         void OnGotoDeclaration(wxCommandEvent& event);
+        void OnCodeCompleteReady(wxCommandEvent& event);
 
         enum DiagnosticLevel { dlMinimal, dlFull };
         /**
@@ -103,6 +104,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
          */
         void HighlightOccurrences(cbEditor* ed);
 
+        bool CacheCodeComplete(cbEditor* ed, int pos, bool isAuto, int* outLine = nullptr, int* outCol = nullptr);
         void UpdateCompileCommand(cbEditor* ed);
 
         TokenDatabase m_Database;
@@ -119,6 +121,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
         int m_TranslUnitId;
         int m_EditorHookId;
         int m_LastCallTipPos;
+        int m_CacheContextCC;
         std::vector<wxStringVec> m_LastCallTips;
         wxString m_CompileCommand;
 };

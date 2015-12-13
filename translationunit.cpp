@@ -91,6 +91,11 @@ bool TranslationUnit::Contains(FileId fId)
     return std::binary_search(m_Files.begin(), m_Files.end(), fId);
 }
 
+bool TranslationUnit::IsCodeCompleteCached(int complete_line, int complete_column)
+{
+    return m_LastPos.Equals(complete_line, complete_column);
+}
+
 CXCodeCompleteResults* TranslationUnit::CodeCompleteAt( const char* complete_filename, unsigned complete_line,
                                        unsigned complete_column, struct CXUnsavedFile* unsaved_files,
                                        unsigned num_unsaved_files )

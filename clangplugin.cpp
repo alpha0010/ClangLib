@@ -75,7 +75,8 @@ ClangPlugin::ClangPlugin() :
     m_DiagnosticTimer(this, idDiagnosticTimer),
     m_HightlightTimer(this, idHightlightTimer),
     m_pLastEditor(nullptr),
-    m_TranslUnitId(wxNOT_FOUND)
+    m_TranslUnitId(wxNOT_FOUND),
+    m_CacheContextCC(0)
 {
     if (!Manager::LoadResource(_T("clanglib.zip")))
         NotifyMissingFile(_T("clanglib.zip"));
@@ -153,6 +154,7 @@ void ClangPlugin::OnAttach()
     Connect(idDiagnosticTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     Connect(idHightlightTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     Connect(idGotoDeclaration, wxEVT_COMMAND_MENU_SELECTED, /*wxMenuEventHandler*/wxCommandEventHandler(ClangPlugin::OnGotoDeclaration), nullptr, this);
+    Connect(EVT_PARSE_CC_READY, wxCommandEventHandler(ClangPlugin::OnCodeCompleteReady));
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangPlugin>(this, &ClangPlugin::OnEditorHook));
 }
 
@@ -196,10 +198,7 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
 {
     std::vector<CCToken> tokens;
     if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
-    {
-        Manager::Get()->GetLogManager()->Log(wxT("ClangLib: still parsing..."));
         return tokens;
-    }
     MutexUnlocker unlocker(m_ProxyMutex);
 
     if (ed != m_pLastEditor)
@@ -230,29 +229,16 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
         }
     }
 
+    int line;
+    int column;
+    if (!CacheCodeComplete(ed, tknStart, isAuto, &line, &column))
+        return tokens; // not computed, run background worker
+    if (m_CacheContextCC != 0 && m_CacheContextCC != (line ^ column))
+        return tokens; // context changed, abort CC
+
     std::vector<ClToken> tknResults;
-    const int line = stc->LineFromPosition(tknStart);
-    std::map<wxString, wxString> unsavedFiles;
-    EditorManager* edMgr = Manager::Get()->GetEditorManager();
-    for (int i = 0; i < edMgr->GetEditorsCount(); ++i)
-    {
-        cbEditor* editor = edMgr->GetBuiltinEditor(i);
-        if (editor && editor->GetModified())
-            unsavedFiles.insert(std::make_pair(editor->GetFilename(),
-                                               editor->GetControl()->GetText()));
-    }
-    const int lnStart = stc->PositionFromLine(line);
-    int column = tknStart - lnStart;
-    for (; column > 0; --column)
-    {
-        if (   !wxIsspace(stc->GetCharAt(lnStart + column - 1))
-            || (column != 1 && !wxIsspace(stc->GetCharAt(lnStart + column - 2))) )
-        {
-            break;
-        }
-    }
     m_Proxy.CodeCompleteAt(isAuto, ed->GetFilename(), line + 1, column + 1,
-                           m_TranslUnitId, unsavedFiles, tknResults);
+                           m_TranslUnitId, std::map<wxString, wxString>(), tknResults);
     const wxString& prefix = stc->GetTextRange(tknStart, tknEnd).Lower();
     bool includeCtors = true; // sometimes we get a lot of these
     for (int i = tknStart - 1; i > 0; --i)
@@ -644,6 +630,14 @@ void ClangPlugin::OnGotoDeclaration(wxCommandEvent& WXUNUSED(event))
     if (ed)
         ed->GotoTokenPosition(line - 1, stc->GetTextRange(stc->WordStartPosition(pos, true),
                                                           stc->WordEndPosition(pos, true)));
+}
+
+void ClangPlugin::OnCodeCompleteReady(wxCommandEvent& event)
+{
+    CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
+    m_CacheContextCC = event.GetInt();
+    Manager::Get()->ProcessEvent(evt);
+    m_CacheContextCC = 0;
 }
 
 wxString ClangPlugin::GetCompilerInclDirs(const wxString& compId)
@@ -1100,4 +1094,50 @@ void ClangPlugin::HighlightOccurrences(cbEditor* ed)
     {
         stc->IndicatorFillRange(tkn->first, tkn->second);
     }
+}
+
+bool ClangPlugin::CacheCodeComplete(cbEditor* ed, int pos, bool isAuto, int* outLine, int* outCol)
+{
+    // m_ProxyMutex assumed to already be locked
+    cbStyledTextCtrl* stc = ed->GetControl();
+    const int line = stc->LineFromPosition(pos);
+    const int lnStart = stc->PositionFromLine(line);
+    int column = pos - lnStart;
+    for (; column > 0; --column)
+    {
+        if (   !wxIsspace(stc->GetCharAt(lnStart + column - 1))
+            || (column != 1 && !wxIsspace(stc->GetCharAt(lnStart + column - 2))) )
+        {
+            break;
+        }
+    }
+
+    if (outLine)
+        *outLine = line;
+    if (outCol)
+        *outCol = column;
+
+    if (m_Proxy.IsCodeCompleteCached(line + 1, column + 1, m_TranslUnitId))
+        return true; // we can CC here
+
+    std::map<wxString, wxString> unsavedFiles;
+    EditorManager* edMgr = Manager::Get()->GetEditorManager();
+    for (int i = 0; i < edMgr->GetEditorsCount(); ++i)
+    {
+        cbEditor* editor = edMgr->GetBuiltinEditor(i);
+        if (editor && editor->GetModified())
+            unsavedFiles.insert(std::make_pair(editor->GetFilename(),
+                                               editor->GetControl()->GetText()));
+    }
+
+    ParseThreadCodeComplete* parseThread
+        = new ParseThreadCodeComplete(m_Proxy, m_ProxyMutex, isAuto, ed->GetFilename(),
+                                      line + 1, column + 1, m_TranslUnitId, unsavedFiles, this);
+    parseThread->Create();
+    if (parseThread->Run() != wxTHREAD_NO_ERROR)
+    {
+        delete parseThread;
+        parseThread = nullptr;
+    }
+    return false; // CC not ready yet
 }
