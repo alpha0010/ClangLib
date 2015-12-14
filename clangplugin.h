@@ -121,7 +121,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
         int m_TranslUnitId;
         int m_EditorHookId;
         int m_LastCallTipPos;
-        int m_CacheContextCC;
+        AsyncStatusCC m_AsyncStatusCC;
         std::vector<wxStringVec> m_LastCallTips;
         wxString m_CompileCommand;
 };

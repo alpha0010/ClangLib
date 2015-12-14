@@ -76,7 +76,7 @@ ClangPlugin::ClangPlugin() :
     m_HightlightTimer(this, idHightlightTimer),
     m_pLastEditor(nullptr),
     m_TranslUnitId(wxNOT_FOUND),
-    m_CacheContextCC(0)
+    m_AsyncStatusCC(ascNone)
 {
     if (!Manager::LoadResource(_T("clanglib.zip")))
         NotifyMissingFile(_T("clanglib.zip"));
@@ -160,6 +160,7 @@ void ClangPlugin::OnAttach()
 
 void ClangPlugin::OnRelease(bool WXUNUSED(appShutDown))
 {
+    wxMutexLocker locker(m_ProxyMutex);
     EditorHooks::UnregisterHook(m_EditorHookId);
     Disconnect(idGotoDeclaration);
     Disconnect(idHightlightTimer);
@@ -233,11 +234,9 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
     int column;
     if (!CacheCodeComplete(ed, tknStart, isAuto, &line, &column))
         return tokens; // not computed, run background worker
-    if (m_CacheContextCC != 0 && m_CacheContextCC != (line ^ column))
-        return tokens; // context changed, abort CC
 
     std::vector<ClToken> tknResults;
-    m_Proxy.CodeCompleteAt(isAuto, ed->GetFilename(), line + 1, column + 1,
+    m_Proxy.CodeCompleteAt(isAuto || m_AsyncStatusCC == ascAuto, ed->GetFilename(), line + 1, column + 1,
                            m_TranslUnitId, std::map<wxString, wxString>(), tknResults);
     const wxString& prefix = stc->GetTextRange(tknStart, tknEnd).Lower();
     bool includeCtors = true; // sometimes we get a lot of these
@@ -635,9 +634,9 @@ void ClangPlugin::OnGotoDeclaration(wxCommandEvent& WXUNUSED(event))
 void ClangPlugin::OnCodeCompleteReady(wxCommandEvent& event)
 {
     CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
-    m_CacheContextCC = event.GetInt();
+    m_AsyncStatusCC = static_cast<AsyncStatusCC>(event.GetInt());
     Manager::Get()->ProcessEvent(evt);
-    m_CacheContextCC = 0;
+    m_AsyncStatusCC = ascNone;
 }
 
 wxString ClangPlugin::GetCompilerInclDirs(const wxString& compId)
@@ -1115,10 +1114,13 @@ bool ClangPlugin::CacheCodeComplete(cbEditor* ed, int pos, bool isAuto, int* out
     if (outLine)
         *outLine = line;
     if (outCol)
-        *outCol = column;
+        *outCol  = column;
 
     if (m_Proxy.IsCodeCompleteCached(line + 1, column + 1, m_TranslUnitId))
         return true; // we can CC here
+
+    if (m_AsyncStatusCC != ascNone)
+        return false; // no longer in position where CC is valid
 
     std::map<wxString, wxString> unsavedFiles;
     EditorManager* edMgr = Manager::Get()->GetEditorManager();

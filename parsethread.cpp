@@ -46,7 +46,7 @@ wxThread::ExitCode ParseThreadCodeComplete::Entry()
     m_Proxy.CodeCompleteAt(m_IsAuto, m_Filename, m_Line, m_Column,
                            m_TranslId, m_UnsavedFiles, tokens, true);
     wxCommandEvent evt(EVT_PARSE_CC_READY);
-    evt.SetInt(m_Line ^ m_Column);
+    evt.SetInt(m_IsAuto ? ascAuto : ascUser);
     m_pHandler->AddPendingEvent(evt);
     return 0;
 }

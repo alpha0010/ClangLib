@@ -91,7 +91,7 @@ bool TranslationUnit::Contains(FileId fId)
     return std::binary_search(m_Files.begin(), m_Files.end(), fId);
 }
 
-bool TranslationUnit::IsCodeCompleteCached(int complete_line, int complete_column)
+bool TranslationUnit::IsCodeCompleteCached(unsigned complete_line, unsigned complete_column)
 {
     return m_LastPos.Equals(complete_line, complete_column);
 }

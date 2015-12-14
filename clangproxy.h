@@ -44,6 +44,13 @@ enum TokenCategory
     tcNone = -1
 };
 
+enum AsyncStatusCC
+{
+    ascNone,
+    ascAuto,
+    ascUser
+};
+
 struct ClToken // TODO: do we want this, or is just using CCToken good enough?
 {
     ClToken(const wxString& nm, int _id, int _weight, int categ) :
