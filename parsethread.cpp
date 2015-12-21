@@ -2,7 +2,7 @@
 
 #include "parsethread.h"
 
-DEFINE_EVENT_TYPE(EVT_PARSE_CC_READY)
+DEFINE_LOCAL_EVENT_TYPE(EVT_PARSE_CC_READY)
 
 ParseThreadCreate::ParseThreadCreate(ClangProxy& proxy, wxMutex& proxyMutex, const wxString& compileCommand,
                                      const wxString& filename, const wxString& source) :

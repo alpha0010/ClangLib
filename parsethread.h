@@ -3,7 +3,7 @@
 
 #include "clangproxy.h"
 
-DECLARE_EVENT_TYPE(EVT_PARSE_CC_READY, -1)
+DECLARE_LOCAL_EVENT_TYPE(EVT_PARSE_CC_READY, -1)
 
 class ParseThreadCreate : public wxThread
 {
