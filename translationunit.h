@@ -18,6 +18,7 @@ public:
     // move ctor
 #if __cplusplus >= 201103L
     ClTranslationUnit(ClTranslationUnit&& other);
+    ClTranslationUnit(const ClTranslationUnit& other) = delete;
 #else
     ClTranslationUnit(const ClTranslationUnit& other);
 #endif
@@ -73,11 +74,6 @@ public:
     void ExpandDiagnostic( CXDiagnostic diag, const wxString& filename, std::vector<ClDiagnostic>& diagnostics );
 
 private:
-#if __cplusplus >= 201103L
-    // copying not allowed (we can move)
-    ClTranslationUnit(const ClTranslationUnit& other);
-#endif
-
     ClTranslUnitId m_Id;
     ClFileId m_FileId;
     std::vector<ClFileId> m_Files;
