@@ -7,8 +7,6 @@
 #include "translationunit.h"
 
 #ifndef CB_PRECOMP
-#include <cbexception.h> // for cbThrow()
-
 #include <algorithm>
 #endif // CB_PRECOMP
 
@@ -73,13 +71,6 @@ ClTranslationUnit::ClTranslationUnit(ClTranslationUnit&& other) :
 {
     fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     other.m_ClTranslUnit = nullptr;
-}
-
-ClTranslationUnit::ClTranslationUnit(const ClTranslationUnit& WXUNUSED(other)) :
-    m_LastPos(-1, -1)
-{
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-    cbThrow(wxT("Illegal copy attempted of TranslationUnit object."));
 }
 #else
 ClTranslationUnit::ClTranslationUnit(const ClTranslationUnit& other) :
