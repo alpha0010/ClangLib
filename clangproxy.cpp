@@ -688,7 +688,11 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
         wxMutexLocker lock(m_Mutex);
         if (it == m_TranslUnits.end())
         {
+#if __cplusplus >= 201103L
+            m_TranslUnits.push_back(std::move(tu));
+#else
             m_TranslUnits.push_back(tu);
+#endif
         }
         else
         {
