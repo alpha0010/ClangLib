@@ -144,7 +144,6 @@ void ClangToolbar::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 
 void ClangToolbar::OnTranslationUnitCreated( ClangEvent& /*event*/ )
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     wxCommandEvent evt(clEVT_COMMAND_UPDATETOOLBARCONTENTS, idToolbarUpdateContents);
     AddPendingEvent(evt);
     wxCommandEvent evt2(clEVT_COMMAND_UPDATETOOLBARSELECTION, idToolbarUpdateSelection);
@@ -153,7 +152,6 @@ void ClangToolbar::OnTranslationUnitCreated( ClangEvent& /*event*/ )
 
 void ClangToolbar::OnReparseFinished( ClangEvent& /*event*/)
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     wxCommandEvent evt(clEVT_COMMAND_UPDATETOOLBARCONTENTS, idToolbarUpdateContents);
     AddPendingEvent(evt);
     wxCommandEvent evt2(clEVT_COMMAND_UPDATETOOLBARSELECTION, idToolbarUpdateSelection);

@@ -71,8 +71,6 @@ void ClangCodeCompletion::OnAttach(IClangPlugin* pClangPlugin)
     pClangPlugin->RegisterEventSink(clEVT_REPARSE_FINISHED, new ClCCEvent(this, &ClangCodeCompletion::OnReparseFinished) );
     pClangPlugin->RegisterEventSink(clEVT_GETCODECOMPLETE_FINISHED, new ClCCEvent(this, &ClangCodeCompletion::OnCodeCompleteFinished) );
 
-    fprintf(stdout,"==== Registered event %d\n", (int)clEVT_GETCODECOMPLETE_FINISHED);
-
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangCodeCompletion>(this, &ClangCodeCompletion::OnEditorHook));
 }
 
@@ -266,9 +264,6 @@ static wxString GetActualName(const wxString& name)
 
 std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompList(bool isAuto, cbEditor* ed, int& tknStart, int& tknEnd)
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s isAuto=%d\n", __PRETTY_FUNCTION__,(int)isAuto);
-#endif
     std::vector<cbCodeCompletionPlugin::CCToken> tokens;
 
     cbStyledTextCtrl* stc = ed->GetControl();

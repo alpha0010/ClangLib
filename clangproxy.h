@@ -127,9 +127,6 @@ public:
         }
         void Execute(ClangProxy& clangproxy)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             m_TranslationUnitId = clangproxy.GetTranslationUnitId(m_TranslationUnitId, m_Filename);
             if (m_TranslationUnitId == wxNOT_FOUND )
             {
@@ -167,9 +164,6 @@ public:
         }
         void Execute(ClangProxy& clangproxy)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             clangproxy.RemoveTranslationUnit(m_TranslationUnitId);
         }
     protected:
@@ -239,9 +233,6 @@ public:
         }
         void Execute(ClangProxy& clangproxy)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             clangproxy.GetDiagnostics(m_TranslId, m_Filename, m_Results);
         }
         ClTranslUnitId GetTranslationUnitId() { return m_TranslId; }
@@ -275,9 +266,6 @@ public:
         }
         void Execute(ClangProxy& clangproxy)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             clangproxy.GetFunctionScopeAt(m_TranslId, m_Filename, m_Location, m_ScopeName, m_MethodName);
         }
 
@@ -320,9 +308,6 @@ public:
         // Called on Job thread
         virtual void Completed( ClangProxy& clangproxy )
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             {
                 wxMutexLocker lock(*m_pMutex);
                 m_bCompleted = true;
@@ -333,9 +318,6 @@ public:
         /// Called on main thread to wait for completion of this job.
         wxCondError WaitCompletion( unsigned long milliseconds )
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             wxMutexLocker lock(*m_pMutex);
             if (m_bCompleted )
             {
@@ -346,9 +328,6 @@ public:
         /// Called on main thread when the last/final copy of this object will be destroyed.
         virtual void Finalize()
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             m_pMutex->Unlock();
             delete m_pMutex;
             m_pMutex = NULL;
@@ -389,9 +368,6 @@ public:
         }
         void Execute(ClangProxy& clangproxy)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             std::vector<ClToken> results;
             clangproxy.CodeCompleteAt( m_TranslId, m_Filename, m_Location, m_IsAuto, m_UnsavedFiles, results, m_Diagnostics);
             m_pResults->swap(results);
@@ -448,9 +424,6 @@ public:
         }
         void Execute(ClangProxy& clangproxy)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             wxString str = clangproxy.DocumentCCToken( m_TranslId, m_TokenId );
             *m_pResult = str;
         }
@@ -498,9 +471,6 @@ public:
 
         void Execute(ClangProxy& clangproxy)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             clangproxy.GetTokensAt( m_TranslId, m_Filename, m_Location, *m_pResults);
         }
 
@@ -549,9 +519,6 @@ public:
         }
         void Execute(ClangProxy& clangproxy)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             clangproxy.GetCallTipsAt( m_TranslId, m_Filename, m_Location, m_TokenStr, *m_pResults);
         }
 
@@ -601,9 +568,6 @@ public:
         }
         void Execute(ClangProxy& clangproxy)
         {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-            fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
             clangproxy.GetOccurrencesOf( m_TranslId, m_Filename, m_Location, *m_pResults);
         }
 

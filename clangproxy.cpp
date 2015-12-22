@@ -158,7 +158,6 @@ namespace ProxyHelper
         case CXCursor_FunctionTemplate:
         {
             CXString str = clang_getCursorSpelling(cursor);
-            fprintf(stdout,"Cursor spelling of functionDecl/CXXMethon/FunctionTemplate: '%s'\n", clang_getCString(str));
             if (strcmp(clang_getCString(str), "operator()") == 0)
             {
                 std::vector<CXCursor>* tokenSet
@@ -574,76 +573,9 @@ namespace HTML_Writer
         }
     }
 }
-#if 0
-class AsyncParseJob : public AbstractJob {
-public:
-    AsyncParseJob( ClangProxy* pProxy, ClTranslUnitId translUnitId, const wxString & fileName, const wxString& compileCommand, std::map<wxString, wxString>& unsavedFiles, TokenDatabase* pDatabase, ClangProxy::ReparseJob* pReparseJob ) :
-        m_pProxy(pProxy),
-        m_TranslUnitId(translUnitId),
-        m_Filename(fileName.c_str()),
-        m_CompileCommand(compileCommand.c_str()),
-        m_UnsavedFiles(),
-        m_pDatabase(pDatabase),
-        m_pReparseJob(pReparseJob)
-    {
-        std::swap( m_UnsavedFiles, unsavedFiles );
-    }
-
-    void operator()()
-    {
-        wxThread::This()->SetPriority(0);
-        ClTranslationUnit tu(m_TranslUnitId, nullptr);
-        m_pProxy->TakeTranslationUnit(tu);
-        if ( !tu.IsValid() )
-        {
-            wxString cmd = m_CompileCommand + wxT(" -ferror-limit=0 -isystem-prefix /usr -isystem-prefix /home");
-            wxStringTokenizer tokenizer(cmd);
-            if (!m_Filename.EndsWith(wxT(".c"))) // force language reduces chance of error on STL headers
-                tokenizer.SetString(cmd + wxT(" -x c++"));
-            std::vector<wxString> unknownOptions;
-            unknownOptions.push_back(wxT("-Wno-unused-local-typedefs"));
-            unknownOptions.push_back(wxT("-Wzero-as-null-pointer-constant"));
-            std::sort(unknownOptions.begin(), unknownOptions.end());
-            std::vector<wxCharBuffer> argsBuffer;
-            std::vector<const char*> args;
-            while (tokenizer.HasMoreTokens())
-            {
-                const wxString& compilerSwitch = tokenizer.GetNextToken();
-                if (std::binary_search(unknownOptions.begin(), unknownOptions.end(), compilerSwitch))
-                    continue;
-                argsBuffer.push_back(compilerSwitch.ToUTF8());
-                args.push_back(argsBuffer.back().data());
-            }
-            fprintf(stdout, "Parsing translation unit: %d(%p)\n", tu.GetId(), tu.m_ClTranslUnit );
-            int FileId = m_pDatabase->GetFilenameId( m_Filename);
-            tu.Parse( m_Filename, FileId, args, std::map<wxString, wxString>(), m_pDatabase );
-        }
-        else
-        {
-            fprintf(stdout, "Reparsing translation unit: %d(%p)\n", tu.GetId(), tu.m_ClTranslUnit );
-            tu.Reparse(m_UnsavedFiles, m_pDatabase);
-        }
-        fprintf(stdout, "Parsed translation unit: %d(%p)\n", tu.GetId(), tu.m_ClTranslUnit );
-        m_pProxy->ParsedTranslationUnit(tu);
-        if (m_pReparseJob != nullptr)
-            m_pReparseJob->ReparseCompleted(*m_pProxy);
-    }
-private:
-    ClangProxy* m_pProxy;
-    int m_TranslUnitId;
-    wxString m_Filename;
-    wxString m_CompileCommand;
-    std::map<wxString, wxString> m_UnsavedFiles;
-    TokenDatabase* m_pDatabase;
-    ClangProxy::ReparseJob* m_pReparseJob;
-};
-#endif
 
 void ClangProxy::ReparseJob::Execute(ClangProxy& clangproxy)
 {
-#ifdef CLANGPROXY_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     clangproxy.Reparse( m_TranslId, m_CompileCommand, m_UnsavedFiles);
 
     if( m_Parents )
@@ -666,7 +598,7 @@ void ClangProxy::ReparseJob::Execute(ClangProxy& clangproxy)
         }
         for (std::set<ClTranslUnitId>::iterator it = parentTranslUnits.begin(); it != parentTranslUnits.end(); ++it)
         {
-            fprintf(stdout,"Reparsing parent/child %d\n", (int)*it);
+            //fprintf(stdout,"Reparsing parent/child %d\n", (int)*it);
             clangproxy.Reparse( *it, m_CompileCommand, m_UnsavedFiles );
         }
     }
@@ -702,7 +634,6 @@ ClangProxy::~ClangProxy()
         m_TranslUnits.clear();
     }
 #endif
-    fprintf(stdout,"Waiting for thread shutdown\n");
     //pThread->Wait();
     clang_disposeIndex(m_ClIndex[0]);
     clang_disposeIndex(m_ClIndex[1]);
@@ -710,7 +641,7 @@ ClangProxy::~ClangProxy()
 
 void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands, const std::map<wxString, wxString>& unsavedFiles, ClTranslUnitId& out_TranslId)
 {
-    fprintf(stdout,"%s '%s'\n", __PRETTY_FUNCTION__, (const char*)filename.mb_str());
+    //fprintf(stdout,"%s '%s'\n", __PRETTY_FUNCTION__, (const char*)filename.mb_str());
 
     if( filename.Length() == 0 )
         return;
@@ -778,7 +709,7 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
 
     out_TranslId = translUnitId;
 #endif
-    fprintf(stdout,"CreateTU done. New TU id: %d, filename='%s'\n", (int)out_TranslId, (const char*)filename.mb_str());
+    //fprintf(stdout,"CreateTU done. New TU id: %d, filename='%s'\n", (int)out_TranslId, (const char*)filename.mb_str());
 }
 
 void ClangProxy::RemoveTranslationUnit(ClTranslUnitId translUnitId)
@@ -871,7 +802,7 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
             clUnsavedFiles.size());
     if (!clResults)
     {
-        fprintf(stdout,"%s No results...\n", __PRETTY_FUNCTION__);
+        //fprintf(stdout,"%s No results...\n", __PRETTY_FUNCTION__);
         return;
     }
 
@@ -882,7 +813,7 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
     //}
 
     const int numResults = clResults->NumResults;
-    fprintf(stdout,"numresults=%d\n", (int)numResults);
+    //fprintf(stdout,"numresults=%d\n", (int)numResults);
     results.reserve(numResults);
     for (int resIdx = 0; resIdx < numResults; ++resIdx)
     {
@@ -953,7 +884,7 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
         m_TranslUnits[translUnitId].ExpandDiagnostic( diag, filename, diagnostics );
     }
 
-    fprintf(stdout,"CodeCompleteAt done (%p) (%d elements)\n", (void*)m_TranslUnits[translUnitId].GetId(), (int)results.size());
+    //fprintf(stdout,"CodeCompleteAt done (%p) (%d elements)\n", (void*)m_TranslUnits[translUnitId].GetId(), (int)results.size());
 }
 
 wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)
@@ -1071,13 +1002,11 @@ wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, c
         switch (clang_getCompletionChunkKind(clCompStr, i))
         {
         case CXCompletionChunk_TypedText:
-            fprintf(stdout, "TypedText\n");
             if (state == init)
                 state = store;
             break;
 
         case CXCompletionChunk_Placeholder:
-            fprintf(stdout, "placeholder\n");
             if (state == store)
             {
                 CXString str = clang_getCompletionChunkText(clCompStr, i);
@@ -1129,7 +1058,7 @@ wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, c
         case CXCompletionChunk_Informative:
             {
                 CXString str = clang_getCompletionChunkText(clCompStr, i);
-                fprintf(stdout, "informative text: %s", clang_getCString(str) );
+                //fprintf(stdout, "informative text: %s", clang_getCString(str) );
                 clang_disposeString(str);
             }
             break;
@@ -1523,7 +1452,6 @@ bool ClangProxy::ResolveDeclTokenAt( const ClTranslUnitId translUnitId, wxString
 
 bool ClangProxy::ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wxString& inout_filename, ClTokenPosition& inout_location)
 {
-    //fprintf(stdout, "%s %d %s %d %d\n", __PRETTY_FUNCTION__, translUnitId, (const char*)inout_filename.mb_str(), inout_location.line, inout_location.column);
     if (translUnitId < 0 )
         return false;
     wxMutexLocker lock(m_Mutex);
@@ -1597,7 +1525,6 @@ void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString&
 {
     if (translUnitId < 0)
     {
-        fprintf(stdout, "translUnitId %d out of scope\n", translUnitId );
         out_ClassName = wxT("");
         out_MethodName = wxT("");
         return;
@@ -1605,7 +1532,6 @@ void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString&
     wxMutexLocker lock(m_Mutex);
     if (translUnitId >= (int)m_TranslUnits.size())
     {
-        fprintf(stdout, "translUnitId %d out of scope\n", translUnitId );
         out_ClassName = wxT("");
         out_MethodName = wxT("");
         return;
@@ -1613,10 +1539,6 @@ void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString&
     CXCursor cursor = m_TranslUnits[translUnitId].GetTokenAt(filename, location);
     if (clang_Cursor_isNull(cursor))
     {
-        fprintf(stdout,"NULL cursor\n");
-        //out_ClassName = wxT("");
-        //out_MethodName = wxT("");
-        //return;
         cursor = clang_getCursorSemanticParent(cursor);
     }
 
@@ -1625,7 +1547,6 @@ void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString&
     CXString str;
     while( !clang_Cursor_isNull(cursor) )
     {
-        //fprintf(stdout,"Cursor kind: %x\n", cursor.kind);
         switch( cursor.kind )
         {
         case CXCursor_TypeRef:

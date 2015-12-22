@@ -311,9 +311,6 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetAutocompList(bool isAuto, cbEd
 
 wxString ClangPlugin::GetDocumentation(const CCToken& token)
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     for ( std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
     {
         wxString ret = (*it)->GetDocumentation(token);
@@ -328,9 +325,6 @@ wxString ClangPlugin::GetDocumentation(const CCToken& token)
 
 std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int /*style*/, cbEditor* ed, int& argsPos)
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     std::vector<CCCallTip> tips;
 
     if (ed != m_pLastEditor)
@@ -436,9 +430,6 @@ std::vector<ClangPlugin::CCCallTip> ClangPlugin::GetCallTips(int pos, int /*styl
 
 std::vector<ClangPlugin::CCToken> ClangPlugin::GetTokenAt(int pos, cbEditor* ed, bool& /*allowCallTip*/)
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     std::vector<CCToken> tokens;
     if (ed != m_pLastEditor)
     {
@@ -469,9 +460,6 @@ std::vector<ClangPlugin::CCToken> ClangPlugin::GetTokenAt(int pos, cbEditor* ed,
 
 wxString ClangPlugin::OnDocumentationLink(wxHtmlLinkEvent& /*event*/, bool& /*dismissPopup*/)
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     return wxEmptyString;
 }
 
@@ -551,18 +539,12 @@ bool ClangPlugin::BuildToolBar(wxToolBar* toolBar)
 void ClangPlugin::OnEditorOpen(CodeBlocksEvent& event)
 {
     event.Skip();
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
 
     return;
 }
 
 void ClangPlugin::OnEditorActivate(CodeBlocksEvent& event)
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     event.Skip();
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
     if (ed)
@@ -590,9 +572,6 @@ void ClangPlugin::OnEditorActivate(CodeBlocksEvent& event)
 void ClangPlugin::OnEditorSave(CodeBlocksEvent& event)
 {
     event.Skip();
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     EditorManager* edMgr = Manager::Get()->GetEditorManager();
     cbEditor* ed = edMgr->GetBuiltinEditor(event.GetEditor());
     if (!ed)
@@ -619,9 +598,6 @@ void ClangPlugin::OnEditorSave(CodeBlocksEvent& event)
 void ClangPlugin::OnEditorClose(CodeBlocksEvent& event)
 {
     event.Skip();
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     int translId = m_TranslUnitId;
     EditorManager* edm = Manager::Get()->GetEditorManager();
     if (!edm)
@@ -649,9 +625,6 @@ void ClangPlugin::OnEditorClose(CodeBlocksEvent& event)
 void ClangPlugin::OnProjectActivate(CodeBlocksEvent& event)
 {
     event.Skip();
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     return;
 }
 
@@ -672,14 +645,10 @@ void ClangPlugin::OnProjectOptionsChanged(CodeBlocksEvent& event)
 void ClangPlugin::OnProjectClose(CodeBlocksEvent& event)
 {
     event.Skip();
-    fprintf(stdout, "%s\n",__PRETTY_FUNCTION__);
 }
 
 void ClangPlugin::OnProjectFileChanged(CodeBlocksEvent& event)
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     event.Skip();
     if (IsAttached())
     {
@@ -1034,21 +1003,15 @@ int ClangPlugin::UpdateCompileCommand(cbEditor* ed)
 
 void ClangPlugin::OnClangCreateTUFinished( wxEvent& event )
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    //fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
-
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
     {
-        fprintf(stdout,"%s No editor ???\n", __PRETTY_FUNCTION__);
         return;
     }
 
     ClangProxy::CreateTranslationUnitJob* obj = static_cast<ClangProxy::CreateTranslationUnitJob*>(event.GetEventObject());
     if (!obj)
     {
-        fprintf(stdout,"%s No passed job ???\n", __PRETTY_FUNCTION__);
         return;
     }
     if ( HasEventSink(clEVT_DIAGNOSTICS_UPDATED ) )
@@ -1060,7 +1023,6 @@ void ClangPlugin::OnClangCreateTUFinished( wxEvent& event )
     ProcessEvent(evt);
     if (obj->GetFilename() != ed->GetFilename())
     {
-        fprintf(stdout,"%s: Filename mismatch, probably another file was loaded while we were busy parsing. TU filename: '%s', current filename: '%s'\n", __PRETTY_FUNCTION__, (const char*)obj->m_Filename.mb_str(), (const char*)ed->GetFilename().mb_str());
         return;
     }
     m_TranslUnitId = obj->GetTranslationUnitId();
@@ -1069,9 +1031,6 @@ void ClangPlugin::OnClangCreateTUFinished( wxEvent& event )
 
 void ClangPlugin::OnClangReparseFinished( wxEvent& event )
 {
-//#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-//#endif
     ClangProxy::ReparseJob* pJob = static_cast<ClangProxy::ReparseJob*>(event.GetEventObject());
     if ( HasEventSink(clEVT_DIAGNOSTICS_UPDATED ) )
     {
@@ -1111,9 +1070,6 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 
 void ClangPlugin::OnClangGetDiagnosticsFinished( wxEvent& event )
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    //fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     ClDiagnosticLevel diagLv = dlFull; // TODO
     ClangProxy::GetDiagnosticsJob* pJob = static_cast<ClangProxy::GetDiagnosticsJob*>(event.GetEventObject());
 
@@ -1123,9 +1079,6 @@ void ClangPlugin::OnClangGetDiagnosticsFinished( wxEvent& event )
 
 void ClangPlugin::OnClangSyncTaskFinished( wxEvent& event )
 {
-#ifdef CLANGPLUGIN_TRACE_FUNCTIONS
-    //fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
-#endif
     ClangProxy::SyncJob* pJob = static_cast<ClangProxy::SyncJob*>(event.GetEventObject());
 
     if (event.GetId() == idClangCodeCompleteTask)

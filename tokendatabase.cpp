@@ -37,7 +37,6 @@ ClFileId ClTokenDatabase::GetFilenameId(const wxString& filename)
     {
         wxString f = wxString(normFile.c_str());
         ClFileId id = m_pFilenames->Insert( f, f );
-        //fprintf(stdout,"%s this=%p Storing %s(%p) as %d\n", __PRETTY_FUNCTION__, (void*)this, (const char*)f.mb_str(), (void*)f.c_str(), (int)id );
         return id;
     }
     return id.front();
@@ -55,7 +54,6 @@ wxString ClTokenDatabase::GetFilename(ClFileId fId)
     if (val == NULL)
         return wxString();
 
-    //fprintf(stdout, "%s this=%p id=%d Returning %p", __PRETTY_FUNCTION__, (void*)this, (int)fId, (void*)val );
     return wxString(val);
 }
 
@@ -69,8 +67,6 @@ ClTokenId ClTokenDatabase::InsertToken(const wxString& identifier, const ClAbstr
         tId = m_pTokens->Insert(wxString(identifier.c_str()), token);
         wxString filen = wxString::Format(wxT("%d"), token.fileId);
         m_pFileTokens->Insert(filen, tId);
-        if( token.fileId == 0 )
-            fprintf(stdout,"FileTokens: %d\n", (int)m_pFileTokens->GetIdSet(filen).size());
     }
     return tId;
 }

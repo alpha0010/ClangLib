@@ -221,7 +221,6 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
         //Manager::Get()->GetLogManager()->Log(dgItr->file + wxT(" ") + dgItr->message + F(wxT(" %d, %d"), dgItr->range.first, dgItr->range.second));
         if (dgItr->file != filename)
         {
-            fprintf(stdout, "Filename mismatch: '%s' != '%s'\n", (const char*)dgItr->file.mb_str(), (const char*)filename.mb_str());
             continue;
         }
         if (diagLv == dlFull)

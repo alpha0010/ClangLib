@@ -46,7 +46,6 @@ ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id, CXIndex clIndex )
     m_LastPos(-1, -1),
     m_Occupied(false)
 {
-    //fprintf(stdout,"%p %s %d\n",this, __PRETTY_FUNCTION__, m_Id);
 }
 ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id ) :
     m_Id(id),
@@ -57,7 +56,6 @@ ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id ) :
     m_LastPos(-1, -1),
     m_Occupied(true)
 {
-    //fprintf(stdout,"%p %s %d\n",this, __PRETTY_FUNCTION__, m_Id);
 }
 
 
@@ -71,14 +69,12 @@ ClTranslationUnit::ClTranslationUnit(ClTranslationUnit&& other) :
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     other.m_ClTranslUnit = nullptr;
 }
 
 ClTranslationUnit::ClTranslationUnit(const ClTranslationUnit& WXUNUSED(other)) :
     m_LastPos(-1, -1)
 {
-    fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     cbThrow(wxT("Illegal copy attempted of TranslationUnit object."));
 }
 #else
@@ -90,7 +86,6 @@ ClTranslationUnit::ClTranslationUnit(const ClTranslationUnit& other) :
     m_LastCC(nullptr),
     m_LastPos(-1, -1)
 {
-    //fprintf(stdout,"%p %s %d, other: %d\n",this, __PRETTY_FUNCTION__, m_Id, other.m_Id);
     m_Files.swap(const_cast<ClTranslationUnit&>(other).m_Files);
     const_cast<ClTranslationUnit&>(other).m_ClTranslUnit = nullptr;
 }
@@ -98,12 +93,10 @@ ClTranslationUnit::ClTranslationUnit(const ClTranslationUnit& other) :
 
 ClTranslationUnit::~ClTranslationUnit()
 {
-    //fprintf(stdout,"%p %s %d\n", this, __PRETTY_FUNCTION__, m_Id);
     if (m_LastCC)
         clang_disposeCodeCompleteResults(m_LastCC);
     if (m_ClTranslUnit)
     {
-        fprintf(stdout,"%p Disposing %p\n", this, m_ClTranslUnit);
         clang_disposeTranslationUnit(m_ClTranslUnit);
     }
 }
@@ -137,7 +130,6 @@ CXCodeCompleteResults* ClTranslationUnit::CodeCompleteAt( const wxString& comple
 {
     if (m_ClTranslUnit == nullptr )
     {
-        fprintf(stdout,"%s: m_ClTranslUnit is NULL!\n", __PRETTY_FUNCTION__);
         return NULL;
     }
     //if (m_LastPos.Equals(complete_location.line, complete_location.column)&&(m_LastCC)&&m_LastCC->NumResults)
@@ -153,16 +145,12 @@ CXCodeCompleteResults* ClTranslationUnit::CodeCompleteAt( const wxString& comple
             | CXCodeComplete_IncludeCodePatterns
             | CXCodeComplete_IncludeBriefComments);
     m_LastPos.Set(complete_location.line, complete_location.column);
-    if (!m_LastCC )
-    {
-        fprintf(stdout,"%s: clang_CodeComplete returned NULL!\n", __PRETTY_FUNCTION__);
-    }
-    else
+    if (m_LastCC )
     {
         unsigned numDiag = clang_codeCompleteGetNumDiagnostics(m_LastCC);
         unsigned int IsIncomplete = 0;
         CXCursorKind kind = clang_codeCompleteGetContainerKind(m_LastCC, &IsIncomplete );
-        fprintf(stdout, "codecomplete numdiag: %d, container kind: %d, incomplete: %d\n", (int)numDiag, kind, IsIncomplete );
+        //fprintf(stdout, "codecomplete numdiag: %d, container kind: %d, incomplete: %d\n", (int)numDiag, kind, IsIncomplete );
         unsigned int diagIdx = 0;
         std::vector<ClDiagnostic> diaglist;
         for(diagIdx=0; diagIdx < numDiag; ++diagIdx)
@@ -170,13 +158,12 @@ CXCodeCompleteResults* ClTranslationUnit::CodeCompleteAt( const wxString& comple
             CXDiagnostic diag = clang_codeCompleteGetDiagnostic( m_LastCC, diagIdx );
             ExpandDiagnostic( diag, complete_filename, diaglist );
         }
-        for( std::vector<ClDiagnostic>::const_iterator it = diaglist.begin(); it != diaglist.end(); ++it)
-        {
-            fprintf(stdout, " l=%d  s=%d '%s'\n", it->line, it->severity, (const char*)it->message.mb_str() );
-        }
+        //for( std::vector<ClDiagnostic>::const_iterator it = diaglist.begin(); it != diaglist.end(); ++it)
+        //{
+        //    fprintf(stdout, " l=%d  s=%d '%s'\n", it->line, it->severity, (const char*)it->message.mb_str() );
+        //}
     }
 
-    //fprintf(stdout,"%s: Returning %d results\n", __PRETTY_FUNCTION__, (int)m_LastCC->NumResults);
     return m_LastCC;
 }
 
@@ -191,8 +178,7 @@ CXCursor ClTranslationUnit::GetTokenAt(const wxString& filename, const ClTokenPo
 {
     if (m_ClTranslUnit == nullptr )
     {
-        fprintf(stdout,"%s: m_ClTranslUnit is NULL!\n", __PRETTY_FUNCTION__);
-        return clang_getNullCursor();
+       return clang_getNullCursor();
     }
     return clang_getCursor(m_ClTranslUnit, clang_getLocation(m_ClTranslUnit, GetFileHandle(filename), location.line, location.column));
 }
@@ -202,8 +188,6 @@ CXCursor ClTranslationUnit::GetTokenAt(const wxString& filename, const ClTokenPo
  */
 void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles, ClTokenDatabase* pDatabase )
 {
-    fprintf(stdout,"%s %s %d\n", __PRETTY_FUNCTION__, (const char*)filename.mb_str(), fileId);
-
     if (m_LastCC)
     {
         clang_disposeCodeCompleteResults(m_LastCC);
@@ -211,7 +195,6 @@ void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const 
     }
     if (m_ClTranslUnit)
     {
-        fprintf(stdout,"Disposing %p\n", m_ClTranslUnit);
         clang_disposeTranslationUnit(m_ClTranslUnit);
         m_ClTranslUnit = nullptr;
     }
@@ -267,20 +250,15 @@ void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const 
         #else
             std::vector<ClFileId>(m_Files).swap(m_Files);
         #endif
-        //fprintf(stdout,"%s calling Reparse()\n", __PRETTY_FUNCTION__);
-        //Reparse(0, nullptr); // seems to improve performance for some reason?
-        int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
+            //Reparse(0, nullptr); // seems to improve performance for some reason?
+            int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
                             clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
                             clang_defaultReparseOptions(m_ClTranslUnit) );
-        //                                   );
 
-        //fprintf(stdout,"%s calling VisitChildren\n", __PRETTY_FUNCTION__);
             struct ClangVisitorContext ctx(pDatabase);
             unsigned rc = clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
             fprintf(stdout,"Visit count: %d, rc=%d\n", (int)ctx.tokenCount, (int)rc);
-        //fprintf(stdout,"%s Shrinking database\n", __PRETTY_FUNCTION__);
         //database->Shrink();
-        //fprintf(stdout,"%s Done\n", __PRETTY_FUNCTION__);
         }
     }
 }
@@ -289,7 +267,6 @@ void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFile
 {
     if (m_ClTranslUnit == nullptr )
     {
-        fprintf(stdout,"ERROR: Reparsing a NULL translation Unit\n");
         return;
     }
     std::vector<CXUnsavedFile> clUnsavedFiles;
@@ -322,7 +299,7 @@ void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFile
     if (ret != 0 )
     {
         assert(false&&"clang_reparseTranslationUnit should succeed");
-        fprintf(stdout,"ERROR: reparseTranslationUnit() failed!");
+        //fprintf(stdout,"ERROR: reparseTranslationUnit() failed!");
 
         // The only thing we can do according to Clang documentation is dispose it...
         clang_disposeTranslationUnit(m_ClTranslUnit);
@@ -331,7 +308,6 @@ void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFile
 
     struct ClangVisitorContext ctx(pDatabase);
     unsigned rc = clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
-    fprintf(stdout,"Visit count: %d, rc=%d\n", (int)ctx.tokenCount, (int)rc);
 }
 
 void ClTranslationUnit::GetDiagnostics( const wxString& filename,  std::vector<ClDiagnostic>& diagnostics )
@@ -588,7 +564,6 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
         }
 
         struct ClangVisitorContext* ctx = static_cast<struct ClangVisitorContext*>(client_data);
-        //fprintf(stdout,"Inserting token '%s', file='%s', line=%d, col=%d\n", (const char*)identifier.mb_str(), (const char*)filename.mb_str(), line, col);
         ctx->database->InsertToken(identifier, ClAbstractToken(typ,ctx->database->GetFilenameId(filename), ClTokenPosition(line, col), displayName, scopeName, tokenHash));
         ctx->tokenCount++;
     }
