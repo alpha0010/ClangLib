@@ -6,6 +6,7 @@
 
 #include "clangproxy.h"
 
+#include <clang-c/Documentation.h>
 #include <wx/tokenzr.h>
 
 #ifndef CB_PRECOMP

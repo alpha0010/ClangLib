@@ -3,6 +3,7 @@
 #include "parsethread.h"
 
 DEFINE_LOCAL_EVENT_TYPE(EVT_PARSE_CC_READY)
+DEFINE_LOCAL_EVENT_TYPE(EVT_REPARSE_DONE)
 
 ParseThreadCreate::ParseThreadCreate(ClangProxy& proxy, wxMutex& proxyMutex, const wxString& compileCommand,
                                      const wxString& filename, const wxString& source) :
@@ -47,6 +48,27 @@ wxThread::ExitCode ParseThreadCodeComplete::Entry()
                            m_TranslId, m_UnsavedFiles, tokens, true);
     wxCommandEvent evt(EVT_PARSE_CC_READY);
     evt.SetInt(m_IsAuto ? ascAuto : ascUser);
+    m_pHandler->AddPendingEvent(evt);
+    return 0;
+}
+
+ParseThreadReparse::ParseThreadReparse(ClangProxy& proxy, wxMutex& proxyMutex, int translId,
+                                       const std::map<wxString, wxString>& unsavedFiles,
+                                       wxEvtHandler* handler) :
+    m_Proxy(proxy), m_ProxyMutex(proxyMutex), m_TranslId(translId), m_pHandler(handler)
+{
+    for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
+         fileIt != unsavedFiles.end(); ++fileIt)
+    {
+        m_UnsavedFiles[fileIt->first.c_str()] = fileIt->second.c_str();
+    }
+}
+
+wxThread::ExitCode ParseThreadReparse::Entry()
+{
+    wxMutexLocker locker(m_ProxyMutex);
+    m_Proxy.Reparse(m_TranslId, m_UnsavedFiles);
+    wxCommandEvent evt(EVT_REPARSE_DONE);
     m_pHandler->AddPendingEvent(evt);
     return 0;
 }

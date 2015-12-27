@@ -4,6 +4,7 @@
 #include "clangproxy.h"
 
 DECLARE_LOCAL_EVENT_TYPE(EVT_PARSE_CC_READY, -1)
+DECLARE_LOCAL_EVENT_TYPE(EVT_REPARSE_DONE,   -1)
 
 class ParseThreadCreate : public wxThread
 {
@@ -42,6 +43,25 @@ class ParseThreadCodeComplete : public wxThread
         wxString m_Filename;
         int m_Line;
         int m_Column;
+        int m_TranslId;
+        std::map<wxString, wxString> m_UnsavedFiles;
+        wxEvtHandler* m_pHandler;
+};
+
+
+class ParseThreadReparse : public wxThread
+{
+    public:
+        ParseThreadReparse(ClangProxy& proxy, wxMutex& proxyMutex, int translId,
+                           const std::map<wxString, wxString>& unsavedFiles, wxEvtHandler* handler);
+        virtual ~ParseThreadReparse() {}
+
+    protected:
+        virtual ExitCode Entry();
+
+    private:
+        ClangProxy& m_Proxy;
+        wxMutex& m_ProxyMutex;
         int m_TranslId;
         std::map<wxString, wxString> m_UnsavedFiles;
         wxEvtHandler* m_pHandler;

@@ -155,6 +155,7 @@ void ClangPlugin::OnAttach()
     Connect(idHightlightTimer, wxEVT_TIMER, wxTimerEventHandler(ClangPlugin::OnTimer));
     Connect(idGotoDeclaration, wxEVT_COMMAND_MENU_SELECTED, /*wxMenuEventHandler*/wxCommandEventHandler(ClangPlugin::OnGotoDeclaration), nullptr, this);
     Connect(EVT_PARSE_CC_READY, wxCommandEventHandler(ClangPlugin::OnCodeCompleteReady));
+    Connect(EVT_REPARSE_DONE, wxCommandEventHandler(ClangPlugin::OnReparseDone));
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangPlugin>(this, &ClangPlugin::OnEditorHook));
 }
 
@@ -162,6 +163,8 @@ void ClangPlugin::OnRelease(bool WXUNUSED(appShutDown))
 {
     wxMutexLocker locker(m_ProxyMutex);
     EditorHooks::UnregisterHook(m_EditorHookId);
+    Disconnect(wxID_ANY, EVT_REPARSE_DONE);
+    Disconnect(wxID_ANY, EVT_PARSE_CC_READY);
     Disconnect(idGotoDeclaration);
     Disconnect(idHightlightTimer);
     Disconnect(idDiagnosticTimer);
@@ -639,6 +642,17 @@ void ClangPlugin::OnCodeCompleteReady(wxCommandEvent& event)
     m_AsyncStatusCC = ascNone;
 }
 
+void ClangPlugin::OnReparseDone(wxCommandEvent& WXUNUSED(event))
+{
+    cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!ed || ed != m_pLastEditor)
+        return;
+    if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+        return;
+    MutexUnlocker unlocker(m_ProxyMutex);
+    DiagnoseEd(ed, dlMinimal);
+}
+
 wxString ClangPlugin::GetCompilerInclDirs(const wxString& compId)
 {
     std::map<wxString, wxString>::const_iterator idItr = m_compInclDirs.find(compId);
@@ -894,7 +908,10 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
             return;
 
         if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+        {
+            m_EdOpenTimer.Start(ED_OPEN_DELAY, wxTIMER_ONE_SHOT);
             return;
+        }
         MutexUnlocker unlocker(m_ProxyMutex);
         if (m_Proxy.GetTranslationUnitId(ed->GetFilename()) != wxNOT_FOUND)
         {
@@ -927,7 +944,10 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         if (!ed)
             return;
         if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+        {
+            m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
             return;
+        }
         MutexUnlocker unlocker(m_ProxyMutex);
 
         if (ed != m_pLastEditor)
@@ -944,8 +964,13 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
             if (ed && ed->GetModified())
                 unsavedFiles.insert(std::make_pair(ed->GetFilename(), ed->GetControl()->GetText()));
         }
-        m_Proxy.Reparse(m_TranslUnitId, unsavedFiles);
-        DiagnoseEd(m_pLastEditor, dlMinimal);
+        ParseThreadReparse* parseThread = new ParseThreadReparse(m_Proxy, m_ProxyMutex, m_TranslUnitId, unsavedFiles, this);
+        parseThread->Create();
+        if (parseThread->Run() != wxTHREAD_NO_ERROR)
+        {
+            delete parseThread;
+            parseThread = nullptr;
+        }
     }
     // m_DiagnosticTimer, m_HightlightTime
     else if (evId == idDiagnosticTimer || evId == idHightlightTimer)
@@ -954,7 +979,13 @@ void ClangPlugin::OnTimer(wxTimerEvent& event)
         if (!ed)
             return;
         if (m_ProxyMutex.TryLock() != wxMUTEX_NO_ERROR)
+        {
+            if (evId == idDiagnosticTimer)
+                m_DiagnosticTimer.Start(DIAGNOSTIC_DELAY, wxTIMER_ONE_SHOT);
+            else
+                m_HightlightTimer.Start(HIGHTLIGHT_DELAY, wxTIMER_ONE_SHOT);
             return;
+        }
         MutexUnlocker unlocker(m_ProxyMutex);
 
         if (ed != m_pLastEditor)

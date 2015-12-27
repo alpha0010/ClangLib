@@ -87,6 +87,7 @@ class ClangPlugin : public cbCodeCompletionPlugin
         /// Resolve the token under the cursor and open the relevant location
         void OnGotoDeclaration(wxCommandEvent& event);
         void OnCodeCompleteReady(wxCommandEvent& event);
+        void OnReparseDone(wxCommandEvent& event);
 
         enum DiagnosticLevel { dlMinimal, dlFull };
         /**
