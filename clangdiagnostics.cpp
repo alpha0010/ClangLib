@@ -63,6 +63,7 @@ void ClangDiagnostics::OnRelease( IClangPlugin* pClangPlugin )
 {
     Disconnect( idGotoPrevDiagnostic );
     Disconnect( idGotoPrevDiagnostic );
+    Manager::Get()->RemoveAllEventSinksFor(this);
     ClangPluginComponent::OnRelease( pClangPlugin );
 }
 
