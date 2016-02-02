@@ -323,16 +323,6 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     m_CCOutstanding = 0;
 
     const int line = stc->LineFromPosition(tknStart);
-/*
-    std::map<wxString, wxString> unsavedFiles;
-    EditorManager* edMgr = Manager::Get()->GetEditorManager();
-    for (int i = 0; i < edMgr->GetEditorsCount(); ++i)
-    {
-        cbEditor* editor = edMgr->GetBuiltinEditor(i);
-        if (editor && editor->GetModified())
-            unsavedFiles.insert(std::make_pair(editor->GetFilename(), editor->GetControl()->GetText()));
-    }
-*/
     const int lnStart = stc->PositionFromLine(line);
     int column = tknStart - lnStart;
     for (; column > 0; --column)
@@ -368,7 +358,6 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         }
         if( wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, timeout, tknResults))
         {
-            //std::cout<<"Timeout waiting for code completion"<<std::endl;
             m_CCOutstanding++;
             m_CCOutstandingPos = ed->GetControl()->GetCurrentPos();
             m_CCOutstandingResults.clear();
@@ -434,18 +423,6 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
                 else if (std::binary_search(keywords.begin(), keywords.end(), GetActualName(tknIt->name)))
                     tknIt->category = tcLangKeyword;
                 break;
-
-            case tcClass:
-            case tcCtorPublic:
-            case tcDtorPublic:
-            case tcFuncPublic:
-            case tcVarPublic:
-            case tcEnum:
-            case tcTypedef:
-                // TODO
-                //m_Proxy.RefineTokenType(m_TranslUnitId, tknIt->id, tknIt->category);
-                break;
-
             default:
                 break;
             }

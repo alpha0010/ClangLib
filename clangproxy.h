@@ -370,6 +370,24 @@ public:
         {
             std::vector<ClToken> results;
             clangproxy.CodeCompleteAt( m_TranslId, m_Filename, m_Location, m_IsAuto, m_UnsavedFiles, results, m_Diagnostics);
+            for (std::vector<ClToken>::iterator tknIt = results.begin(); tknIt != results.end(); ++tknIt)
+            {
+                switch (tknIt->category)
+                {
+                case tcClass:
+                case tcCtorPublic:
+                case tcDtorPublic:
+                case tcFuncPublic:
+                case tcVarPublic:
+                case tcEnum:
+                case tcTypedef:
+                    clangproxy.RefineTokenType(m_TranslId, tknIt->id, tknIt->category);
+                    break;
+                default:
+                    break;
+                }
+            }
+
             m_pResults->swap(results);
             // Get rid of some copied memory we no longer need
             m_UnsavedFiles.clear();
