@@ -115,7 +115,7 @@ public:
             m_UnsavedFiles()
             {
             /* deep copy */
-                for( std::map<wxString, wxString>::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it)
+                for ( std::map<wxString, wxString>::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it)
                 {
                     m_UnsavedFiles.insert( std::make_pair( wxString(it->first.c_str()), wxString(it->second.c_str()) ) );
                 }
@@ -186,7 +186,7 @@ public:
               m_Parents(parents)
         {
             /* deep copy */
-            for( std::map<wxString, wxString>::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it)
+            for ( std::map<wxString, wxString>::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it)
             {
                 m_UnsavedFiles.insert( std::make_pair( wxString(it->first.c_str()), wxString(it->second.c_str()) ) );
             }
@@ -354,7 +354,7 @@ public:
             m_TranslId(translId),
             m_UnsavedFiles()
         {
-            for( std::map<wxString, wxString>::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it)
+            for ( std::map<wxString, wxString>::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it)
             {
                 m_UnsavedFiles.insert( std::make_pair( wxString(it->first.c_str()), wxString(it->second.c_str()) ) );
             }

@@ -578,7 +578,7 @@ void ClangProxy::ReparseJob::Execute(ClangProxy& clangproxy)
 {
     clangproxy.Reparse( m_TranslId, m_CompileCommand, m_UnsavedFiles);
 
-    if( m_Parents )
+    if ( m_Parents )
     {
             // Following code also includes children. Will fix that later
         ClFileId fileId = clangproxy.m_Database.GetFilenameId(m_Filename);
@@ -587,9 +587,9 @@ void ClangProxy::ReparseJob::Execute(ClangProxy& clangproxy)
             wxMutexLocker l(clangproxy.m_Mutex);
             for (std::vector<ClTranslationUnit>::iterator it = clangproxy.m_TranslUnits.begin(); it != clangproxy.m_TranslUnits.end(); ++it)
             {
-                if( it->Contains(fileId) )
+                if ( it->Contains(fileId) )
                 {
-                    if( it->GetId() != m_TranslId )
+                    if ( it->GetId() != m_TranslId )
                     {
                         parentTranslUnits.insert(it->GetId());
                     }
@@ -643,7 +643,7 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
 {
     //fprintf(stdout,"%s '%s'\n", __PRETTY_FUNCTION__, (const char*)filename.mb_str());
 
-    if( filename.Length() == 0 )
+    if ( filename.Length() == 0 )
         return;
 
     wxString cmd = commands + wxT(" -ferror-limit=0");
@@ -669,7 +669,7 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
     ClTranslUnitId translId = -1;
     {
         wxMutexLocker lock(m_Mutex);
-        for( it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it, ++id)
+        for ( it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it, ++id)
         {
             if (it->IsEmpty())
             {
@@ -777,6 +777,10 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
         std::vector<ClDiagnostic>& diagnostics )
 {
     //fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
+    if (translUnitId < 0)
+    {
+        return;
+    }
     std::vector<CXUnsavedFile> clUnsavedFiles;
     std::vector<wxCharBuffer> clFileBuffer;
     for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
@@ -793,10 +797,6 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
         unit.Length   = strlen(unit.Contents); // extra work needed because wxString::Length() treats multibyte character length as '1'
 #endif
         clUnsavedFiles.push_back(unit);
-    }
-    if (translUnitId < 0)
-    {
-        return;
     }
     wxMutexLocker locker(m_Mutex);
     if (translUnitId >= (int)m_TranslUnits.size())
@@ -882,7 +882,7 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
 
     unsigned numDiag = clang_codeCompleteGetNumDiagnostics(clResults);
     unsigned int diagIdx = 0;
-    for(diagIdx=0; diagIdx < numDiag; ++diagIdx)
+    for ( diagIdx=0; diagIdx < numDiag; ++diagIdx )
     {
         CXDiagnostic diag = clang_codeCompleteGetDiagnostic( clResults, diagIdx );
         m_TranslUnits[translUnitId].ExpandDiagnostic( diag, filename, diagnostics );
@@ -1030,7 +1030,7 @@ wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, c
         case CXCompletionChunk_RightParen:
             if (state == store)
             {
-                if( offsetsList.size() == 0 )
+                if ( offsetsList.size() == 0 )
                 {
                     // When no arguments, we don't want spaces between (). Ideally we should get these rules from AStyle somehow
                     suffix = suffix.Left( suffix.Length() - 1 );
@@ -1463,7 +1463,7 @@ bool ClangProxy::ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wx
         return false;
     CXCursor token = clang_getNullCursor();
     token = m_TranslUnits[translUnitId].GetTokenAt(inout_filename, inout_location);
-    if( !ProxyHelper::ResolveCursorDefinition(token) )
+    if ( !ProxyHelper::ResolveCursorDefinition(token) )
     {
         std::set<ClTranslUnitId> translIdList;
         std::vector< ClTokenId > tokenList;
@@ -1483,7 +1483,7 @@ bool ClangProxy::ResolveDefinitionTokenAt( const ClTranslUnitId translUnitId, wx
             {
                 if ( it->GetFileId() == tok.fileId ) // TODO: should also check children, if the definition is in a header-file that doesn't have its own TU
                 {
-                    if( translIdList.find( it->GetId() ) == translIdList.end())
+                    if ( translIdList.find( it->GetId() ) == translIdList.end())
                     {
                         translIdList.insert( it->GetId() );
                         ClTokenPosition loc = tok.location;
@@ -1616,7 +1616,7 @@ void ClangProxy::Reparse(ClTranslUnitId translUnitId, const wxString& /*compileC
             return;
         swap(m_TranslUnits[translUnitId], tu);
     }
-    if( tu.IsValid() )
+    if ( tu.IsValid() )
         tu.Reparse(unsavedFiles, &m_Database);
     {
         wxMutexLocker lock(m_Mutex);

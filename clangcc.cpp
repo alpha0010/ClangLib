@@ -190,20 +190,20 @@ void ClangCodeCompletion::OnTimer(wxTimerEvent& event)
 void ClangCodeCompletion::OnKeyDown(wxKeyEvent& event)
 {
     //fprintf(stdout,"OnKeyDown");
-    if( event.GetKeyCode() == WXK_TAB )
+    if ( event.GetKeyCode() == WXK_TAB )
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
         if (ed)
         {
             cbStyledTextCtrl* stc = ed->GetControl();
-            if( !stc->AutoCompActive() )
+            if ( !stc->AutoCompActive() )
             {
                 int pos = stc->PositionFromLine( stc->GetCurrentLine() );
                 int maxPos = stc->PositionFromLine( stc->GetCurrentLine() + 1 );
                 for (std::vector<wxString>::iterator it = m_TabJumpArguments.begin(); it != m_TabJumpArguments.end(); ++it)
                 {
                     int argPos = stc->FindText( pos, maxPos, *it );
-                    if( argPos != wxNOT_FOUND )
+                    if ( argPos != wxNOT_FOUND )
                     {
                         stc->SetSelectionVoid( argPos, argPos + it->Length() - 1 );
                         wxString value = *it;
@@ -266,6 +266,9 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
 {
     std::vector<cbCodeCompletionPlugin::CCToken> tokens;
 
+    ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("ClangLib"));
+    int maxResultCount = cfg->ReadInt( _T("/max_matches"), 1024);
+
     cbStyledTextCtrl* stc = ed->GetControl();
     const int style = stc->GetStyleAt( tknEnd );
     const int lineIndentPos = stc->GetLineIndentPosition(stc->GetCurrentLine());
@@ -295,7 +298,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         }
         return tokens;
     }
-    if( translUnitId != m_TranslUnitId )
+    if ( translUnitId != m_TranslUnitId )
         return tokens;
 
     const wxChar curChar = stc->GetCharAt(tknEnd - 1);
@@ -352,11 +355,11 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     {
         ClTokenPosition loc(line+1, column+1);
         unsigned long timeout = 20;
-        if( !isAuto )
+        if ( !isAuto )
         {
             timeout = 100;
         }
-        if( wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, timeout, tknResults))
+        if ( wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, timeout, tknResults))
         {
             m_CCOutstanding++;
             m_CCOutstandingPos = ed->GetControl()->GetCurrentPos();
@@ -400,10 +403,10 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
 
     if (!tokens.empty())
     {
-        if (prefix.IsEmpty() && tokens.size() > 1500) // reduce to give only top matches
+        if (prefix.IsEmpty() && tokens.size() > maxResultCount) // reduce to give only top matches
         {
-            std::partial_sort(tokens.begin(), tokens.begin() + 1000, tokens.end(), PrioritySorter());
-            tokens.erase(tokens.begin() + 1000, tokens.end());
+            std::partial_sort(tokens.begin(), tokens.begin() + maxResultCount, tokens.end(), PrioritySorter());
+            tokens.erase(tokens.begin() + maxResultCount, tokens.end());
         }
         const int imgCount = m_pClangPlugin->GetImageList(translUnitId).GetImageCount();
         for (int i = 0; i < imgCount; ++i)
@@ -492,7 +495,7 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
             else
             {
                 tknText += suffix;
-                if( suffix.Length() == 2 )
+                if ( suffix.Length() == 2 )
                 {
                     moveToPos += 2;
                 }
@@ -510,7 +513,7 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
 
     if (stc->GetTextRange(startPos, endPos) != tknText)
         stc->ReplaceTarget(tknText);
-    if(offsetsList.size() > 0)
+    if (offsetsList.size() > 0)
     {
         stc->SetSelectionVoid(moveToPos + offsetsList[0].first, moveToPos + offsetsList[0].second);
     }
@@ -529,7 +532,7 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
             stc->EnableTabSmartJump();
         }
     }
-    if( offsetsList.size() > 0 )
+    if ( offsetsList.size() > 0 )
     {
         if ( m_TabJumpArguments.size() > 0 )
         {
@@ -616,7 +619,7 @@ void ClangCodeCompletion::RequestReparse()
 
 void ClangCodeCompletion::OnTranslationUnitCreated( ClangEvent& event )
 {
-    if( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
+    if ( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
     {
         return;
     }
@@ -627,7 +630,7 @@ void ClangCodeCompletion::OnTranslationUnitCreated( ClangEvent& event )
 
 void ClangCodeCompletion::OnReparseFinished( ClangEvent& event )
 {
-    if( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
+    if ( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
     {
         return;
     }
@@ -638,7 +641,7 @@ void ClangCodeCompletion::OnReparseFinished( ClangEvent& event )
 
 void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
 {
-    if( event.GetTranslationUnitId() != m_TranslUnitId )
+    if ( event.GetTranslationUnitId() != m_TranslUnitId )
     {
         return;
     }

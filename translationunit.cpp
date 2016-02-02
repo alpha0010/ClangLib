@@ -96,7 +96,7 @@ ClTranslationUnit::~ClTranslationUnit()
 std::ostream& operator << (std::ostream& str, const std::vector<ClFileId> files)
 {
     str<<"[ ";
-    for( std::vector<ClFileId>::const_iterator it = files.begin(); it != files.end(); ++it )
+    for ( std::vector<ClFileId>::const_iterator it = files.begin(); it != files.end(); ++it )
     {
         str<<*it<<", ";
     }
@@ -140,17 +140,17 @@ CXCodeCompleteResults* ClTranslationUnit::CodeCompleteAt( const wxString& comple
     if (m_LastCC )
     {
         unsigned numDiag = clang_codeCompleteGetNumDiagnostics(m_LastCC);
-        unsigned int IsIncomplete = 0;
-        CXCursorKind kind = clang_codeCompleteGetContainerKind(m_LastCC, &IsIncomplete );
+        //unsigned int IsIncomplete = 0;
+        //CXCursorKind kind = clang_codeCompleteGetContainerKind(m_LastCC, &IsIncomplete );
         //fprintf(stdout, "codecomplete numdiag: %d, container kind: %d, incomplete: %d\n", (int)numDiag, kind, IsIncomplete );
         unsigned int diagIdx = 0;
         std::vector<ClDiagnostic> diaglist;
-        for(diagIdx=0; diagIdx < numDiag; ++diagIdx)
+        for ( diagIdx=0; diagIdx < numDiag; ++diagIdx )
         {
             CXDiagnostic diag = clang_codeCompleteGetDiagnostic( m_LastCC, diagIdx );
             ExpandDiagnostic( diag, complete_filename, diaglist );
         }
-        //for( std::vector<ClDiagnostic>::const_iterator it = diaglist.begin(); it != diaglist.end(); ++it)
+        //for ( std::vector<ClDiagnostic>::const_iterator it = diaglist.begin(); it != diaglist.end(); ++it)
         //{
         //    fprintf(stdout, " l=%d  s=%d '%s'\n", it->line, it->severity, (const char*)it->message.mb_str() );
         //}
@@ -328,12 +328,12 @@ static void RangeToColumns(CXSourceRange range, unsigned& rgStart, unsigned& rgE
 
 void ClTranslationUnit::ExpandDiagnostic( CXDiagnostic diag, const wxString& filename, std::vector<ClDiagnostic>& diagnostics )
 {
-    if( diag == nullptr )
+    if ( diag == nullptr )
     {
         return;
     }
     CXSourceLocation loc = clang_getDiagnosticLocation(diag);
-    if( clang_equalLocations( loc, clang_getNullLocation()) )
+    if ( clang_equalLocations( loc, clang_getNullLocation()) )
     {
         return;
     }
@@ -353,7 +353,7 @@ void ClTranslationUnit::ExpandDiagnostic( CXDiagnostic diag, const wxString& fil
     wxString flName = wxString::FromUTF8(clang_getCString(str));
     clang_disposeString(str);
 
-    if( flName == filename )
+    if ( flName == filename )
     {
         size_t numRnges = clang_getDiagnosticNumRanges(diag);
         unsigned rgStart = 0;
@@ -537,7 +537,7 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
             case CXCursor_ClassTemplatePartialSpecialization:
             case CXCursor_CXXMethod:
                 str = clang_getCursorDisplayName(cursor);
-                if( displayName.Length() == 0 )
+                if ( displayName.Length() == 0 )
                     displayName = wxString::FromUTF8(clang_getCString(str));
                 else
                 {

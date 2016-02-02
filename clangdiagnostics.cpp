@@ -167,7 +167,7 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     {
         return;
     }
-    if( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
+    if ( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
     {
         // Switched translation unit before event delivered
         return;
@@ -178,7 +178,7 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     bool show_error = cfg->ReadBool( _T("/diagnostics_show_errors"), true);
 
     const std::vector<ClDiagnostic>& diagnostics = event.GetDiagnosticResults();
-    if( (diagLv == dlFull)&&(event.GetLocation().line != 0)&&(event.GetLocation().column != 0) )
+    if ( (diagLv == dlFull)&&(event.GetLocation().line != 0)&&(event.GetLocation().column != 0) )
     {
         update = true;
     }

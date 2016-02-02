@@ -104,7 +104,7 @@ ClangSettingsDlg::ClangSettingsDlg(wxWindow* parent, ClangPlugin* pPlugin /*, Na
     XRCCTRL(*this, "chkDetectImpl",         wxCheckBox)->SetValue(cfg->ReadBool(_T("/detect_implementation"),false));
     XRCCTRL(*this, "chkAddDoxgenComment",   wxCheckBox)->SetValue(cfg->ReadBool(_T("/add_doxgen_comment"),   false));
     //XRCCTRL(*this, "chkEnableHeaders",      wxCheckBox)->SetValue(cfg->ReadBool(_T("/enable_headers"),       true));
-    XRCCTRL(*this, "spnMaxMatches",         wxSpinCtrl)->SetValue(cfg->ReadInt(_T("/max_matches"),           16384));
+    XRCCTRL(*this, "spnMaxMatches",         wxSpinCtrl)->SetValue(cfg->ReadInt(_T("/max_matches"),           1024));
     XRCCTRL(*this, "txtFillupChars",        wxTextCtrl)->SetValue(cfg->Read(_T("/fillup_chars"),             wxEmptyString));
     XRCCTRL(*this, "sldCCDelay",            wxSlider)->SetValue(cfg->ReadInt(_T("/cc_delay"),                300) / 100);
     UpdateCCDelayLabel();

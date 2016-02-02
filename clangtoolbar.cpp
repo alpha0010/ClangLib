@@ -222,10 +222,10 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& event )
     std::sort(scopes.begin(), scopes.end() , SortByScopeName );
     m_Scope->Freeze();
     m_Scope->Clear();
-    for( std::vector<std::pair<wxString, wxString> >::iterator it = scopes.begin(); it != scopes.end(); ++it )
+    for ( std::vector<std::pair<wxString, wxString> >::iterator it = scopes.begin(); it != scopes.end(); ++it )
     {
         wxString scope = it->first;
-        if( scope.Length() == 0 )
+        if ( scope.Length() == 0 )
         {
             scope = wxT("<global>");
         }
@@ -319,9 +319,9 @@ void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
     std::sort(funcList.begin(), funcList.end() , SortByFunctionName);
     m_Function->Freeze();
     m_Function->Clear();
-    for( std::vector<std::pair<wxString, wxString> >::const_iterator it = funcList.begin(); it != funcList.end(); ++it)
+    for ( std::vector<std::pair<wxString, wxString> >::const_iterator it = funcList.begin(); it != funcList.end(); ++it)
     {
-        if( it->first == scopeItem )
+        if ( it->first == scopeItem )
         {
             m_Function->Append(it->second);
         }

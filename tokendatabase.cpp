@@ -81,7 +81,7 @@ ClTokenId ClTokenDatabase::GetTokenId(const wxString& identifier, ClFileId fileI
         if (m_pTokens->HasValue(*itr))
         {
             ClAbstractToken tok = m_pTokens->GetValue(*itr);
-            if( (tok.tokenHash == tokenHash)&&((tok.fileId == fileId)||(fileId == wxNOT_FOUND)) )
+            if ( (tok.tokenHash == tokenHash)&&((tok.fileId == fileId)||(fileId == wxNOT_FOUND)) )
                 return *itr;
         }
     }

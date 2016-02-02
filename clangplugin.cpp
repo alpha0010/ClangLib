@@ -171,11 +171,11 @@ void ClangPlugin::OnAttach()
     Connect(idClangGetCCDocumentationTask,cbEVT_CLANG_SYNCTASK_FINISHED, wxEventHandler(ClangPlugin::OnClangSyncTaskFinished), nullptr, this);
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangPlugin>(this, &ClangPlugin::OnEditorHook));
 
-    if( cfg->ReadBool(ClangCodeCompletion::SettingName,   true))
+    if ( cfg->ReadBool(ClangCodeCompletion::SettingName,   true))
     {
         ActivateComponent( &m_CodeCompletion );
     }
-    if( cfg->ReadBool(ClangDiagnostics::SettingName,   true))
+    if ( cfg->ReadBool(ClangDiagnostics::SettingName,   true))
     {
         ActivateComponent( &m_Diagnostics );
     }
@@ -223,7 +223,7 @@ bool ClangPlugin::ActivateComponent( ClangPluginComponent* pComponent )
 {
     for (std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
     {
-        if( *it == pComponent)
+        if ( *it == pComponent)
         {
             return false;
         }
@@ -238,7 +238,7 @@ bool ClangPlugin::DeactivateComponent(  ClangPluginComponent* pComponent  )
 {
     for (std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
     {
-        if( *it == pComponent)
+        if ( *it == pComponent)
         {
             (*it)->OnRelease(this);
             it = m_ActiveComponentList.erase(it);
@@ -252,7 +252,7 @@ void ClangPlugin::UpdateComponents()
 {
     bool activationChanged = false;
     ConfigManager* cfg = Manager::Get()->GetConfigManager(CLANG_CONFIGMANAGER);
-    if( cfg->ReadBool( ClangCodeCompletion::SettingName, true ) )
+    if ( cfg->ReadBool( ClangCodeCompletion::SettingName, true ) )
     {
         if (ActivateComponent( &m_CodeCompletion ))
             activationChanged = true;
@@ -260,7 +260,7 @@ void ClangPlugin::UpdateComponents()
         if (DeactivateComponent( &m_CodeCompletion ))
             activationChanged = true;
     }
-    if( cfg->ReadBool( ClangDiagnostics::SettingName, true ) )
+    if ( cfg->ReadBool( ClangDiagnostics::SettingName, true ) )
     {
         if (ActivateComponent( &m_Diagnostics ))
             activationChanged = true;
@@ -268,7 +268,7 @@ void ClangPlugin::UpdateComponents()
         if (DeactivateComponent( &m_Diagnostics ))
             activationChanged = true;
     }
-    if( activationChanged )
+    if ( activationChanged )
         Manager::Get()->GetEditorManager()->SetActiveEditor( Manager::Get()->GetEditorManager()->GetActiveEditor() );
 }
 
@@ -314,7 +314,7 @@ wxString ClangPlugin::GetDocumentation(const CCToken& token)
     for ( std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
     {
         wxString ret = (*it)->GetDocumentation(token);
-        if( ret != wxEmptyString )
+        if ( ret != wxEmptyString )
         {
             return ret;
         }
@@ -467,7 +467,7 @@ void ClangPlugin::DoAutocomplete(const CCToken& token, cbEditor* ed)
 {
     for ( std::vector<ClangPluginComponent*>::iterator it = m_ActiveComponentList.begin(); it != m_ActiveComponentList.end(); ++it)
     {
-        if( (*it)->DoAutocomplete(token, ed ) )
+        if ( (*it)->DoAutocomplete(token, ed ) )
             return;
     }
 }
@@ -523,7 +523,7 @@ bool ClangPlugin::BuildToolBar(wxToolBar* toolBar)
         }
     }
     m_Toolbar.OnAttach(this);
-    if( !m_Toolbar.BuildToolBar(toolBar) )
+    if ( !m_Toolbar.BuildToolBar(toolBar) )
     {
         m_Toolbar.OnRelease(this);
         return false;
@@ -555,7 +555,7 @@ void ClangPlugin::OnEditorActivate(CodeBlocksEvent& event)
             m_TranslUnitId = wxNOT_FOUND;
             m_ReparseNeeded = 0;
         }
-        if( !IsProviderFor(ed) )
+        if ( !IsProviderFor(ed) )
         {
             return;
         }
@@ -709,7 +709,7 @@ void ClangPlugin::OnGotoDeclaration(wxCommandEvent& WXUNUSED(event))
     if (stc->GetLine(line).StartsWith(wxT("#include")))
         column = 3;
     ClTokenPosition loc(line+1, column+1);
-    if( !m_Proxy.ResolveDeclTokenAt(m_TranslUnitId, filename, loc) )
+    if ( !m_Proxy.ResolveDeclTokenAt(m_TranslUnitId, filename, loc) )
     {
         return;
     }
@@ -734,7 +734,7 @@ void ClangPlugin::OnGotoImplementation(wxCommandEvent& WXUNUSED(event))
     if (stc->GetLine(line).StartsWith(wxT("#include")))
         column = 3;
     ClTokenPosition loc(line+1, column+1);
-    if( !m_Proxy.ResolveDefinitionTokenAt(m_TranslUnitId, filename, loc) )
+    if ( !m_Proxy.ResolveDefinitionTokenAt(m_TranslUnitId, filename, loc) )
     {
         return;
     }
@@ -1194,7 +1194,6 @@ wxCondError ClangPlugin::GetCodeCompletionAt( const ClTranslUnitId translUnitId,
     }
     ClangProxy::CodeCompleteAtJob job( cbEVT_CLANG_SYNCTASK_FINISHED, idClangCodeCompleteTask, 0, filename, loc, translUnitId, unsavedFiles);
     m_Proxy.AppendPendingJob(job);
-
     if (wxCOND_TIMEOUT == job.WaitCompletion(timeout))
     {
         return wxCOND_TIMEOUT;
