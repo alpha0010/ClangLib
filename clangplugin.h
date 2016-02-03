@@ -12,6 +12,10 @@
 #include "clangcc.h"
 #include "clangdiagnostics.h"
 
+// milliseconds
+#define CLANG_REPARSE_DELAY 10000
+
+
 /* final */
 class ClangPlugin : public cbCodeCompletionPlugin, public IClangPlugin
 {
@@ -153,7 +157,7 @@ private: // Internal utility functions
     // Builds compile command
     int UpdateCompileCommand(cbEditor* ed);
 
-    void RequestReparse();
+    void RequestReparse( int delayMilliseconds = CLANG_REPARSE_DELAY );
 
     bool ActivateComponent( ClangPluginComponent* pComponent );
     bool DeactivateComponent( ClangPluginComponent* pComponent );

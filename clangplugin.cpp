@@ -51,9 +51,6 @@ const int idReparseTimer    = wxNewId();
 const int idGotoDeclaration = wxNewId();
 const int idGotoImplementation = wxNewId();
 
-// milliseconds
-#define REPARSE_DELAY 10000
-
 DEFINE_EVENT_TYPE(cbEVT_COMMAND_CREATETU);
 // Asynchronous events received
 DEFINE_EVENT_TYPE(cbEVT_CLANG_ASYNCTASK_FINISHED);
@@ -637,7 +634,7 @@ void ClangPlugin::OnProjectOptionsChanged(CodeBlocksEvent& event)
         int compileCommandChanged = UpdateCompileCommand(ed);
         if (compileCommandChanged)
         {
-            RequestReparse();
+            RequestReparse(1);
         }
     }
 }
@@ -652,7 +649,7 @@ void ClangPlugin::OnProjectFileChanged(CodeBlocksEvent& event)
     event.Skip();
     if (IsAttached())
     {
-        RequestReparse();
+        RequestReparse(1);
     }
 }
 
@@ -1048,22 +1045,15 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     if (!IsProviderFor(ed))
         return;
     cbStyledTextCtrl* stc = ed->GetControl();
-    if (event.GetEventType() == wxEVT_SCI_MODIFIED)
+    if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
     {
-        if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
+        const int pos = stc->GetCurrentPos();
+        const int line = stc->LineFromPosition(pos);
+        if ( (m_LastModifyLine != -1)&&(line != m_LastModifyLine) )
         {
-            const int pos = stc->GetCurrentPos();
-            const int line = stc->LineFromPosition(pos);
-            if ( (m_LastModifyLine != -1)&&(line != m_LastModifyLine) )
-            {
-                RequestReparse();
-            }
-            m_LastModifyLine = line;
+            RequestReparse();
         }
-    }
-    else if (event.GetEventType() == wxEVT_SCI_CHANGE)
-    {
-        //fprintf(stdout,"wxEVT_SCI_CHANGE\n");
+        m_LastModifyLine = line;
     }
 }
 
@@ -1113,11 +1103,11 @@ bool ClangPlugin::IsProviderFor(cbEditor* ed)
     return cbCodeCompletionPlugin::IsProviderFor(ed);
 }
 
-void ClangPlugin::RequestReparse()
+void ClangPlugin::RequestReparse( int millisecs )
 {
     m_ReparseNeeded++;
     m_ReparseTimer.Stop();
-    m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
+    m_ReparseTimer.Start( millisecs, wxTIMER_ONE_SHOT);
 }
 
 ClTranslUnitId ClangPlugin::GetTranslationUnitId( const wxString& filename )
