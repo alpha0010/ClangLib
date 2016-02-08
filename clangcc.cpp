@@ -77,8 +77,11 @@ void ClangCodeCompletion::OnAttach(IClangPlugin* pClangPlugin)
 void ClangCodeCompletion::OnRelease(IClangPlugin* pClangPlugin)
 {
     pClangPlugin->RemoveAllEventSinksFor(this);
+    Disconnect(idHighlightTimer);
+    Disconnect(idDiagnosticTimer);
     EditorHooks::UnregisterHook(m_EditorHookId);
     Manager::Get()->RemoveAllEventSinksFor(this);
+
 
     ClangPluginComponent::OnRelease(pClangPlugin);
 }
@@ -86,6 +89,9 @@ void ClangCodeCompletion::OnRelease(IClangPlugin* pClangPlugin)
 void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
 {
     event.Skip();
+    if( !IsAttached() )
+        return;
+
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
     if (ed)
     {
@@ -104,17 +110,22 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
 
 void ClangCodeCompletion::OnEditorClose(CodeBlocksEvent& event)
 {
+    event.Skip();
+    if( !IsAttached() )
+        return;
+
     EditorManager* edm = Manager::Get()->GetEditorManager();
     if (!edm)
     {
-        event.Skip();
         return;
     }
-    event.Skip();
 }
 
 void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 {
+    event.Skip();
+    if( !IsAttached() )
+        return;
     bool clearIndicator = false;
     bool reparse = false;
     //if (!m_pClangPlugin->IsProviderFor(ed))
@@ -156,7 +167,6 @@ void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     {
         RequestReparse();
     }
-    event.Skip();
 }
 
 void ClangCodeCompletion::OnTimer(wxTimerEvent& event)

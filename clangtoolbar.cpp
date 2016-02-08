@@ -70,6 +70,8 @@ void ClangToolbar::OnAttach(IClangPlugin* pClangPlugin)
 
 void ClangToolbar::OnRelease(IClangPlugin* pClangPlugin)
 {
+    Disconnect(idToolbarUpdateContents);
+    Disconnect(idToolbarUpdateSelection);
     ClangPluginComponent::OnRelease(pClangPlugin);
     EditorHooks::UnregisterHook(m_EditorHookId);
     Manager::Get()->RemoveAllEventSinksFor(this);

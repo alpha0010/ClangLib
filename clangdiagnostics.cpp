@@ -61,6 +61,7 @@ void ClangDiagnostics::OnAttach( IClangPlugin* pClangPlugin )
 
 void ClangDiagnostics::OnRelease( IClangPlugin* pClangPlugin )
 {
+    pClangPlugin->RemoveAllEventSinksFor( this );
     Disconnect( idGotoPrevDiagnostic );
     Disconnect( idGotoPrevDiagnostic );
     Manager::Get()->RemoveAllEventSinksFor(this);
@@ -138,6 +139,10 @@ void ClangDiagnostics::OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) )
 // Code::Blocks events
 void ClangDiagnostics::OnEditorActivate(CodeBlocksEvent& event)
 {
+    event.Skip();
+    if( !IsAttached() )
+        return;
+
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
     if (ed)
     {
@@ -146,19 +151,23 @@ void ClangDiagnostics::OnEditorActivate(CodeBlocksEvent& event)
         m_TranslUnitId = m_pClangPlugin->GetTranslationUnitId(fn);
     }
     m_Diagnostics.clear();
-    event.Skip();
 }
 
 void ClangDiagnostics::OnEditorClose(CodeBlocksEvent& event)
 {
+    event.Skip();
+    if( !IsAttached() )
+        return;
     m_Diagnostics.clear();
     m_TranslUnitId = -1;
-    event.Skip();
 }
 
 void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
 {
     event.Skip();
+    if( !IsAttached() )
+        return;
+
     ClDiagnosticLevel diagLv = dlFull; // TODO
     bool update = false;
     EditorManager* edMgr = Manager::Get()->GetEditorManager();

@@ -7,6 +7,7 @@
 #include <iostream>
 #include "clangplugin.h"
 #include "clangccsettingsdlg.h"
+#include "cclogger.h"
 
 #include <cbcolourmanager.h>
 #include <cbstyledtextctrl.h>
@@ -209,6 +210,13 @@ void ClangPlugin::OnRelease(bool WXUNUSED(appShutDown))
     }
 
     EditorHooks::UnregisterHook(m_EditorHookId);
+    Disconnect(idClangGetCCDocumentationTask);
+    Disconnect(idClangGetOccurrencesTask);
+    Disconnect(idClangCodeCompleteTask);
+    Disconnect(idClangSyncTask);
+    Disconnect(idClangGetDiagnostics);
+    Disconnect(idClangReparse);
+    Disconnect(idClangCreateTU);
     Disconnect(idGotoDeclaration);
     Disconnect(idGotoImplementation);
     Disconnect(idReparseTimer);
@@ -1045,6 +1053,8 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     if (!IsProviderFor(ed))
         return;
     cbStyledTextCtrl* stc = ed->GetControl();
+    //CCLogger::Get()->Log( wxT("OnEditorHook") );
+    //fprintf( stdout, "OnEditorHook %x\n", event.GetModificationType() );
     if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
     {
         const int pos = stc->GetCurrentPos();
@@ -1105,6 +1115,7 @@ bool ClangPlugin::IsProviderFor(cbEditor* ed)
 
 void ClangPlugin::RequestReparse( int millisecs )
 {
+    fprintf( stdout, "RequestReparse\n" );
     m_ReparseNeeded++;
     m_ReparseTimer.Stop();
     m_ReparseTimer.Start( millisecs, wxTIMER_ONE_SHOT);
