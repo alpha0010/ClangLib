@@ -1094,8 +1094,8 @@ void ClangPlugin::OnClangSyncTaskFinished( wxEvent& event )
         ProcessEvent(evt);
         if ( HasEventSink(clEVT_DIAGNOSTICS_UPDATED) )
         {
-            ClangEvent evt( clEVT_DIAGNOSTICS_UPDATED, pCCJob->GetTranslationUnitId(), pCCJob->GetFilename(), pCCJob->GetLocation(), pCCJob->GetDiagnostics());
-            ProcessEvent(evt);
+            ClangEvent evt2(clEVT_DIAGNOSTICS_UPDATED, pCCJob->GetTranslationUnitId(), pCCJob->GetFilename(), pCCJob->GetLocation(), pCCJob->GetDiagnostics());
+            ProcessEvent(evt2);
         }
     }
     else if (event.GetId() == idClangGetOccurrencesTask)

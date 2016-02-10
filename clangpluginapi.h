@@ -185,6 +185,8 @@ extern const wxEventType clEVT_DIAGNOSTICS_UPDATED;
 class IClangPlugin
 {
 public:
+    virtual ~IClangPlugin() {};
+
     virtual bool IsProviderFor(cbEditor* ed) = 0;
     virtual ClTranslUnitId GetTranslationUnitId( const wxString& filename ) = 0;
     virtual const wxImageList& GetImageList( const ClTranslUnitId id ) = 0;

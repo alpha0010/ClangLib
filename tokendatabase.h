@@ -16,8 +16,8 @@ struct ClAbstractToken
 {
     ClAbstractToken() :
         tokenType(ClTokenType_Unknown), fileId(-1), location(ClTokenPosition( 0, 0 )), identifier(), displayName(), scopeName(), tokenHash(0) {}
-    ClAbstractToken( ClTokenType typ, ClFileId fId, ClTokenPosition location, wxString name, wxString displayName, wxString scopeName, unsigned tknHash) :
-        tokenType(typ), fileId(fId), location(location), identifier(name), displayName(displayName.c_str()), scopeName(scopeName.c_str()), tokenHash(tknHash) {}
+    ClAbstractToken(ClTokenType typ, ClFileId fId, ClTokenPosition loc, wxString name, wxString _displayName, wxString _scopeName, unsigned tknHash) :
+        tokenType(typ), fileId(fId), location(loc), identifier(name), displayName(_displayName.c_str()), scopeName(_scopeName.c_str()), tokenHash(tknHash) {}
     ClAbstractToken( const ClAbstractToken& other ) :
         tokenType(other.tokenType), fileId(other.fileId), location(other.location), identifier(other.identifier), displayName( other.displayName.c_str()), scopeName(other.scopeName.c_str()), tokenHash(other.tokenHash) {}
 
@@ -36,9 +36,9 @@ struct ClAbstractToken
 class ClFilenameEntry
 {
 public:
-    ClFilenameEntry( wxString filename, wxDateTime timestamp ) :
-        filename(filename),
-        timestamp(timestamp) {}
+    ClFilenameEntry(wxString _filename, wxDateTime _timestamp) :
+        filename(_filename),
+        timestamp(_timestamp) {}
     wxString filename;
     wxDateTime timestamp;
 };

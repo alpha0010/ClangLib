@@ -69,6 +69,8 @@
 		<Unit filename="README.md">
 			<Option target="&lt;{~None~}&gt;" />
 		</Unit>
+		<Unit filename="cclogger.cpp" />
+		<Unit filename="cclogger.h" />
 		<Unit filename="clangcc.cpp" />
 		<Unit filename="clangcc.h" />
 		<Unit filename="clangccsettingsdlg.cpp" />
