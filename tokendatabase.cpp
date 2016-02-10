@@ -197,8 +197,7 @@ ClFileId ClFilenameDatabase::GetFilenameId(const wxString& filename)
         wxString f = wxString(normFile.c_str());
         wxDateTime ts; // Timestamp updated when file was parsed into the token database.
         ClFilenameEntry entry(f,ts);
-        ClFileId id = m_pFileEntries->Insert( f, entry );
-        return id;
+        return m_pFileEntries->Insert(f, entry);
     }
     return id.front();
 }

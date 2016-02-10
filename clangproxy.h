@@ -40,10 +40,10 @@ public:
             GetFunctionScopeAtType
         };
     protected:
-        ClangJob( JobType JobType ) :
+        ClangJob(JobType jt) :
             AbstractJob(),
             wxObject(),
-            m_JobType(JobType),
+            m_JobType(jt),
             m_pProxy(NULL)
         {
         }
@@ -88,7 +88,8 @@ public:
     class EventJob : public ClangJob
     {
     protected:
-        EventJob( JobType JobType, wxEventType evtType, int evtId ) : ClangJob(JobType), m_EventType(evtType), m_EventId(evtId)
+        EventJob(JobType jt, wxEventType evtType, int evtId) :
+            ClangJob(jt), m_EventType(evtType), m_EventId(evtId)
         {
         }
         EventJob( const EventJob& other ) : ClangJob(other.m_JobType)
@@ -321,15 +322,15 @@ public:
     class SyncJob : public EventJob
     {
     protected:
-        SyncJob(JobType JobType, wxEventType evtType, int evtId) :
-            EventJob(JobType, evtType, evtId),
+        SyncJob(JobType jt, wxEventType evtType, int evtId) :
+            EventJob(jt, evtType, evtId),
             m_bCompleted(false),
             m_pMutex(new wxMutex()),
             m_pCond(new wxCondition(*m_pMutex))
         {
         }
-        SyncJob(JobType JobType, wxEventType evtType, int evtId, wxMutex* pMutex, wxCondition* pCond) :
-            EventJob(JobType, evtType, evtId),
+        SyncJob(JobType jt, wxEventType evtType, int evtId, wxMutex* pMutex, wxCondition* pCond) :
+            EventJob(jt, evtType, evtId),
             m_bCompleted(false),
             m_pMutex(pMutex),
             m_pCond(pCond) {}

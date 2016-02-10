@@ -533,7 +533,6 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
         wxString scopeName;
         while ( !clang_Cursor_isNull(cursor) )
         {
-            CXString str;
             switch ( cursor.kind )
             {
             case CXCursor_Namespace:
