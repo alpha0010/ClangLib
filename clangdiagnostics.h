@@ -6,7 +6,8 @@
 
 #include "clangpluginapi.h"
 
-class ClangDiagnostics : public ClangPluginComponent {
+class ClangDiagnostics : public ClangPluginComponent
+{
 public:
     ClangDiagnostics();
     virtual ~ClangDiagnostics();

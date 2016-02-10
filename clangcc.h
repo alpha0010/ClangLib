@@ -7,7 +7,8 @@
 
 #include "clangpluginapi.h"
 
-class ClangCodeCompletion : public ClangPluginComponent {
+class ClangCodeCompletion : public ClangPluginComponent
+{
 public:
     ClangCodeCompletion();
     virtual ~ClangCodeCompletion();

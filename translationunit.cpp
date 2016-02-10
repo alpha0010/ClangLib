@@ -13,7 +13,8 @@
 #include "tokendatabase.h"
 
 #if 0
-class ClangVisitorContext {
+class ClangVisitorContext
+{
 public:
     ClangVisitorContext(ClTranslationUnit* pTranslationUnit) :
         m_pTranslationUnit(pTranslationUnit)
@@ -25,13 +26,17 @@ public:
 
 struct ClangVisitorContext
 {
-    ClangVisitorContext( ClTokenDatabase* pDatabase ){ database = pDatabase; tokenCount = 0;}
+    ClangVisitorContext( ClTokenDatabase* pDatabase )
+    {
+        database = pDatabase;
+        tokenCount = 0;
+    }
     ClTokenDatabase* database;
     unsigned long long tokenCount;
 };
 
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* inclusion_stack,
-        unsigned include_len, CXClientData client_data);
+                               unsigned include_len, CXClientData client_data);
 
 static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor parent, CXClientData client_data);
 
@@ -132,10 +137,10 @@ CXCodeCompleteResults* ClTranslationUnit::CodeCompleteAt( const wxString& comple
     if (m_LastCC)
         clang_disposeCodeCompleteResults(m_LastCC);
     m_LastCC = clang_codeCompleteAt(m_ClTranslUnit, (const char*)complete_filename.ToUTF8(), complete_location.line, complete_location.column,
-            unsaved_files, num_unsaved_files,
-            clang_defaultCodeCompleteOptions()
-            | CXCodeComplete_IncludeCodePatterns
-            | CXCodeComplete_IncludeBriefComments);
+                                    unsaved_files, num_unsaved_files,
+                                    clang_defaultCodeCompleteOptions()
+                                    | CXCodeComplete_IncludeCodePatterns
+                                    | CXCodeComplete_IncludeBriefComments);
     m_LastPos.Set(complete_location.line, complete_location.column);
     if (m_LastCC )
     {
@@ -170,7 +175,7 @@ CXCursor ClTranslationUnit::GetTokenAt(const wxString& filename, const ClTokenPo
 {
     if (m_ClTranslUnit == nullptr )
     {
-       return clang_getNullCursor();
+        return clang_getNullCursor();
     }
     return clang_getCursor(m_ClTranslUnit, clang_getLocation(m_ClTranslUnit, GetFileHandle(filename), location.line, location.column));
 }
@@ -213,17 +218,17 @@ void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const 
     if (filename.length() != 0)
     {
         m_ClTranslUnit = clang_parseTranslationUnit( m_ClIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0], args.size(),
-            //clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size(),
-            nullptr, 0,
-            clang_defaultEditingTranslationUnitOptions()
-            | CXTranslationUnit_CacheCompletionResults
-            | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
-            | CXTranslationUnit_DetailedPreprocessingRecord
-            | CXTranslationUnit_PrecompiledPreamble
-            //CXTranslationUnit_CacheCompletionResults |
-            //    CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
-            //    CXTranslationUnit_CXXChainedPCH
-            );
+                         //clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0], clUnsavedFiles.size(),
+                         nullptr, 0,
+                         clang_defaultEditingTranslationUnitOptions()
+                         | CXTranslationUnit_CacheCompletionResults
+                         | CXTranslationUnit_IncludeBriefCommentsInCodeCompletion
+                         | CXTranslationUnit_DetailedPreprocessingRecord
+                         | CXTranslationUnit_PrecompiledPreamble
+                         //CXTranslationUnit_CacheCompletionResults |
+                         //    CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
+                         //    CXTranslationUnit_CXXChainedPCH
+                                                   );
         if ( m_ClTranslUnit == nullptr )
         {
             return;
@@ -237,20 +242,20 @@ void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const 
             m_Files.push_back(m_FileId);
             std::sort(m_Files.begin(), m_Files.end());
             std::unique(m_Files.begin(), m_Files.end());
-        #if __cplusplus >= 201103L
+#if __cplusplus >= 201103L
             m_Files.shrink_to_fit();
-        #else
+#else
             std::vector<ClFileId>(m_Files).swap(m_Files);
-        #endif
+#endif
             //Reparse(0, nullptr); // seems to improve performance for some reason?
             int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
-                            clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
-                            clang_defaultReparseOptions(m_ClTranslUnit) );
+                                                   clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
+                                                   clang_defaultReparseOptions(m_ClTranslUnit) );
 
             struct ClangVisitorContext ctx(pDatabase);
             unsigned rc = clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
             fprintf(stdout,"Visit count: %d, rc=%d\n", (int)ctx.tokenCount, (int)rc);
-        //database->Shrink();
+            //database->Shrink();
         }
     }
 }
@@ -282,12 +287,12 @@ void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFile
 
     // TODO: check and handle error conditions
     int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
-                            clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
-                            clang_defaultReparseOptions(m_ClTranslUnit)
-                //CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_PrecompiledPreamble |
-                //CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
-                //CXTranslationUnit_CXXChainedPCH
-                                           );
+                                           clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
+                                           clang_defaultReparseOptions(m_ClTranslUnit)
+                                           //CXTranslationUnit_CacheCompletionResults | CXTranslationUnit_PrecompiledPreamble |
+                                           //CXTranslationUnit_Incomplete | CXTranslationUnit_DetailedPreprocessingRecord |
+                                           //CXTranslationUnit_CXXChainedPCH
+                                          );
     if (ret != 0 )
     {
         assert(false&&"clang_reparseTranslationUnit should succeed");
@@ -337,7 +342,7 @@ void ClTranslationUnit::ExpandDiagnostic( CXDiagnostic diag, const wxString& fil
     {
         return;
     }
-    switch( clang_getDiagnosticSeverity(diag) )
+    switch ( clang_getDiagnosticSeverity(diag) )
     {
     case CXDiagnostic_Ignored:
     case CXDiagnostic_Note:
@@ -394,7 +399,8 @@ void ClTranslationUnit::ExpandDiagnostic( CXDiagnostic diag, const wxString& fil
             diagText = diagText.Right( diagText.Length() - 7 );
         }
         ClSeverity sev = sWarning;
-        switch( clang_getDiagnosticSeverity(diag)){
+        switch ( clang_getDiagnosticSeverity(diag))
+        {
         case CXDiagnostic_Error:
         case CXDiagnostic_Fatal:
             sev = sError;
@@ -445,7 +451,7 @@ unsigned HashToken(CXCompletionString token, wxString& identifier)
 }
 
 static void ClInclusionVisitor(CXFile included_file, CXSourceLocation* WXUNUSED(inclusion_stack),
-        unsigned WXUNUSED(include_len), CXClientData client_data)
+                               unsigned WXUNUSED(include_len), CXClientData client_data)
 {
     CXString filename = clang_getFileName(included_file);
     wxFileName inclFile(wxString::FromUTF8(clang_getCString(filename)));
@@ -525,10 +531,10 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
     {
         wxString displayName;
         wxString scopeName;
-        while( !clang_Cursor_isNull(cursor) )
+        while ( !clang_Cursor_isNull(cursor) )
         {
             CXString str;
-            switch( cursor.kind )
+            switch ( cursor.kind )
             {
             case CXCursor_Namespace:
             case CXCursor_StructDecl:

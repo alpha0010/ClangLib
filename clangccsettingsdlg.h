@@ -21,10 +21,19 @@ public:
     ClangSettingsDlg(wxWindow* parent, ClangPlugin* pPlugin  );
     virtual ~ClangSettingsDlg();
 
-    virtual wxString GetTitle() const          { return _("Code assistance"); }
-    virtual wxString GetBitmapBaseName() const { return _T("codecompletion"); }
+    virtual wxString GetTitle() const
+    {
+        return _("Code assistance");
+    }
+    virtual wxString GetBitmapBaseName() const
+    {
+        return _T("codecompletion");
+    }
     virtual void OnApply();
-    virtual void OnCancel()                    { ; }
+    virtual void OnCancel()
+    {
+        ;
+    }
 
 protected:
     void OnChooseColour(wxCommandEvent& event);

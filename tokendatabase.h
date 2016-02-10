@@ -20,7 +20,7 @@ typedef enum _TokenType
     ClTokenType_ParmDecl  = 1<<2,
     ClTokenType_ScopeDecl = 1<<3,
 
-}ClTokenType;
+} ClTokenType;
 
 struct ClAbstractToken
 {

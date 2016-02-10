@@ -5,7 +5,8 @@
 #include <sdk.h>
 #include <wx/choice.h>
 
-class ClangToolbar : public ClangPluginComponent {
+class ClangToolbar : public ClangPluginComponent
+{
 public:
     ClangToolbar();
     virtual ~ClangToolbar();
@@ -28,7 +29,7 @@ public: // Command events
     void OnFunction( wxCommandEvent& evt );
 public:
     bool BuildToolBar(wxToolBar* toolBar);
-        /** enable the two wxChoices */
+    /** enable the two wxChoices */
     void EnableToolbarTools(bool enable = true);
 
     // Updates the toolbar

@@ -57,7 +57,7 @@ void ClangCodeCompletion::OnAttach(IClangPlugin* pClangPlugin)
 
     ColourManager *pColours = Manager::Get()->GetColourManager();
 
-    pColours->RegisterColour( _("Code completion"), _("Documentation popup scope text") , _("cc_docs_scope_fore"), *wxBLUE );
+    pColours->RegisterColour( _("Code completion"), _("Documentation popup scope text"), _("cc_docs_scope_fore"), *wxBLUE );
 
     typedef cbEventFunctor<ClangCodeCompletion, CodeBlocksEvent> CBCCEvent;
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new CBCCEvent(this, &ClangCodeCompletion::OnEditorActivate));
@@ -82,14 +82,13 @@ void ClangCodeCompletion::OnRelease(IClangPlugin* pClangPlugin)
     EditorHooks::UnregisterHook(m_EditorHookId);
     Manager::Get()->RemoveAllEventSinksFor(this);
 
-
     ClangPluginComponent::OnRelease(pClangPlugin);
 }
 
 void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
 {
     event.Skip();
-    if( !IsAttached() )
+    if ( !IsAttached() )
         return;
 
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
@@ -111,7 +110,7 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
 void ClangCodeCompletion::OnEditorClose(CodeBlocksEvent& event)
 {
     event.Skip();
-    if( !IsAttached() )
+    if ( !IsAttached() )
         return;
 
     EditorManager* edm = Manager::Get()->GetEditorManager();
@@ -124,7 +123,7 @@ void ClangCodeCompletion::OnEditorClose(CodeBlocksEvent& event)
 void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 {
     event.Skip();
-    if( !IsAttached() )
+    if ( !IsAttached() )
         return;
     bool clearIndicator = false;
     bool reparse = false;
@@ -277,7 +276,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     std::vector<cbCodeCompletionPlugin::CCToken> tokens;
 
     ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("ClangLib"));
-    int maxResultCount = cfg->ReadInt( _T("/max_matches"), 1024);
+    size_t maxResultCount = cfg->ReadInt( _T("/max_matches"), 1024);
 
     cbStyledTextCtrl* stc = ed->GetControl();
     const int style = stc->GetStyleAt( tknEnd );
@@ -317,9 +316,9 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         if ((curChar == wxT(':') // scope operator
                 && stc->GetCharAt(tknEnd - 2) != wxT(':') )
                 || ( curChar == wxT('>') // '->'
-                        && stc->GetCharAt(tknEnd - 2) != wxT('-') )
+                     && stc->GetCharAt(tknEnd - 2) != wxT('-') )
                 || ( wxString(wxT("<\"/")).Find(curChar) != wxNOT_FOUND // #include directive (TODO: enumerate completable include files)
-                        && !stc->IsPreprocessor(style)))
+                     && !stc->IsPreprocessor(style)))
         {
             return tokens;
         }
@@ -413,7 +412,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
 
     if (!tokens.empty())
     {
-        if (prefix.IsEmpty() && tokens.size() > maxResultCount) // reduce to give only top matches
+        if (prefix.IsEmpty() && (tokens.size() > maxResultCount)) // reduce to give only top matches
         {
             std::partial_sort(tokens.begin(), tokens.begin() + maxResultCount, tokens.end(), PrioritySorter());
             tokens.erase(tokens.begin() + maxResultCount, tokens.end());
@@ -463,7 +462,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     return tokens;
 }
 
-std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompListIncludes(bool isAuto, cbEditor* ed, int& tknStart, int& tknEnd)
+std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompListIncludes(bool /*isAuto*/, cbEditor* /*ed*/, int& /*tknStart*/, int& /*tknEnd*/)
 {
     std::vector<cbCodeCompletionPlugin::CCToken> result;
 
@@ -479,14 +478,14 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
     std::vector<std::pair<int, int> > offsetsList;
     cbStyledTextCtrl* stc = ed->GetControl();
     wxString suffix = m_pClangPlugin->GetCodeCompletionInsertSuffix(GetCurrentTranslationUnitId(), token.id,
-            GetEOLStr(stc->GetEOLMode())
-            + ed->GetLineIndentString(stc->GetCurrentLine()),
-            offsetsList);
+                      GetEOLStr(stc->GetEOLMode())
+                      + ed->GetLineIndentString(stc->GetCurrentLine()),
+                      offsetsList);
     //if (offsetsList.size() == 0)
     //    offsetsList.push_back( std::make_pair<int,int>(0,0) );
     int pos = stc->GetCurrentPos();
     int startPos = std::min(stc->WordStartPosition(pos, true), std::min(stc->GetSelectionStart(),
-            stc->GetSelectionEnd()));
+                            stc->GetSelectionEnd()));
     int moveToPos = startPos + tknText.Length();
     stc->SetTargetStart(startPos);
     int endPos = stc->WordEndPosition(pos, true);
@@ -699,7 +698,7 @@ wxArrayString ClangCodeCompletion::GetLocalIncludeDirs(cbProject* project, const
         // Do not try to operate include directories if the target is not for this platform
 #if 0 //TODO
         if (   !m_CCEnablePlatformCheck
-            || (m_CCEnablePlatformCheck && tgt->SupportsCurrentPlatform()) )
+                || (m_CCEnablePlatformCheck && tgt->SupportsCurrentPlatform()) )
         {
 #endif
             GetAbsolutePath(prjPath, tgt->GetIncludeDirs(), dirs);

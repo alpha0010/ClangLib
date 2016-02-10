@@ -27,7 +27,10 @@ public:
     bool ProcessEvent( wxEvent& event );
 
     /*-- Public interface --*/
-    virtual int GetConfigurationGroup() const { return cgEditor; }
+    virtual int GetConfigurationGroup() const
+    {
+        return cgEditor;
+    }
     virtual cbConfigurationPanel* GetConfigurationPanel(wxWindow* parent);
 
 
@@ -179,8 +182,14 @@ public: // IClangPlugin
     wxString GetCodeCompletionTokenDocumentation( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc, ClTokenId tokenId );
     wxString GetCodeCompletionInsertSuffix( const ClTranslUnitId translId, int tknId, const wxString& newLine, std::vector< std::pair<int, int> >& offsets );
 
-    const wxImageList& GetImageList(const ClTranslUnitId /*id*/ ) { return m_ImageList; }
-    const wxStringVec& GetKeywords( const ClTranslUnitId /*id*/ ) { return m_CppKeywords; }
+    const wxImageList& GetImageList(const ClTranslUnitId /*id*/ )
+    {
+        return m_ImageList;
+    }
+    const wxStringVec& GetKeywords( const ClTranslUnitId /*id*/ )
+    {
+        return m_CppKeywords;
+    }
 private: // Members
     std::vector<ClangPluginComponent*> m_ActiveComponentList;
 

@@ -221,7 +221,7 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& event )
     m_pClangPlugin->GetFunctionScopes( GetCurrentTranslationUnitId(), ed->GetFilename(), scopes );
     if (scopes.size() == 0)
         return;
-    std::sort(scopes.begin(), scopes.end() , SortByScopeName );
+    std::sort(scopes.begin(), scopes.end(), SortByScopeName );
     m_Scope->Freeze();
     m_Scope->Clear();
     for ( std::vector<std::pair<wxString, wxString> >::iterator it = scopes.begin(); it != scopes.end(); ++it )
@@ -318,7 +318,7 @@ void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
     }
     std::vector<std::pair<wxString, wxString> > funcList;
     m_pClangPlugin->GetFunctionScopes(GetCurrentTranslationUnitId(), ed->GetFilename(), funcList);
-    std::sort(funcList.begin(), funcList.end() , SortByFunctionName);
+    std::sort(funcList.begin(), funcList.end(), SortByFunctionName);
     m_Function->Freeze();
     m_Function->Clear();
     for ( std::vector<std::pair<wxString, wxString> >::const_iterator it = funcList.begin(); it != funcList.end(); ++it)

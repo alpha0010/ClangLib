@@ -140,7 +140,7 @@ void ClangDiagnostics::OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) )
 void ClangDiagnostics::OnEditorActivate(CodeBlocksEvent& event)
 {
     event.Skip();
-    if( !IsAttached() )
+    if ( !IsAttached() )
         return;
 
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
@@ -156,7 +156,7 @@ void ClangDiagnostics::OnEditorActivate(CodeBlocksEvent& event)
 void ClangDiagnostics::OnEditorClose(CodeBlocksEvent& event)
 {
     event.Skip();
-    if( !IsAttached() )
+    if ( !IsAttached() )
         return;
     m_Diagnostics.clear();
     m_TranslUnitId = -1;
@@ -165,7 +165,7 @@ void ClangDiagnostics::OnEditorClose(CodeBlocksEvent& event)
 void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
 {
     event.Skip();
-    if( !IsAttached() )
+    if ( !IsAttached() )
         return;
 
     ClDiagnosticLevel diagLv = dlFull; // TODO
@@ -246,7 +246,8 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
                     str += wxT('\n');
                 if (!str.Contains(dgItr->message))
                 {
-                    switch(dgItr->severity){
+                    switch (dgItr->severity)
+                    {
                     case sWarning:
                         if (show_warning)
                         {
@@ -281,8 +282,8 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
         if (dgItr->severity == sError)
             stc->SetIndicatorCurrent(errorIndicator);
         else if (  dgItr != diagnostics.begin()
-                && dgItr->line == (dgItr - 1)->line
-                && dgItr->range.first <= (dgItr - 1)->range.second )
+                   && dgItr->line == (dgItr - 1)->line
+                   && dgItr->range.first <= (dgItr - 1)->range.second )
         {
             continue; // do not overwrite the last indicator
         }

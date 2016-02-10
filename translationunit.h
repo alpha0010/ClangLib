@@ -41,13 +41,23 @@ public:
         swap(*this,other);
         return *this;
     }
-    bool UsesClangIndex( const CXIndex& idx ){ return idx == m_ClIndex; }
+    bool UsesClangIndex( const CXIndex& idx )
+    {
+        return idx == m_ClIndex;
+    }
 
     void AddInclude(ClFileId fId);
     bool Contains(ClFileId fId);
-    int GetFileId() const { return m_FileId; }
-    bool IsEmpty() const { return m_Files.empty(); }
-    bool IsValid() const {
+    int GetFileId() const
+    {
+        return m_FileId;
+    }
+    bool IsEmpty() const
+    {
+        return m_Files.empty();
+    }
+    bool IsValid() const
+    {
         if (IsEmpty())
             return false;
         if (m_ClTranslUnit==nullptr)
@@ -56,7 +66,10 @@ public:
             return false;
         return true;
     }
-    ClTranslUnitId GetId() const { return m_Id; }
+    ClTranslUnitId GetId() const
+    {
+        return m_Id;
+    }
 
     // note that complete_line and complete_column are 1 index, not 0 index!
     CXCodeCompleteResults* CodeCompleteAt( const wxString& complete_filename, const ClTokenPosition& location,

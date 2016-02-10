@@ -50,7 +50,7 @@ struct TreeNode
                 break;
         }
         for (std::vector<TreeNode>::iterator itr = children.begin();
-             itr != children.end(); ++itr)
+                itr != children.end(); ++itr)
         {
             itr->Freeze();
         }
@@ -76,7 +76,7 @@ struct TreeNode
             children.push_back(node);
         }
         for (std::vector<TreeNode>::iterator itr = children.begin();
-             itr != children.end(); ++itr)
+                itr != children.end(); ++itr)
         {
             itr->Thaw();
         }
@@ -89,12 +89,12 @@ struct TreeNode
     {
         prefix += value + wxT("-");
         for (std::vector<int>::iterator itr = leaves.begin();
-             itr != leaves.end(); ++itr)
+                itr != leaves.end(); ++itr)
         {
             out += prefix + wxString::Format(wxT("[%d]"), *itr);
         }
         for (std::vector<TreeNode>::iterator itr = children.begin();
-             itr != children.end(); ++itr)
+                itr != children.end(); ++itr)
         {
             itr->Dump(out, prefix);
         }
@@ -128,7 +128,7 @@ void TreeNode::AddLeaf(TreeNode& leaf)
         const wxString& suffix = leaf.value.Mid(1);
         leaf.value = leaf.value[0];
         std::vector<TreeNode>::iterator itr = std::lower_bound(children.begin(), children.end(),
-                                                               leaf, TreeNodeLess());
+                                              leaf, TreeNodeLess());
         if (itr == children.end() || itr->value[0] != leaf.value)
             itr = children.insert(itr, TreeNode(leaf.value));
         else if (itr->value.Length() > 1)
@@ -143,7 +143,7 @@ std::vector<int> TreeNode::GetLeaves(const wxString& key) const
     if (key.IsEmpty())
         return leaves;
     std::vector<TreeNode>::const_iterator itr = std::lower_bound(children.begin(), children.end(),
-                                                                 TreeNode(key[0]), TreeNodeLess());
+            TreeNode(key[0]), TreeNodeLess());
     wxString suffix;
     if (itr == children.end() || !key.StartsWith(itr->value, &suffix))
         return std::vector<int>();
