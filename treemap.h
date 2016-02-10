@@ -12,11 +12,14 @@ class ClTreeMap<int>
 {
 public:
     ClTreeMap();
+    ClTreeMap(const ClTreeMap<int>& other);
     ~ClTreeMap();
     int Insert(const wxString& key, int value); // returns value
+    void Remove(const wxString& key, int value);
     void Shrink();
     std::vector<int> GetIdSet(const wxString& key) const;
     int GetValue(int id) const; // returns id
+    int GetCount() const;
 private:
     TreeNode* m_Root;
 };
@@ -46,6 +49,10 @@ public:
     {
         return m_Tree.GetIdSet(key);
     }
+    void RemoveIdKey( const wxString& key, int id )
+    {
+        m_Tree.Remove(key, id);
+    }
 
     bool HasValue(int id)
     {
@@ -59,6 +66,10 @@ public:
     _TpVal& GetValue(int id)
     {
         return m_Data[id];
+    }
+    int GetCount() const
+    {
+        return m_Data.size();
     }
 
 private:

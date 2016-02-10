@@ -79,6 +79,20 @@ struct ClDiagnostic
     wxString message;
 };
 
+typedef enum _TokenType
+{
+    ClTokenType_Unknown = 0,
+    ClTokenType_DeclGroup = 0,
+    ClTokenType_DefGroup  = 1<<9,
+
+    ClTokenType_FuncDecl  = 1 | ClTokenType_DeclGroup,
+    ClTokenType_VarDecl   = 2 | ClTokenType_DeclGroup,
+    ClTokenType_ParmDecl  = 3 | ClTokenType_DeclGroup,
+    ClTokenType_ScopeDecl = 4 | ClTokenType_DeclGroup,
+    ClTokenType_FuncDef   = ClTokenType_FuncDecl | ClTokenType_DefGroup,
+
+} ClTokenType;
+
 class ClangEvent : public wxCommandEvent
 {
 public:

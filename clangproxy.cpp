@@ -939,7 +939,7 @@ wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)
         unsigned tokenHash = HashToken(token->CompletionString, identifier);
         if (!identifier.IsEmpty())
         {
-            ClTokenId tId = m_Database.GetTokenId(identifier, wxNOT_FOUND, tokenHash);
+            ClTokenId tId = m_Database.GetTokenId(identifier, wxNOT_FOUND, ClTokenType_Unknown, tokenHash);
             if (tId != wxNOT_FOUND)
             {
                 ClAbstractToken aTkn = m_Database.GetToken(tId);
@@ -1105,7 +1105,7 @@ void ClangProxy::RefineTokenType(ClTranslUnitId translUnitId, int tknId, int& tk
     unsigned tokenHash = HashToken(token->CompletionString, identifier);
     if (!identifier.IsEmpty())
     {
-        ClTokenId tId = m_Database.GetTokenId(identifier, wxNOT_FOUND, tokenHash);
+        ClTokenId tId = m_Database.GetTokenId(identifier, wxNOT_FOUND, ClTokenType_Unknown, tokenHash);
         if (tId != wxNOT_FOUND)
         {
             const ClAbstractToken& aTkn = m_Database.GetToken(tId);

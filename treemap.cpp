@@ -164,6 +164,12 @@ ClTreeMap<int>::ClTreeMap() :
 {
 }
 
+ClTreeMap<int>::ClTreeMap( const ClTreeMap<int>& other ) :
+    m_Root(new TreeNode(*other.m_Root))
+{
+
+}
+
 ClTreeMap<int>::~ClTreeMap()
 {
     delete m_Root;
@@ -178,6 +184,20 @@ int ClTreeMap<int>::Insert(const wxString& key, int value)
     m_Root->leaves.insert(std::make_pair(key, value));
 #endif // USE_TREE_MAP
     return value;
+}
+
+void ClTreeMap<int>::Remove(const wxString& key, int value)
+{
+    typedef std::multimap<wxString, int>::iterator leafItr;
+    std::pair<leafItr, leafItr> rg = m_Root->leaves.equal_range(key);
+    for (leafItr itr = rg.first; itr != rg.second; ++itr)
+    {
+        if ( itr->second == value )
+        {
+            m_Root->leaves.erase( itr );
+            return;
+        }
+    }
 }
 
 void ClTreeMap<int>::Shrink()
@@ -209,3 +229,9 @@ int ClTreeMap<int>::GetValue(int id) const
 {
     return id;
 }
+
+int ClTreeMap<int>::GetCount() const
+{
+    return 0;
+}
+

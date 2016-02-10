@@ -67,6 +67,8 @@ const int idClangGetCCDocumentationTask = wxNewId();
 const int idClangGetOccurrencesTask = wxNewId();
 
 ClangPlugin::ClangPlugin() :
+    m_FileDatabase(),
+    m_Database(m_FileDatabase),
     m_Proxy(this, m_Database, m_CppKeywords),
     m_ImageList(16, 16),
     m_ReparseTimer(this, idReparseTimer),
@@ -1166,7 +1168,7 @@ void ClangPlugin::GetFunctionScopes( const ClTranslUnitId, const wxString& filen
     for ( std::vector<ClTokenId>::const_iterator it = tokenIdList.begin(); it != tokenIdList.end(); ++it)
     {
         ClAbstractToken token = m_Database.GetToken(*it);
-        if ( token.type == ClTokenType_FuncDecl )
+        if ( token.tokenType == ClTokenType_FuncDecl )
         {
             out_scopes.push_back( std::make_pair(token.scopeName, token.displayName) );
         }

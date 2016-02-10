@@ -562,7 +562,9 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
         }
 
         struct ClangVisitorContext* ctx = static_cast<struct ClangVisitorContext*>(client_data);
-        ctx->database->InsertToken(identifier, ClAbstractToken(typ,ctx->database->GetFilenameId(filename), ClTokenPosition(line, col), displayName, scopeName, tokenHash));
+        ClFileId fileId = ctx->database->GetFilenameId(filename);
+        ClAbstractToken tok(typ, fileId, ClTokenPosition(line, col), identifier, displayName, scopeName, tokenHash);
+        ClTokenId tokId = ctx->database->InsertToken(tok);
         ctx->tokenCount++;
     }
     return ret;

@@ -197,6 +197,7 @@ private: // Members
     typedef std::map< wxEventType, EventSinksArray >   EventSinksMap;
     EventSinksMap       m_EventSinks;
 
+    ClFilenameDatabase m_FileDatabase;
     ClTokenDatabase m_Database;
     wxStringVec m_CppKeywords;
     ClangProxy m_Proxy;
