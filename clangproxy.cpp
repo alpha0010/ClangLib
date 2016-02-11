@@ -771,7 +771,7 @@ ClTranslUnitId ClangProxy::GetTranslationUnitId( ClTranslUnitId CtxTranslUnitId,
 }
 
 void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& filename,
-                                 const ClTokenPosition& location, bool isAuto,
+                                 const ClTokenPosition& location, bool /*isAuto*/,
                                  const std::map<wxString, wxString>& unsavedFiles,
                                  std::vector<ClToken>& results,
                                  std::vector<ClDiagnostic>& diagnostics )

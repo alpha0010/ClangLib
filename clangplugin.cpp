@@ -1076,7 +1076,6 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 
 void ClangPlugin::OnClangGetDiagnosticsFinished( wxEvent& event )
 {
-    ClDiagnosticLevel diagLv = dlFull; // TODO
     ClangProxy::GetDiagnosticsJob* pJob = static_cast<ClangProxy::GetDiagnosticsJob*>(event.GetEventObject());
 
     ClangEvent evt( clEVT_DIAGNOSTICS_UPDATED, pJob->GetTranslationUnitId(), pJob->GetFilename(), ClTokenPosition(0,0), pJob->GetResults());
@@ -1121,7 +1120,7 @@ bool ClangPlugin::IsProviderFor(cbEditor* ed)
 
 void ClangPlugin::RequestReparse( int millisecs )
 {
-    fprintf( stdout, "RequestReparse\n" );
+    CCLogger::Get()->DebugLog(_T("RequestReparse"));
     m_ReparseNeeded++;
     m_ReparseTimer.Stop();
     m_ReparseTimer.Start( millisecs, wxTIMER_ONE_SHOT);
@@ -1146,7 +1145,7 @@ std::pair<wxString,wxString> ClangPlugin::GetFunctionScopeAt( const ClTranslUnit
     return std::make_pair(scope,func);
 }
 
-ClTokenPosition ClangPlugin::GetFunctionScopeLocation( const ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname)
+ClTokenPosition ClangPlugin::GetFunctionScopeLocation( const ClTranslUnitId /*id*/, const wxString& filename, const wxString& scope, const wxString& functioname)
 {
     ClFileId fId = m_Database.GetFilenameId(filename);
     std::vector<ClTokenId> tokenIdList = m_Database.GetFileTokens(fId);

@@ -11,6 +11,7 @@
 #endif // CB_PRECOMP
 
 #include "tokendatabase.h"
+#include "cclogger.h"
 
 #if 0
 class ClangVisitorContext
@@ -251,10 +252,18 @@ void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const 
             int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
                                                    clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
                                                    clang_defaultReparseOptions(m_ClTranslUnit) );
-
+            if (ret != 0)
+            {
+                CCLogger::Get()->Log(_T("ReparseTranslationUnit failed"));
+                // clang spec specifies that the only valid operation on the translation unit after a failure is to dispose the TU
+                clang_disposeTranslationUnit(m_ClTranslUnit);
+                m_ClTranslUnit = nullptr;
+                return;
+            }
             struct ClangVisitorContext ctx(pDatabase);
             unsigned rc = clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
-            fprintf(stdout,"Visit count: %d, rc=%d\n", (int)ctx.tokenCount, (int)rc);
+            CCLogger::Get()->DebugLog(F(_T("Visit count: %d, rc=%d"), (int)ctx.tokenCount, (int)rc));
+            //fprintf(stdout,"Visit count: %d, rc=%d\n", (int)ctx.tokenCount, (int)rc);
             //database->Shrink();
         }
     }
@@ -295,8 +304,8 @@ void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFile
                                           );
     if (ret != 0 )
     {
-        assert(false&&"clang_reparseTranslationUnit should succeed");
-        //fprintf(stdout,"ERROR: reparseTranslationUnit() failed!");
+        //assert(false&&"clang_reparseTranslationUnit should succeed");
+        CCLogger::Get()->Log(_T("ReparseTranslationUnit failed"));
 
         // The only thing we can do according to Clang documentation is dispose it...
         clang_disposeTranslationUnit(m_ClTranslUnit);
@@ -304,7 +313,8 @@ void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFile
     }
 
     struct ClangVisitorContext ctx(pDatabase);
-    unsigned rc = clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
+    //unsigned rc =
+    clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
 }
 
 void ClTranslationUnit::GetDiagnostics( const wxString& filename,  std::vector<ClDiagnostic>& diagnostics )
@@ -559,11 +569,10 @@ static CXChildVisitResult ClAST_Visitor(CXCursor cursor, CXCursor WXUNUSED(paren
             }
             cursor = clang_getCursorSemanticParent(cursor);
         }
-
         struct ClangVisitorContext* ctx = static_cast<struct ClangVisitorContext*>(client_data);
         ClFileId fileId = ctx->database->GetFilenameId(filename);
         ClAbstractToken tok(typ, fileId, ClTokenPosition(line, col), identifier, displayName, scopeName, tokenHash);
-        ClTokenId tokId = ctx->database->InsertToken(tok);
+        ctx->database->InsertToken(tok);
         ctx->tokenCount++;
     }
     return ret;

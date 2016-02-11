@@ -309,7 +309,8 @@ bool ClTokenDatabase::ReadIn( ClTokenDatabase& tokenDatabase, wxInputStream& in 
                     return false;
                 if( token.fileId != -1 )
                 {
-                    ClTokenId tokId = tokenDatabase.InsertToken( token );
+                    //ClTokenId tokId =
+                    tokenDatabase.InsertToken( token );
                     //fprintf( stdout, " '%s' / '%s' / fId=%d location=%d:%d hash=%d dbEntryId=%d\n", (const char*)token.identifier.mb_str(), (const char*)token.displayName.mbc_str(), token.fileId, token.location.line, token.location.column,  token.tokenHash, tokId );
                     read_count++;
                 }

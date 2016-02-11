@@ -208,7 +208,7 @@ static int SortByFunctionName( const std::pair<wxString, wxString>& first, const
     return first.second < second.second;
 }
 
-void ClangToolbar::OnUpdateContents( wxCommandEvent& event )
+void ClangToolbar::OnUpdateContents( wxCommandEvent& /*event*/ )
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
@@ -240,7 +240,7 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& event )
     m_Scope->Thaw();
 }
 
-void ClangToolbar::OnScope( wxCommandEvent& evt )
+void ClangToolbar::OnScope( wxCommandEvent& /*evt*/ )
 {
     int sel = m_Scope->GetSelection();
     if (sel == -1)
@@ -249,7 +249,7 @@ void ClangToolbar::OnScope( wxCommandEvent& evt )
     UpdateFunctions(selStr);
 }
 
-void ClangToolbar::OnFunction( wxCommandEvent& evt )
+void ClangToolbar::OnFunction( wxCommandEvent& /*evt*/ )
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
