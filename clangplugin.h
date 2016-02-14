@@ -99,6 +99,9 @@ private:
      */
     bool IsSourceOf(const wxFileName& candidateFile, const wxFileName& activeFile, bool& isCandidate);
 #endif
+    void OnCCLogger(CodeBlocksThreadEvent& event);
+    void OnCCDebugLogger(CodeBlocksThreadEvent& event);
+
     /// Start up parsing timers
     void OnEditorOpen( CodeBlocksEvent& event );
     /// Start up parsing timers
@@ -178,7 +181,7 @@ public: // IClangPlugin
     ClTokenPosition GetFunctionScopeLocation( const ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname);
     void GetFunctionScopes( const ClTranslUnitId, const wxString& filename, std::vector<std::pair<wxString, wxString> >& out_scopes );
     wxCondError GetOccurrencesOf( const ClTranslUnitId, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector< std::pair<int, int> >& out_occurrences );
-    wxCondError GetCodeCompletionAt( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector<ClToken>& out_tknResults);
+    wxCondError GetCodeCompletionAt( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc, bool includeCtors, unsigned long timeout, std::vector<ClToken>& out_tknResults);
     wxString GetCodeCompletionTokenDocumentation( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc, ClTokenId tokenId );
     wxString GetCodeCompletionInsertSuffix( const ClTranslUnitId translId, int tknId, const wxString& newLine, std::vector< std::pair<int, int> >& offsets );
 

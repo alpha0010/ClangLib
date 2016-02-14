@@ -22,6 +22,7 @@
 #include <wx/tokenzr.h>
 #include <wx/choice.h>
 //#endif // CB_PRECOMP
+#include "cclogger.h"
 
 const int idReparseTimer    = wxNewId();
 const int idDiagnosticTimer = wxNewId();
@@ -104,6 +105,10 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
         stc->Disconnect( wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ) );
         stc->Connect( wxID_ANY, wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ), (wxObject*)NULL, this );
 #endif
+        const int imgCount = m_pClangPlugin->GetImageList(id).GetImageCount();
+        for (int i = 0; i < imgCount; ++i)
+            stc->RegisterImage(i, m_pClangPlugin->GetImageList(id).GetBitmap(i));
+
     }
 }
 
@@ -368,7 +373,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         {
             timeout = 100;
         }
-        if ( wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, timeout, tknResults))
+        if ( wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, includeCtors, timeout, tknResults))
         {
             m_CCOutstanding++;
             m_CCOutstandingPos = ed->GetControl()->GetCurrentPos();
@@ -380,13 +385,12 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     {
         tknResults = m_CCOutstandingResults;
     }
-
     if (prefix.Length() > 3) // larger context, match the prefix at any point in the token
     {
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
                 tknIt != tknResults.end(); ++tknIt)
         {
-            if (tknIt->name.Lower().Find(prefix) != wxNOT_FOUND && (includeCtors || tknIt->category != tcCtorPublic))
+            if ( (tknIt->name.Lower().Find(prefix) != wxNOT_FOUND) && (includeCtors || (tknIt->category != tcCtorPublic)) )
                 tokens.push_back(cbCodeCompletionPlugin::CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
         }
     }
@@ -396,7 +400,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
                 tknIt != tknResults.end(); ++tknIt)
         {
             // it is rather unlikely for an operator to be the desired completion
-            if (!tknIt->name.StartsWith(wxT("operator")) && (includeCtors || tknIt->category != tcCtorPublic))
+            if ( (!tknIt->name.StartsWith(wxT("operator"))) && (includeCtors || tknIt->category != tcCtorPublic))
                 tokens.push_back(cbCodeCompletionPlugin::CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
         }
     }
@@ -417,9 +421,9 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
             std::partial_sort(tokens.begin(), tokens.begin() + maxResultCount, tokens.end(), PrioritySorter());
             tokens.erase(tokens.begin() + maxResultCount, tokens.end());
         }
-        const int imgCount = m_pClangPlugin->GetImageList(translUnitId).GetImageCount();
-        for (int i = 0; i < imgCount; ++i)
-            stc->RegisterImage(i, m_pClangPlugin->GetImageList(translUnitId).GetBitmap(i));
+        //const int imgCount = m_pClangPlugin->GetImageList(translUnitId).GetImageCount();
+        //for (int i = 0; i < imgCount; ++i)
+        //    stc->RegisterImage(i, m_pClangPlugin->GetImageList(translUnitId).GetBitmap(i));
         bool isPP = stc->GetLine(line).Strip(wxString::leading).StartsWith(wxT("#"));
         std::set<int> usedWeights;
         for (std::vector<cbCodeCompletionPlugin::CCToken>::iterator tknIt = tokens.begin();

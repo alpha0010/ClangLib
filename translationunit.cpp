@@ -186,6 +186,8 @@ CXCursor ClTranslationUnit::GetTokenAt(const wxString& filename, const ClTokenPo
  */
 void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles, ClTokenDatabase* pDatabase )
 {
+    CCLogger::Get()->DebugLog(F(_T("ClTranslationUnit::Parse %s id=%d"), filename.c_str(), (int)m_Id));
+
     if (m_LastCC)
     {
         clang_disposeCodeCompleteResults(m_LastCC);
