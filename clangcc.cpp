@@ -100,15 +100,14 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
         ClTranslUnitId id = m_pClangPlugin->GetTranslationUnitId(fn);
         m_TranslUnitId = id;
         m_CCOutstandingLastMessageTime = 0;
-#ifndef __WXMSW__
         cbStyledTextCtrl* stc = ed->GetControl();
+#ifndef __WXMSW__
         stc->Disconnect( wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ) );
         stc->Connect( wxID_ANY, wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ), (wxObject*)NULL, this );
 #endif
         const int imgCount = m_pClangPlugin->GetImageList(id).GetImageCount();
         for (int i = 0; i < imgCount; ++i)
             stc->RegisterImage(i, m_pClangPlugin->GetImageList(id).GetBitmap(i));
-
     }
 }
 
