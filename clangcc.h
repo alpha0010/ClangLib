@@ -41,7 +41,6 @@ public: // Code::Blocks events
 
 public: // Clang events
     void OnTranslationUnitCreated( ClangEvent& event );
-    void OnReparseFinished( ClangEvent& event );
     void OnCodeCompleteFinished( ClangEvent& event );
 
 private:
@@ -49,7 +48,6 @@ private:
     std::vector<cbCodeCompletionPlugin::CCToken> GetAutocompListIncludes(bool isAuto, cbEditor* ed, int& tknStart, int& tknEnd);
     /** Get the current translation unit id */
     ClTranslUnitId GetCurrentTranslationUnitId();
-    void RequestReparse();
 
 protected: // Code completion for #include
     /** get the include paths setting (usually set by user for each C::B project)
@@ -83,8 +81,6 @@ private:
     ClTranslUnitId m_TranslUnitId;
     int m_EditorHookId;
 
-    wxTimer m_ReparseTimer;
-    wxTimer m_DiagnosticTimer;
     wxTimer m_HightlightTimer;
 
     unsigned int m_CCOutstanding;

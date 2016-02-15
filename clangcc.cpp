@@ -24,12 +24,8 @@
 //#endif // CB_PRECOMP
 #include "cclogger.h"
 
-const int idReparseTimer    = wxNewId();
-const int idDiagnosticTimer = wxNewId();
 const int idHighlightTimer = wxNewId();
 
-#define REPARSE_DELAY 9000
-#define DIAGNOSTIC_DELAY 3000
 #define HIGHTLIGHT_DELAY 1700
 
 const wxString ClangCodeCompletion::SettingName = _T("/code_completion");
@@ -38,8 +34,6 @@ ClangCodeCompletion::ClangCodeCompletion() :
     ClangPluginComponent(),
     m_TranslUnitId(-1),
     m_EditorHookId(-1),
-    m_ReparseTimer(this, idReparseTimer),
-    m_DiagnosticTimer(this, idDiagnosticTimer),
     m_CCOutstanding(0),
     m_CCOutstandingLastMessageTime(0),
     m_CCOutstandingPos(-1)
@@ -64,12 +58,10 @@ void ClangCodeCompletion::OnAttach(IClangPlugin* pClangPlugin)
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new CBCCEvent(this, &ClangCodeCompletion::OnEditorActivate));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_CLOSE,     new CBCCEvent(this, &ClangCodeCompletion::OnEditorClose));
 
-    Connect(idDiagnosticTimer, wxEVT_TIMER, wxTimerEventHandler(ClangCodeCompletion::OnTimer));
     Connect(idHighlightTimer,  wxEVT_TIMER, wxTimerEventHandler(ClangCodeCompletion::OnTimer));
 
     typedef cbEventFunctor<ClangCodeCompletion, ClangEvent> ClCCEvent;
     pClangPlugin->RegisterEventSink(clEVT_TRANSLATIONUNIT_CREATED, new ClCCEvent(this, &ClangCodeCompletion::OnTranslationUnitCreated) );
-    pClangPlugin->RegisterEventSink(clEVT_REPARSE_FINISHED, new ClCCEvent(this, &ClangCodeCompletion::OnReparseFinished) );
     pClangPlugin->RegisterEventSink(clEVT_GETCODECOMPLETE_FINISHED, new ClCCEvent(this, &ClangCodeCompletion::OnCodeCompleteFinished) );
 
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangCodeCompletion>(this, &ClangCodeCompletion::OnEditorHook));
@@ -79,7 +71,6 @@ void ClangCodeCompletion::OnRelease(IClangPlugin* pClangPlugin)
 {
     pClangPlugin->RemoveAllEventSinksFor(this);
     Disconnect(idHighlightTimer);
-    Disconnect(idDiagnosticTimer);
     EditorHooks::UnregisterHook(m_EditorHookId);
     Manager::Get()->RemoveAllEventSinksFor(this);
 
@@ -130,16 +121,13 @@ void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     if ( !IsAttached() )
         return;
     bool clearIndicator = false;
-    bool reparse = false;
     //if (!m_pClangPlugin->IsProviderFor(ed))
     //    return;
     cbStyledTextCtrl* stc = ed->GetControl();
     if (event.GetEventType() == wxEVT_SCI_MODIFIED)
     {
-        m_ReparseTimer.Stop();
         if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
         {
-            reparse = true;
             clearIndicator = true;
         }
     }
@@ -166,10 +154,6 @@ void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
         stc->SetIndicatorCurrent(theIndicator);
         stc->IndicatorClearRange(0, stc->GetLength());
     }
-    if (reparse)
-    {
-        RequestReparse();
-    }
 }
 
 void ClangCodeCompletion::OnTimer(wxTimerEvent& event)
@@ -185,12 +169,7 @@ void ClangCodeCompletion::OnTimer(wxTimerEvent& event)
         return;
     }
 
-    if (evId == idReparseTimer) // m_ReparseTimer
-    {
-        m_pClangPlugin->RequestReparse( GetCurrentTranslationUnitId(), ed->GetFilename() );
-
-    }
-    else if (evId == idHighlightTimer)
+    if (evId == idHighlightTimer)
     {
         HighlightOccurrences(ed);
     }
@@ -629,24 +608,7 @@ void ClangCodeCompletion::HighlightOccurrences(cbEditor* ed)
     }
 }
 
-void ClangCodeCompletion::RequestReparse()
-{
-    m_ReparseTimer.Stop();
-    m_ReparseTimer.Start(REPARSE_DELAY, wxTIMER_ONE_SHOT);
-}
-
 void ClangCodeCompletion::OnTranslationUnitCreated( ClangEvent& event )
-{
-    if ( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
-    {
-        return;
-    }
-    m_CCOutstanding = 0;
-    m_CCOutstandingPos = 0;
-    m_CCOutstandingResults.clear();
-}
-
-void ClangCodeCompletion::OnReparseFinished( ClangEvent& event )
 {
     if ( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
     {
