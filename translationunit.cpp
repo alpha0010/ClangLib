@@ -48,7 +48,8 @@ ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id, CXIndex clIndex )
     m_ClTranslUnit(nullptr),
     m_LastCC(nullptr),
     m_LastPos(-1, -1),
-    m_Occupied(false)
+    m_Occupied(false),
+    m_LastParsed((time_t)0)
 {
 }
 ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id ) :
@@ -58,7 +59,8 @@ ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id ) :
     m_ClTranslUnit(nullptr),
     m_LastCC(nullptr),
     m_LastPos(-1, -1),
-    m_Occupied(true)
+    m_Occupied(true),
+    m_LastParsed((time_t)0)
 {
 }
 
@@ -268,11 +270,14 @@ void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const 
             //fprintf(stdout,"Visit count: %d, rc=%d\n", (int)ctx.tokenCount, (int)rc);
             //database->Shrink();
         }
+        m_LastParsed = wxDateTime::Now();
     }
 }
 
 void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles, ClTokenDatabase* pDatabase)
 {
+    CCLogger::Get()->DebugLog(F(_T("ClTranslationUnit::Reparse id=%d"), (int)m_Id));
+
     if (m_ClTranslUnit == nullptr )
     {
         return;
@@ -312,11 +317,14 @@ void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFile
         // The only thing we can do according to Clang documentation is dispose it...
         clang_disposeTranslationUnit(m_ClTranslUnit);
         m_ClTranslUnit = nullptr;
+        return;
     }
 
     struct ClangVisitorContext ctx(pDatabase);
     //unsigned rc =
     clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
+    m_LastParsed = wxDateTime::Now();
+    CCLogger::Get()->DebugLog(F(_T("ClTranslationUnit::Reparse id=%d finished: %d tokens processed"), (int)m_Id, (int)ctx.tokenCount));
 }
 
 void ClTranslationUnit::GetDiagnostics( const wxString& filename,  std::vector<ClDiagnostic>& diagnostics )

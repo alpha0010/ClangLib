@@ -70,6 +70,10 @@ public:
     {
         return m_Id;
     }
+    wxDateTime GetLastParsed() const
+    {
+        return m_LastParsed;
+    }
 
     // note that complete_line and complete_column are 1 index, not 0 index!
     CXCodeCompleteResults* CodeCompleteAt( const wxString& complete_filename, const ClTokenPosition& location,
@@ -114,6 +118,7 @@ private:
         unsigned column;
     } m_LastPos;
     bool m_Occupied; // Sentinel flag
+    wxDateTime m_LastParsed; // Timestamp when the file was last parsed
 };
 
 #endif // TRANSLATION_UNIT_H

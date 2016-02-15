@@ -367,6 +367,12 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     if ((CCOutstanding == 0)||(m_CCOutstandingResults.size()==0))
     {
         ClTokenPosition loc(line+1, column+1);
+        if (CCOutstanding > 0)
+        {
+            CCLogger::Get()->DebugLog( wxT("CodeCompletion allready requested, wait until it's finished!") );
+            // This request is allready scheduled to be performed but is not ready yet...
+            return tokens;
+        }
         unsigned long timeout = 20;
         if ( !isAuto )
         {
