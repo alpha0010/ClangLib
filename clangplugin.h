@@ -142,10 +142,16 @@ private:
 
     /// Set the clang translation unit (callback)
     void OnClangCreateTUFinished( wxEvent& event );
+
     /// Update after clang has reparsing done (callback)
     void OnClangReparseFinished( wxEvent& event );
+
+    /// Update after updating the token database has finished
+    void OnClangUpdateTokenDatabaseFinished( wxEvent& event );
+
     /// Update after clang has built diagnostics
     void OnClangGetDiagnosticsFinished( wxEvent& event );
+
     /// Update after clang has finished a synchronous task
     void OnClangSyncTaskFinished( wxEvent& event );
 

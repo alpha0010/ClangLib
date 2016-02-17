@@ -597,11 +597,11 @@ void ClangProxy::ReparseJob::Execute(ClangProxy& clangproxy)
                 }
             }
         }
-        for (std::set<ClTranslUnitId>::iterator it = parentTranslUnits.begin(); it != parentTranslUnits.end(); ++it)
-        {
+        //for (std::set<ClTranslUnitId>::iterator it = parentTranslUnits.begin(); it != parentTranslUnits.end(); ++it)
+        //{
             //fprintf(stdout,"Reparsing parent/child %d\n", (int)*it);
-            clangproxy.Reparse( *it, m_CompileCommand, m_UnsavedFiles );
-        }
+        //    clangproxy.Reparse( *it, m_CompileCommand, m_UnsavedFiles );
+        //}
     }
 
     // Get rid of some copied memory
@@ -623,6 +623,8 @@ ClangProxy::ClangProxy( wxEvtHandler* pEvtCallbackHandler, ClTokenDatabase& data
     m_ClIndex[1] = clang_createIndex(1, 1);
     m_pThread = new BackgroundThread(false);
     m_pThread->SetPriority( 0 );
+    m_pDiagnosticThread = new BackgroundThread(false);
+    m_pDiagnosticThread->SetPriority( 0 );
 }
 
 ClangProxy::~ClangProxy()
@@ -670,22 +672,38 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
     int id = 0;
     ClTranslUnitId translId = -1;
     {
+        ClTranslUnitId oldestTranslId = 0;
+        wxDateTime ts = wxDateTime::Now();
         wxMutexLocker lock(m_Mutex);
         for ( it = m_TranslUnits.begin(); it != m_TranslUnits.end(); ++it, ++id)
         {
             if (it->IsEmpty())
             {
-                translId = it->GetId();
+                translId = id;
                 break;
+            }
+            if (it->GetLastParsed().GetTicks() < ts.GetTicks())
+            {
+                ts = it->GetLastParsed();
+                oldestTranslId = id;
             }
         }
         if (it == m_TranslUnits.end())
         {
-            translId = m_TranslUnits.size();
+            if( m_TranslUnits.size() < 5 )
+            {
+                translId = m_TranslUnits.size();
+            }
+            else
+            {
+                translId = oldestTranslId;
+                it = m_TranslUnits.begin();
+            }
         }
     }
     ClTranslationUnit tu = ClTranslationUnit(translId, m_ClIndex[0]);
-    tu.Parse(filename, m_Database.GetFilenameId(filename), args, unsavedFiles, &m_Database);
+    ClFileId fileId = m_Database.GetFilenameId(filename);
+    tu.Parse(filename, fileId, args, unsavedFiles);
     {
         wxMutexLocker lock(m_Mutex);
         if (it == m_TranslUnits.end())
@@ -702,20 +720,6 @@ void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString&
         }
     }
     out_TranslId = translId;
-
-#if 0
-    wxMutexLocker lock(m_Mutex);
-    int translUnitId = m_TranslUnits.size();
-    m_TranslUnits.push_back(ClTranslationUnit(translUnitId, m_ClIndex[0]));
-    std::map<wxString, wxString> unsavedFiles;
-    //AsyncParseJob* parse = new AsyncParseJob(this, translUnitId, filename, commands, unsavedFiles, &m_Database, NULL );
-    //m_pParsingThread->Queue(parse);
-    //AsyncParseJob* parse2 = new AsyncParseJob(this, translUnitId, filename, commands, unsavedFiles, &m_Database, NULL );
-    //m_pParsingThread->Queue(parse2);
-
-    out_TranslId = translUnitId;
-#endif
-    //fprintf(stdout,"CreateTU done. New TU id: %d, filename='%s'\n", (int)out_TranslId, (const char*)filename.mb_str());
 }
 
 void ClangProxy::RemoveTranslationUnit(ClTranslUnitId translUnitId)
@@ -988,7 +992,7 @@ wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)
 
 wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, const wxString& newLine, std::vector<std::pair<int, int> >& offsetsList)
 {
-    CCLogger::Get()->DebugLog( wxT("GetCCInsertSuffix") );
+    CCLogger::Get()->DebugLog( F(wxT("GetCCInsertSuffix TU Id=%d tknId=%d"), translUnitId, tknId) );
     if (translUnitId < 0)
     {
         return wxT("");
@@ -1593,27 +1597,8 @@ void ClangProxy::GetFunctionScopeAt(ClTranslUnitId translUnitId, const wxString&
 }
 
 
-void ClangProxy::Reparse(ClTranslUnitId translUnitId, const wxString& /*compileCommand*/, const std::map<wxString, wxString>& unsavedFiles)
+void ClangProxy::Reparse( ClTranslUnitId translUnitId, const wxString& /*compileCommand*/, const std::map<wxString, wxString>& unsavedFiles )
 {
-#if 0
-    std::vector<CXUnsavedFile> clUnsavedFiles;
-    std::vector<wxCharBuffer> clFileBuffer;
-    for (std::map<wxString, wxString>::const_iterator fileIt = unsavedFiles.begin();
-            fileIt != unsavedFiles.end(); ++fileIt)
-    {
-        CXUnsavedFile unit;
-        clFileBuffer.push_back(fileIt->first.ToUTF8());
-        unit.Filename = clFileBuffer.back().data();
-        clFileBuffer.push_back(fileIt->second.ToUTF8());
-        unit.Contents = clFileBuffer.back().data();
-#if wxCHECK_VERSION(2, 9, 4)
-        unit.Length   = clFileBuffer.back().length();
-#else
-        unit.Length   = strlen(unit.Contents); // extra work needed because wxString::Length() treats multibyte character length as '1'
-#endif
-        clUnsavedFiles.push_back(unit);
-    }
-#endif
     if (translUnitId < 0 )
         return;
     ClTranslationUnit tu(translUnitId);
@@ -1624,7 +1609,30 @@ void ClangProxy::Reparse(ClTranslUnitId translUnitId, const wxString& /*compileC
         swap(m_TranslUnits[translUnitId], tu);
     }
     if ( tu.IsValid() )
-        tu.Reparse(unsavedFiles, &m_Database);
+    {
+        tu.Reparse(unsavedFiles);
+    }
+    {
+        wxMutexLocker lock(m_Mutex);
+        swap(m_TranslUnits[translUnitId], tu);
+    }
+}
+
+void ClangProxy::UpdateTokenDatabase( ClTranslUnitId translUnitId )
+{
+    if (translUnitId < 0 )
+        return;
+    ClTranslationUnit tu(translUnitId);
+    {
+        wxMutexLocker lock(m_Mutex);
+        if (translUnitId >= (int)m_TranslUnits.size())
+            return;
+        swap(m_TranslUnits[translUnitId], tu);
+    }
+    if ( tu.IsValid() )
+    {
+        tu.UpdateTokenDatabase( &m_Database );
+    }
     {
         wxMutexLocker lock(m_Mutex);
         swap(m_TranslUnits[translUnitId], tu);

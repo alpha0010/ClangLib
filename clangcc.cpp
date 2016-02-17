@@ -214,6 +214,13 @@ void ClangCodeCompletion::OnKeyDown(wxKeyEvent& event)
 void ClangCodeCompletion::OnCompleteCode( CodeBlocksEvent &event )
 {
     event.Skip();
+    cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
+    if (!ed)
+    {
+        return;
+    }
+    wxString filename = ed->GetFilename();
+    m_pClangPlugin->RequestReparse( m_TranslUnitId, filename );
 }
 
 ClTranslUnitId ClangCodeCompletion::GetCurrentTranslationUnitId()

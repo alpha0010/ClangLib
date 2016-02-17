@@ -35,6 +35,7 @@ public:
         swap(first.m_LastCC, second.m_LastCC);
         swap(first.m_LastPos.line, second.m_LastPos.line);
         swap(first.m_LastPos.column, second.m_LastPos.column);
+        swap(first.m_LastParsed, second.m_LastParsed);
     }
     ClTranslationUnit& operator=(ClTranslationUnit other)
     {
@@ -82,9 +83,10 @@ public:
     const CXCompletionResult* GetCCResult(unsigned index);
     CXCursor GetTokenAt(const wxString& filename, const ClTokenPosition& location);
     void Parse( const wxString& filename, ClFileId FileId, const std::vector<const char*>& args,
-                const std::map<wxString, wxString>& unsavedFiles,
-                ClTokenDatabase* pUpdateDatabase );
-    void Reparse( const std::map<wxString, wxString>& unsavedFiles, ClTokenDatabase* pDatabase );
+                const std::map<wxString, wxString>& unsavedFiles );
+    void Reparse( const std::map<wxString, wxString>& unsavedFiles );
+    void UpdateTokenDatabase( ClTokenDatabase* pDatabase );
+
     void GetDiagnostics( const wxString& filename, std::vector<ClDiagnostic>& diagnostics);
     CXFile GetFileHandle(const wxString& filename) const;
     void ExpandDiagnosticSet(CXDiagnosticSet diagSet, const wxString& filename, std::vector<ClDiagnostic>& diagnostics);
@@ -92,8 +94,8 @@ public:
 
 private:
     ClTranslUnitId m_Id;
-    ClFileId m_FileId;
-    std::vector<ClFileId> m_Files;
+    ClFileId m_FileId; ///< The file that triggered the creation of this TU
+    std::vector<ClFileId> m_Files; ///< All files linked to this TU
     CXIndex m_ClIndex;
     CXTranslationUnit m_ClTranslUnit;
     CXCodeCompleteResults* m_LastCC;

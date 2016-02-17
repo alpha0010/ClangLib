@@ -31,6 +31,7 @@ public:
             CreateTranslationUnitType,
             RemoveTranslationUnitType,
             ReparseType,
+            UpdateTokenDatabaseType,
             GetDiagnosticsType,
             CodeCompleteAtType,
             DocumentCCTokenType,
@@ -208,16 +209,6 @@ public:
             return new ReparseJob(*this);
         }
         void Execute(ClangProxy& clangproxy);
-#if 0
-        virtual void Completed(ClangProxy& /*clangProxy*/)
-        {
-            return; // Override: the event will be posted after AsyncReparse
-        }
-        virtual void ReparseCompleted( ClangProxy& clangProxy )
-        {
-            EventJob::Completed(clangProxy);
-        }
-#endif
         ClTranslUnitId GetTranslationUnitId() const
         {
             return m_TranslId;
@@ -247,6 +238,33 @@ public:
         wxString m_CompileCommand;
         wxString m_Filename;
         bool m_Parents; // If the parents also need to be reparsed
+    };
+
+    /* final */
+    class UpdateTokenDatabaseJob : public EventJob
+    {
+    public:
+        UpdateTokenDatabaseJob( wxEventType evtType, int evtId, int translId ) :
+            EventJob(UpdateTokenDatabaseType, evtType, evtId),
+            m_TranslId(translId)
+        {
+        }
+        ClangJob* Clone() const
+        {
+            return new UpdateTokenDatabaseJob(*this);
+        }
+        void Execute(ClangProxy& clangproxy)
+        {
+            clangproxy.UpdateTokenDatabase(m_TranslId);
+        }
+        ClTranslUnitId GetTranslationUnitId() const
+        {
+            return m_TranslId;
+        }
+
+    private:
+        int m_TranslId;
+
     };
 
     /* final */
@@ -754,6 +772,11 @@ protected: // jobs that are run only on the thread
      * @param unsavedFiles reference to the unsaved files data. This function takes the data and this list will be empty after this call
      */
     void Reparse(         ClTranslUnitId translId, const wxString& compileCommand, const std::map<wxString, wxString>& unsavedFiles);
+
+    /** Update token database with all tokens from the passed translation unit id
+     * @param translId The ID of the intended translation unit
+     */
+    void UpdateTokenDatabase( ClTranslUnitId translId );
     void GetDiagnostics(  ClTranslUnitId translId, const wxString& filename, std::vector<ClDiagnostic>& diagnostics);
     void CodeCompleteAt(  ClTranslUnitId translId, const wxString& filename, const ClTokenPosition& location,
                           bool isAuto, const std::map<wxString, wxString>& unsavedFiles, std::vector<ClToken>& results, std::vector<ClDiagnostic>& diagnostics);
@@ -782,6 +805,7 @@ private:
 private: // Thread
     wxEvtHandler* m_pEventCallbackHandler;
     BackgroundThread* m_pThread;
+    BackgroundThread* m_pDiagnosticThread;
     //BackgroundThread* m_pParsingThread;
 };
 

@@ -55,8 +55,7 @@ void ClangToolbar::OnAttach(IClangPlugin* pClangPlugin)
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_CLOSE,     new ClToolbarEvent(this, &ClangToolbar::OnEditorClose));
 
     typedef cbEventFunctor<ClangToolbar, ClangEvent> ClangToolbarEvent;
-    pClangPlugin->RegisterEventSink(clEVT_TRANSLATIONUNIT_CREATED, new ClangToolbarEvent(this, &ClangToolbar::OnTranslationUnitCreated));
-    pClangPlugin->RegisterEventSink(clEVT_REPARSE_FINISHED, new ClangToolbarEvent(this, &ClangToolbar::OnReparseFinished) );
+    pClangPlugin->RegisterEventSink(clEVT_TOKENDATABASE_UPDATED, new ClangToolbarEvent(this, &ClangToolbar::OnTokenDatabaseUpdated));
 
     Connect(idToolbarUpdateSelection,clEVT_COMMAND_UPDATETOOLBARSELECTION, wxCommandEventHandler(ClangToolbar::OnUpdateSelection), nullptr, this );
     Connect(idToolbarUpdateContents, clEVT_COMMAND_UPDATETOOLBARCONTENTS, wxCommandEventHandler(ClangToolbar::OnUpdateContents), nullptr, this );
@@ -144,21 +143,16 @@ void ClangToolbar::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
     }
 }
 
-void ClangToolbar::OnTranslationUnitCreated( ClangEvent& /*event*/ )
+void ClangToolbar::OnTokenDatabaseUpdated( ClangEvent& event )
 {
+    if (event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
+        return;
     wxCommandEvent evt(clEVT_COMMAND_UPDATETOOLBARCONTENTS, idToolbarUpdateContents);
     AddPendingEvent(evt);
     wxCommandEvent evt2(clEVT_COMMAND_UPDATETOOLBARSELECTION, idToolbarUpdateSelection);
     AddPendingEvent(evt2);
 }
 
-void ClangToolbar::OnReparseFinished( ClangEvent& /*event*/)
-{
-    wxCommandEvent evt(clEVT_COMMAND_UPDATETOOLBARCONTENTS, idToolbarUpdateContents);
-    AddPendingEvent(evt);
-    wxCommandEvent evt2(clEVT_COMMAND_UPDATETOOLBARSELECTION, idToolbarUpdateSelection);
-    AddPendingEvent(evt2);
-}
 
 void ClangToolbar::OnUpdateSelection( wxCommandEvent& event )
 {

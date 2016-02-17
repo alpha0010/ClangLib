@@ -176,6 +176,7 @@ private:
 
 extern const wxEventType clEVT_TRANSLATIONUNIT_CREATED;
 extern const wxEventType clEVT_REPARSE_FINISHED;
+extern const wxEventType clEVT_TOKENDATABASE_UPDATED;
 extern const wxEventType clEVT_GETCODECOMPLETE_FINISHED;
 extern const wxEventType clEVT_GETOCCURRENCES_FINISHED;
 extern const wxEventType clEVT_GETDOCUMENTATION_FINISHED;

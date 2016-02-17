@@ -20,6 +20,7 @@
 
 #include <cbstyledtextctrl.h>
 #include <cbcolourmanager.h>
+#include "cclogger.h"
 
 const int idGotoNextDiagnostic = wxNewId();
 const int idGotoPrevDiagnostic = wxNewId();
@@ -193,6 +194,7 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     }
     if ( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
     {
+        CCLogger::Get()->DebugLog( wxT("OnDiagnostics: tu ID mismatch") );
         // Switched translation unit before event delivered
         return;
     }
@@ -200,18 +202,19 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     const std::vector<ClDiagnostic>& diagnostics = event.GetDiagnosticResults();
     if ( (diagLv == dlFull)&&(event.GetLocation().line != 0)&&(event.GetLocation().column != 0) )
     {
+        CCLogger::Get()->DebugLog( wxT("OnDiagnostics: Doing partial update") );
         update = true;
     }
     else
     {
+        CCLogger::Get()->DebugLog( wxT("OnDiagnostics: Doing full update") );
         m_Diagnostics = diagnostics;
     }
 
     cbStyledTextCtrl* stc = ed->GetControl();
 
     int firstVisibleLine = stc->GetFirstVisibleLine();
-    if ((diagLv == dlFull)&&(!update) )
-        stc->AnnotationClearAll();
+
     const int warningIndicator = 0; // predefined
     const int errorIndicator = 15; // hopefully we do not clash with someone else...
     stc->SetIndicatorCurrent(warningIndicator);
@@ -224,12 +227,16 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
         stc->IndicatorClearRange(0, stc->GetLength());
 
     const wxString& filename = ed->GetFilename();
-    if ( (diagLv == dlFull)&&(update) )
+    if (!m_bShowInline)
+    {
+        stc->AnnotationClearAll();
+    }
+    else if ( (diagLv == dlFull)&&(update) )
     {
         int line = event.GetLocation().line-1;
         stc->AnnotationClearLine(line);
     }
-    if (!m_bShowInline)
+    else
     {
         stc->AnnotationClearAll();
     }
@@ -238,9 +245,10 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     for ( std::vector<ClDiagnostic>::const_iterator dgItr = diagnostics.begin();
             dgItr != diagnostics.end(); ++dgItr )
     {
-        //Manager::Get()->GetLogManager()->Log(dgItr->file + wxT(" ") + dgItr->message + F(wxT(" %d, %d"), dgItr->range.first, dgItr->range.second));
+        Manager::Get()->GetLogManager()->Log(dgItr->file + wxT(" ") + dgItr->message + F(wxT(" %d, %d"), dgItr->range.first, dgItr->range.second));
         if (dgItr->file != filename)
         {
+            CCLogger::Get()->Log(wxT("WARNING: Filename mismatch in diagnostics !!"));
             continue;
         }
         if (update)

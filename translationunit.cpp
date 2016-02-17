@@ -49,7 +49,7 @@ ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id, CXIndex clIndex )
     m_LastCC(nullptr),
     m_LastPos(-1, -1),
     m_Occupied(false),
-    m_LastParsed((time_t)0)
+    m_LastParsed(wxDateTime::Now())
 {
 }
 ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id ) :
@@ -60,7 +60,7 @@ ClTranslationUnit::ClTranslationUnit( const ClTranslUnitId id ) :
     m_LastCC(nullptr),
     m_LastPos(-1, -1),
     m_Occupied(true),
-    m_LastParsed((time_t)0)
+    m_LastParsed(wxDateTime::Now())
 {
 }
 
@@ -186,7 +186,7 @@ CXCursor ClTranslationUnit::GetTokenAt(const wxString& filename, const ClTokenPo
 /**
  * Parses the supplied file and unsaved files
  */
-void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles, ClTokenDatabase* pDatabase )
+void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const std::vector<const char*>& args, const std::map<wxString, wxString>& unsavedFiles )
 {
     CCLogger::Get()->DebugLog(F(_T("ClTranslationUnit::Parse %s id=%d"), filename.c_str(), (int)m_Id));
 
@@ -220,6 +220,9 @@ void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const 
         clUnsavedFiles.push_back(unit);
     }
     m_FileId = fileId;
+    m_Files.push_back( fileId );
+    m_LastParsed = wxDateTime::Now();
+
     if (filename.length() != 0)
     {
         m_ClTranslUnit = clang_parseTranslationUnit( m_ClIndex, filename.ToUTF8().data(), args.empty() ? nullptr : &args[0], args.size(),
@@ -238,43 +241,22 @@ void ClTranslationUnit::Parse( const wxString& filename, ClFileId fileId, const 
         {
             return;
         }
-        if ( pDatabase )
+        //Reparse(0, nullptr); // seems to improve performance for some reason?
+        int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
+                                               clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
+                                               clang_defaultReparseOptions(m_ClTranslUnit) );
+        if (ret != 0)
         {
-            std::pair<ClTranslationUnit*, ClTokenDatabase*> visitorData = std::make_pair(this, pDatabase);
-            clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
-            //m_FileId = pDatabase->GetFilenameId(filename);
-            m_Files.reserve(1024);
-            m_Files.push_back(m_FileId);
-            std::sort(m_Files.begin(), m_Files.end());
-            std::unique(m_Files.begin(), m_Files.end());
-#if __cplusplus >= 201103L
-            m_Files.shrink_to_fit();
-#else
-            std::vector<ClFileId>(m_Files).swap(m_Files);
-#endif
-            //Reparse(0, nullptr); // seems to improve performance for some reason?
-            int ret = clang_reparseTranslationUnit(m_ClTranslUnit, clUnsavedFiles.size(),
-                                                   clUnsavedFiles.empty() ? nullptr : &clUnsavedFiles[0],
-                                                   clang_defaultReparseOptions(m_ClTranslUnit) );
-            if (ret != 0)
-            {
-                CCLogger::Get()->Log(_T("ReparseTranslationUnit failed"));
-                // clang spec specifies that the only valid operation on the translation unit after a failure is to dispose the TU
-                clang_disposeTranslationUnit(m_ClTranslUnit);
-                m_ClTranslUnit = nullptr;
-                return;
-            }
-            struct ClangVisitorContext ctx(pDatabase);
-            unsigned rc = clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
-            CCLogger::Get()->DebugLog(F(_T("Visit count: %d, rc=%d"), (int)ctx.tokenCount, (int)rc));
-            //fprintf(stdout,"Visit count: %d, rc=%d\n", (int)ctx.tokenCount, (int)rc);
-            //database->Shrink();
+            CCLogger::Get()->Log(_T("ReparseTranslationUnit failed"));
+            // clang spec specifies that the only valid operation on the translation unit after a failure is to dispose the TU
+            clang_disposeTranslationUnit(m_ClTranslUnit);
+            m_ClTranslUnit = nullptr;
+            return;
         }
-        m_LastParsed = wxDateTime::Now();
     }
 }
 
-void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles, ClTokenDatabase* pDatabase)
+void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFiles)
 {
     CCLogger::Get()->DebugLog(F(_T("ClTranslationUnit::Reparse id=%d"), (int)m_Id));
 
@@ -319,12 +301,36 @@ void ClTranslationUnit::Reparse( const std::map<wxString, wxString>& unsavedFile
         m_ClTranslUnit = nullptr;
         return;
     }
+    if (m_LastCC)
+    {
+        clang_disposeCodeCompleteResults(m_LastCC);
+        m_LastCC = nullptr;
+    }
+    m_LastParsed = wxDateTime::Now();
 
+    CCLogger::Get()->DebugLog(F(_T("ClTranslationUnit::Reparse id=%d finished"), (int)m_Id));
+}
+
+void ClTranslationUnit::UpdateTokenDatabase( ClTokenDatabase* pDatabase )
+{
+    if (m_ClTranslUnit == nullptr )
+        return;
+    std::pair<ClTranslationUnit*, ClTokenDatabase*> visitorData = std::make_pair(this, pDatabase);
+    clang_getInclusions(m_ClTranslUnit, ClInclusionVisitor, &visitorData);
+    //m_FileId = pDatabase->GetFilenameId(filename);
+    m_Files.reserve(1024);
+    m_Files.push_back(m_FileId);
+    std::sort(m_Files.begin(), m_Files.end());
+    std::unique(m_Files.begin(), m_Files.end());
+#if __cplusplus >= 201103L
+    m_Files.shrink_to_fit();
+#else
+    std::vector<ClFileId>(m_Files).swap(m_Files);
+#endif
     struct ClangVisitorContext ctx(pDatabase);
     //unsigned rc =
     clang_visitChildren(clang_getTranslationUnitCursor(m_ClTranslUnit), ClAST_Visitor, &ctx);
-    m_LastParsed = wxDateTime::Now();
-    CCLogger::Get()->DebugLog(F(_T("ClTranslationUnit::Reparse id=%d finished: %d tokens processed"), (int)m_Id, (int)ctx.tokenCount));
+    CCLogger::Get()->DebugLog(F(_T("ClTranslationUnit::UpdateTokenDatabase %d finished: %d tokens processed"), (int)m_Id, (int)ctx.tokenCount));
 }
 
 void ClTranslationUnit::GetDiagnostics( const wxString& filename,  std::vector<ClDiagnostic>& diagnostics )

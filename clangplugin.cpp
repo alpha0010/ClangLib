@@ -46,6 +46,7 @@ DEFINE_EVENT_TYPE(clEVT_GETCODECOMPLETE_FINISHED);
 DEFINE_EVENT_TYPE(clEVT_GETOCCURRENCES_FINISHED);
 DEFINE_EVENT_TYPE(clEVT_DIAGNOSTICS_UPDATED);
 DEFINE_EVENT_TYPE(clEVT_GETDOCUMENTATION_FINISHED);
+DEFINE_EVENT_TYPE(clEVT_TOKENDATABASE_UPDATED);
 
 static const wxString g_InvalidStr(wxT("invalid"));
 const int idReparseTimer    = wxNewId();
@@ -60,6 +61,7 @@ DEFINE_EVENT_TYPE(cbEVT_CLANG_SYNCTASK_FINISHED);
 const int idClangCreateTU = wxNewId();
 const int idClangRemoveTU = wxNewId();
 const int idClangReparse = wxNewId();
+const int idClangUpdateTokenDatabase = wxNewId();
 const int idClangGetDiagnostics = wxNewId();
 const int idClangSyncTask = wxNewId();
 const int idClangCodeCompleteTask = wxNewId();
@@ -1045,29 +1047,33 @@ int ClangPlugin::UpdateCompileCommand(cbEditor* ed)
 
 void ClangPlugin::OnClangCreateTUFinished( wxEvent& event )
 {
+    CCLogger::Get()->DebugLog( wxT("OnClangCreateTUFinished") );
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
     {
         return;
     }
 
-    ClangProxy::CreateTranslationUnitJob* obj = static_cast<ClangProxy::CreateTranslationUnitJob*>(event.GetEventObject());
-    if (!obj)
+    ClangProxy::CreateTranslationUnitJob* pJob = static_cast<ClangProxy::CreateTranslationUnitJob*>(event.GetEventObject());
+    if (!pJob)
     {
         return;
     }
     if ( HasEventSink(clEVT_DIAGNOSTICS_UPDATED ) )
     {
-        ClangProxy::GetDiagnosticsJob job( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangGetDiagnostics, obj->GetTranslationUnitId(), obj->GetFilename() );
+        ClangProxy::GetDiagnosticsJob job( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangGetDiagnostics, pJob->GetTranslationUnitId(), pJob->GetFilename() );
         m_Proxy.AppendPendingJob(job);
     }
-    ClangEvent evt( clEVT_REPARSE_FINISHED, obj->GetTranslationUnitId(), obj->GetFilename());
+    ClangProxy::UpdateTokenDatabaseJob updateDbJob( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangUpdateTokenDatabase, pJob->GetTranslationUnitId());
+    m_Proxy.AppendPendingJob(updateDbJob);
+    ClangEvent evt( clEVT_REPARSE_FINISHED, pJob->GetTranslationUnitId(), pJob->GetFilename());
     ProcessEvent(evt);
-    if (obj->GetFilename() != ed->GetFilename())
+    if (pJob->GetFilename() != ed->GetFilename())
     {
         return;
     }
-    m_TranslUnitId = obj->GetTranslationUnitId();
+
+    m_TranslUnitId = pJob->GetTranslationUnitId();
     m_pLastEditor = ed;
 }
 
@@ -1079,7 +1085,17 @@ void ClangPlugin::OnClangReparseFinished( wxEvent& event )
         ClangProxy::GetDiagnosticsJob job( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangGetDiagnostics, pJob->GetTranslationUnitId(), pJob->GetFilename() );
         m_Proxy.AppendPendingJob(job);
     }
+    ClangProxy::UpdateTokenDatabaseJob updateDbJob( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangUpdateTokenDatabase, pJob->GetTranslationUnitId());
+    m_Proxy.AppendPendingJob(updateDbJob);
     ClangEvent evt( clEVT_REPARSE_FINISHED, pJob->GetTranslationUnitId(), pJob->GetFilename());
+    ProcessEvent(evt);
+}
+
+void ClangPlugin::OnClangUpdateTokenDatabaseFinished( wxEvent& event )
+{
+    ClangProxy::UpdateTokenDatabaseJob* pJob = static_cast<ClangProxy::UpdateTokenDatabaseJob*>(event.GetEventObject());
+
+    ClangEvent evt( clEVT_TOKENDATABASE_UPDATED, pJob->GetTranslationUnitId(), wxT(""));
     ProcessEvent(evt);
 }
 
@@ -1107,6 +1123,8 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 
 void ClangPlugin::OnClangGetDiagnosticsFinished( wxEvent& event )
 {
+    CCLogger::Get()->DebugLog( F(_T("OnClangGetDiagnosticsFinished")));
+
     ClangProxy::GetDiagnosticsJob* pJob = static_cast<ClangProxy::GetDiagnosticsJob*>(event.GetEventObject());
 
     ClangEvent evt( clEVT_DIAGNOSTICS_UPDATED, pJob->GetTranslationUnitId(), pJob->GetFilename(), ClTokenPosition(0,0), pJob->GetResults());
@@ -1260,17 +1278,15 @@ wxString ClangPlugin::GetCodeCompletionInsertSuffix( const ClTranslUnitId transl
     return m_Proxy.GetCCInsertSuffix( translId, tknId, newLine, offsets );
 }
 
-
 void ClangPlugin::RequestReparse(const ClTranslUnitId translUnitId, const wxString& filename)
 {
-    CCLogger::Get()->DebugLog( F(_T("RequestReparse %s"), filename.c_str() ));
+    CCLogger::Get()->DebugLog( F(_T("RequestReparse %d %s"), translUnitId, filename.c_str() ));
     EditorManager* edMgr = Manager::Get()->GetEditorManager();
     cbEditor* ed = edMgr->GetBuiltinActiveEditor();
     if (!ed)
     {
         return;
     }
-
     if (translUnitId == wxNOT_FOUND)
     {
         CCLogger::Get()->Log( F(wxT("Translation unit not found for file %s"), (const char*)ed->GetFilename().c_str() ));
