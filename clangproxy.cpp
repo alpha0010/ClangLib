@@ -622,6 +622,7 @@ ClangProxy::ClangProxy( wxEvtHandler* pEvtCallbackHandler, ClTokenDatabase& data
     m_ClIndex[0] = clang_createIndex(1, 1);
     m_ClIndex[1] = clang_createIndex(1, 1);
     m_pThread = new BackgroundThread(false);
+    m_pThread->SetPriority( 0 );
 }
 
 ClangProxy::~ClangProxy()

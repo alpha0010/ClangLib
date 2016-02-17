@@ -23,12 +23,14 @@
 
 const int idGotoNextDiagnostic = wxNewId();
 const int idGotoPrevDiagnostic = wxNewId();
-
 const wxString ClangDiagnostics::SettingName = _T("/diagnostics");
 
 ClangDiagnostics::ClangDiagnostics() :
     m_TranslUnitId(-1),
-    m_Diagnostics()
+    m_Diagnostics(),
+    m_bShowInline(false),
+    m_bShowWarning(false),
+    m_bShowError(false)
 {
 
 }
@@ -55,6 +57,8 @@ void ClangDiagnostics::OnAttach( IClangPlugin* pClangPlugin )
     Connect(idGotoNextDiagnostic, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ClangDiagnostics::OnGotoNextDiagnostic), nullptr, this);
     Connect(idGotoPrevDiagnostic, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ClangDiagnostics::OnGotoPrevDiagnostic), nullptr, this);
 
+    //Connect(wxEVT_IDLE, wxIdleEventHandler(ClangDiagnostics::OnIdle));
+
     typedef cbEventFunctor<ClangDiagnostics, ClangEvent> ClCCEvent;
     pClangPlugin->RegisterEventSink(clEVT_DIAGNOSTICS_UPDATED, new ClCCEvent(this, &ClangDiagnostics::OnDiagnostics) );
 }
@@ -62,8 +66,9 @@ void ClangDiagnostics::OnAttach( IClangPlugin* pClangPlugin )
 void ClangDiagnostics::OnRelease( IClangPlugin* pClangPlugin )
 {
     pClangPlugin->RemoveAllEventSinksFor( this );
+    Disconnect( wxEVT_IDLE );
     Disconnect( idGotoPrevDiagnostic );
-    Disconnect( idGotoPrevDiagnostic );
+    Disconnect( idGotoNextDiagnostic );
     Manager::Get()->RemoveAllEventSinksFor(this);
     ClangPluginComponent::OnRelease( pClangPlugin );
 }
@@ -148,7 +153,17 @@ void ClangDiagnostics::OnEditorActivate(CodeBlocksEvent& event)
     {
         wxString fn = ed->GetFilename();
 
+        ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("ClangLib"));
+        m_bShowInline = cfg->ReadBool( _T("/diagnostics_show_inline"), true);
+        m_bShowWarning = cfg->ReadBool( _T("/diagnostics_show_warnings"), true);
+        m_bShowError = cfg->ReadBool( _T("/diagnostics_show_errors"), true);
+
         m_TranslUnitId = m_pClangPlugin->GetTranslationUnitId(fn);
+        cbStyledTextCtrl* stc = ed->GetControl();
+        stc->StyleSetBackground( 51, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_warnbg") ));
+        stc->StyleSetForeground( 51, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_warntext") ));
+        stc->StyleSetBackground( 52, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_errbg") ));
+        stc->StyleSetForeground( 52, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_errtext") ));
     }
     m_Diagnostics.clear();
 }
@@ -181,10 +196,6 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
         // Switched translation unit before event delivered
         return;
     }
-    ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("ClangLib"));
-    bool show_inline = cfg->ReadBool( _T("/diagnostics_show_inline"), true);
-    bool show_warning = cfg->ReadBool( _T("/diagnostics_show_warnings"), true);
-    bool show_error = cfg->ReadBool( _T("/diagnostics_show_errors"), true);
 
     const std::vector<ClDiagnostic>& diagnostics = event.GetDiagnosticResults();
     if ( (diagLv == dlFull)&&(event.GetLocation().line != 0)&&(event.GetLocation().column != 0) )
@@ -195,11 +206,9 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     {
         m_Diagnostics = diagnostics;
     }
+
     cbStyledTextCtrl* stc = ed->GetControl();
-    stc->StyleSetBackground( 51, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_warnbg") ));
-    stc->StyleSetForeground( 51, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_warntext") ));
-    stc->StyleSetBackground( 52, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_errbg") ));
-    stc->StyleSetForeground( 52, Manager::Get()->GetColourManager()->GetColour(wxT("diagnostics_popup_errtext") ));
+
     int firstVisibleLine = stc->GetFirstVisibleLine();
     if ((diagLv == dlFull)&&(!update) )
         stc->AnnotationClearAll();
@@ -220,10 +229,11 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
         int line = event.GetLocation().line-1;
         stc->AnnotationClearLine(line);
     }
-    if (!show_inline)
+    if (!m_bShowInline)
     {
         stc->AnnotationClearAll();
     }
+
     int lastLine = 0;
     for ( std::vector<ClDiagnostic>::const_iterator dgItr = diagnostics.begin();
             dgItr != diagnostics.end(); ++dgItr )
@@ -233,13 +243,17 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
         {
             continue;
         }
+        if (update)
+        {
+            m_Diagnostics.push_back( *dgItr );
+        }
         if (diagLv == dlFull)
         {
             if (update && (lastLine != (dgItr->line -1) ) )
             {
                 stc->AnnotationClearLine(dgItr->line - 1);
             }
-            if (show_inline)
+            if (m_bShowInline)
             {
                 wxString str = stc->AnnotationGetText(dgItr->line - 1);
                 if (!str.IsEmpty())
@@ -249,14 +263,14 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
                     switch (dgItr->severity)
                     {
                     case sWarning:
-                        if (show_warning)
+                        if (m_bShowWarning)
                         {
                             stc->AnnotationSetText(dgItr->line - 1, str + dgItr->message);
                             stc->AnnotationSetStyle(dgItr->line - 1, 51);
                         }
                         break;
                     case sError:
-                        if (show_error)
+                        if (m_bShowError)
                         {
                             stc->AnnotationSetText(dgItr->line - 1, str + dgItr->message);
                             stc->AnnotationSetStyle(dgItr->line - 1, 52);
@@ -295,7 +309,6 @@ void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
     if ( diagLv == dlFull )
     {
         stc->AnnotationSetVisible(wxSCI_ANNOTATION_BOXED);
-        //stc->ScrollToLine(firstVisibleLine);
         stc->ScrollLines( firstVisibleLine - stc->GetFirstVisibleLine() );
     }
 }
@@ -313,4 +326,9 @@ ClTranslUnitId ClangDiagnostics::GetCurrentTranslationUnitId()
         m_TranslUnitId = m_pClangPlugin->GetTranslationUnitId( filename );
     }
     return m_TranslUnitId;
+}
+
+void ClangDiagnostics::OnIdle( wxIdleEvent& event )
+{
+    //fprintf(stdout,"ClangDiagnostics::OnIdle\n");
 }
