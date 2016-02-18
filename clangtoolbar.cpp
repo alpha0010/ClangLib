@@ -260,10 +260,10 @@ void ClangToolbar::OnFunction( wxCommandEvent& /*evt*/ )
 bool ClangToolbar::BuildToolBar(wxToolBar* toolBar)
 {
     // load the toolbar resource
-    Manager::Get()->AddonToolBar(toolBar,_T("codecompletion_toolbar"));
+    Manager::Get()->AddonToolBar(toolBar,_T("clangcodecompletion_toolbar"));
     // get the wxChoice control pointers
-    m_Function = XRCCTRL(*toolBar, "chcCodeCompletionFunction", wxChoice);
-    m_Scope    = XRCCTRL(*toolBar, "chcCodeCompletionScope",    wxChoice);
+    m_Function = XRCCTRL(*toolBar, "chcClangCodeCompletionFunction", wxChoice);
+    m_Scope    = XRCCTRL(*toolBar, "chcClangCodeCompletionScope",    wxChoice);
 
     if (m_Function)
         Manager::Get()->GetAppWindow()->Connect(m_Function->GetId(), wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler(ClangToolbar::OnFunction), nullptr, this);
