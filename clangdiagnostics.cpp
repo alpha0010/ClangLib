@@ -336,7 +336,7 @@ ClTranslUnitId ClangDiagnostics::GetCurrentTranslationUnitId()
     return m_TranslUnitId;
 }
 
-void ClangDiagnostics::OnIdle( wxIdleEvent& event )
+void ClangDiagnostics::OnIdle( wxIdleEvent& /*event*/ )
 {
     //fprintf(stdout,"ClangDiagnostics::OnIdle\n");
 }

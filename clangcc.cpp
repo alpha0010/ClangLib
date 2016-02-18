@@ -36,7 +36,8 @@ ClangCodeCompletion::ClangCodeCompletion() :
     m_EditorHookId(-1),
     m_CCOutstanding(0),
     m_CCOutstandingLastMessageTime(0),
-    m_CCOutstandingPos(-1)
+    m_CCOutstandingPos(-1),
+    m_CCOutstandingLoc(0,0)
 {
 
 }
@@ -90,7 +91,9 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
 
         ClTranslUnitId id = m_pClangPlugin->GetTranslationUnitId(fn);
         m_TranslUnitId = id;
+        m_CCOutstanding = 0;
         m_CCOutstandingLastMessageTime = 0;
+        m_CCOutstandingPos = 0;
         cbStyledTextCtrl* stc = ed->GetControl();
 #ifndef __WXMSW__
         stc->Disconnect( wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ) );
@@ -368,6 +371,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         {
             m_CCOutstanding++;
             m_CCOutstandingPos = ed->GetControl()->GetCurrentPos();
+            m_CCOutstandingLoc = loc;
             m_CCOutstandingResults.clear();
             return tokens;
         }
@@ -634,6 +638,11 @@ void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
     }
     if (m_CCOutstanding > 0)
     {
+        if ( event.GetLocation() != m_CCOutstandingLoc )
+        {
+            CCLogger::Get()->DebugLog( wxT("Discard old CodeCompletion request result") );
+            return;
+        }
         EditorManager* edMgr = Manager::Get()->GetEditorManager();
         cbEditor* ed = edMgr->GetBuiltinActiveEditor();
         if (ed)

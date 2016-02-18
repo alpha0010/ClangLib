@@ -147,7 +147,7 @@ ClFilenameDatabase::~ClFilenameDatabase()
     delete m_pFileEntries;
 }
 
-bool ClFilenameDatabase::WriteOut( ClFilenameDatabase& db, wxOutputStream& out )
+bool ClFilenameDatabase::WriteOut( const ClFilenameDatabase& db, wxOutputStream& out )
 {
     int i;
     wxMutexLocker l(db.m_Mutex);
@@ -184,7 +184,7 @@ bool ClFilenameDatabase::ReadIn( ClFilenameDatabase& db, wxInputStream& in )
     return true;
 }
 
-ClFileId ClFilenameDatabase::GetFilenameId(const wxString& filename)
+ClFileId ClFilenameDatabase::GetFilenameId(const wxString& filename) const
 {
     wxMutexLocker lock(m_Mutex);
     assert(m_pFileEntries);
@@ -202,7 +202,7 @@ ClFileId ClFilenameDatabase::GetFilenameId(const wxString& filename)
     return id.front();
 }
 
-wxString ClFilenameDatabase::GetFilename( const ClFileId fId)
+wxString ClFilenameDatabase::GetFilename( const ClFileId fId) const
 {
     wxMutexLocker lock( m_Mutex);
 
@@ -216,7 +216,7 @@ wxString ClFilenameDatabase::GetFilename( const ClFileId fId)
     return wxString(val);
 }
 
-wxDateTime ClFilenameDatabase::GetFilenameTimestamp( const ClFileId fId )
+const wxDateTime ClFilenameDatabase::GetFilenameTimestamp( const ClFileId fId ) const
 {
     wxMutexLocker lock( m_Mutex);
 
@@ -226,7 +226,7 @@ wxDateTime ClFilenameDatabase::GetFilenameTimestamp( const ClFileId fId )
     return entry.timestamp;
 }
 
-void ClFilenameDatabase::UpdateFilenameTimestamp( const ClFileId fId, const wxDateTime timestamp )
+void ClFilenameDatabase::UpdateFilenameTimestamp( const ClFileId fId, const wxDateTime& timestamp )
 {
     wxMutexLocker lock( m_Mutex);
 
@@ -321,7 +321,7 @@ bool ClTokenDatabase::ReadIn( ClTokenDatabase& tokenDatabase, wxInputStream& in 
     return true;
 }
 
-bool ClTokenDatabase::WriteOut( ClTokenDatabase& tokenDatabase, wxOutputStream& out )
+bool ClTokenDatabase::WriteOut( const ClTokenDatabase& tokenDatabase, wxOutputStream& out )
 {
     int i;
     int cnt;
@@ -358,16 +358,16 @@ void ClTokenDatabase::Clear()
     m_pTokens = new ClTreeMap<ClAbstractToken>(),
     m_pFileTokens = new ClTreeMap<int>();
 }
-ClFileId ClTokenDatabase::GetFilenameId(const wxString& filename)
+ClFileId ClTokenDatabase::GetFilenameId(const wxString& filename) const
 {
     return m_FileDB.GetFilenameId(filename);
 }
-wxString ClTokenDatabase::GetFilename(ClFileId fId)
+wxString ClTokenDatabase::GetFilename(ClFileId fId) const
 {
     return m_FileDB.GetFilename(fId);
 }
 
-wxDateTime ClTokenDatabase::GetFilenameTimestamp( const ClFileId fId )
+wxDateTime ClTokenDatabase::GetFilenameTimestamp( const ClFileId fId ) const
 {
     return m_FileDB.GetFilenameTimestamp(fId);
 }
@@ -386,7 +386,7 @@ ClTokenId ClTokenDatabase::InsertToken( const ClAbstractToken& token )
     return tId;
 }
 
-ClTokenId ClTokenDatabase::GetTokenId( const wxString& identifier, ClFileId fileId, ClTokenType tokenType, unsigned tokenHash )
+ClTokenId ClTokenDatabase::GetTokenId( const wxString& identifier, ClFileId fileId, ClTokenType tokenType, unsigned tokenHash ) const
 {
     wxMutexLocker lock( m_Mutex);
     std::vector<int> ids = m_pTokens->GetIdSet(identifier);
@@ -403,20 +403,20 @@ ClTokenId ClTokenDatabase::GetTokenId( const wxString& identifier, ClFileId file
     return wxNOT_FOUND;
 }
 
-ClAbstractToken ClTokenDatabase::GetToken(const ClTokenId tId)
+ClAbstractToken ClTokenDatabase::GetToken(const ClTokenId tId) const
 {
     wxMutexLocker lock( m_Mutex);
     assert( m_pTokens->HasValue(tId) );
     return m_pTokens->GetValue(tId);
 }
 
-std::vector<ClTokenId> ClTokenDatabase::GetTokenMatches(const wxString& identifier)
+std::vector<ClTokenId> ClTokenDatabase::GetTokenMatches(const wxString& identifier) const
 {
     wxMutexLocker lock( m_Mutex);
     return m_pTokens->GetIdSet(identifier);
 }
 
-std::vector<ClTokenId> ClTokenDatabase::GetFileTokens(const ClFileId fId)
+std::vector<ClTokenId> ClTokenDatabase::GetFileTokens(const ClFileId fId) const
 {
     wxMutexLocker lock( m_Mutex);
     wxString key = wxString::Format(wxT("%d"), fId);

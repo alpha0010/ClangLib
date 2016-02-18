@@ -4,7 +4,7 @@
 #include <cbplugin.h>
 
 
-typedef int ClTranslUnitId;
+typedef int8_t ClTranslUnitId;
 typedef int ClTokenId;
 
 enum ClTokenCategory
@@ -58,6 +58,14 @@ struct ClTokenPosition
     {
         line = ln;
         column = col;
+    }
+    bool operator==(const ClTokenPosition& other) const
+    {
+        return ((line == other.line)&&(column == other.column));
+    }
+    bool operator!=(const ClTokenPosition& other) const
+    {
+        return !(*this == other);
     }
     unsigned int line;
     unsigned int column;

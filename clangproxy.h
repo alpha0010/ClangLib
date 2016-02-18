@@ -164,7 +164,7 @@ public:
     public:
         wxString m_Filename;
         wxString m_Commands;
-        int m_TranslationUnitId; // Returned value
+        ClTranslUnitId m_TranslationUnitId; // Returned value
         std::map<wxString, wxString> m_UnsavedFiles;
     };
 
@@ -174,7 +174,7 @@ public:
     public:
         RemoveTranslationUnitJob( wxEventType evtType, int evtId, int TranslUnitId ) :
             EventJob(RemoveTranslationUnitType, evtType, evtId),
-            m_TranslationUnitId(TranslUnitId) {}
+            m_TranslUnitId(TranslUnitId) {}
         ClangJob* Clone() const
         {
             RemoveTranslationUnitJob* job = new RemoveTranslationUnitJob(*this);
@@ -182,20 +182,20 @@ public:
         }
         void Execute(ClangProxy& clangproxy)
         {
-            clangproxy.RemoveTranslationUnit(m_TranslationUnitId);
+            clangproxy.RemoveTranslationUnit(m_TranslUnitId);
         }
     protected:
         RemoveTranslationUnitJob(const RemoveTranslationUnitJob& other):
             EventJob(other),
-            m_TranslationUnitId(other.m_TranslationUnitId) {}
-        int m_TranslationUnitId;
+            m_TranslUnitId(other.m_TranslUnitId) {}
+        ClTranslUnitId m_TranslUnitId;
     };
 
     /* final */
     class ReparseJob : public EventJob
     {
     public:
-        ReparseJob( wxEventType evtType, int evtId, int translId, const wxString& compileCommand, const wxString& filename, const std::map<wxString, wxString>& unsavedFiles, bool parents = false )
+        ReparseJob( wxEventType evtType, int evtId, ClTranslUnitId translId, const wxString& compileCommand, const wxString& filename, const std::map<wxString, wxString>& unsavedFiles, bool parents = false )
             : EventJob(ReparseType, evtType, evtId),
               m_TranslId(translId),
               m_UnsavedFiles(unsavedFiles),
@@ -233,7 +233,7 @@ public:
             }
         }
     public:
-        int m_TranslId;
+        ClTranslUnitId m_TranslId;
         std::map<wxString, wxString> m_UnsavedFiles;
         wxString m_CompileCommand;
         wxString m_Filename;
@@ -263,8 +263,7 @@ public:
         }
 
     private:
-        int m_TranslId;
-
+        ClTranslUnitId m_TranslId;
     };
 
     /* final */
@@ -306,7 +305,7 @@ public:
             m_Filename(other.m_Filename.c_str()),
             m_Results(other.m_Results) {}
     public:
-        int m_TranslId;
+        ClTranslUnitId m_TranslId;
         wxString m_Filename;
         std::vector<ClDiagnostic> m_Results; // Returned value
     };
@@ -340,7 +339,7 @@ public:
         {
         }
     public:
-        int m_TranslId;
+        ClTranslUnitId m_TranslId;
         wxString m_Filename;
         ClTokenPosition m_Location;
         wxString m_ScopeName;
@@ -610,7 +609,7 @@ public:
             m_pResults(pResults) {}
         wxString m_Filename;
         ClTokenPosition m_Location;
-        int m_TranslId;
+        ClTranslUnitId m_TranslId;
         wxStringVec* m_pResults;
     };
 
@@ -659,7 +658,7 @@ public:
             m_pResults(pResults) {}
         wxString m_Filename;
         ClTokenPosition m_Location;
-        int m_TranslId;
+        ClTranslUnitId m_TranslId;
         wxString m_TokenStr;
         std::vector<wxStringVec>* m_pResults;
     };

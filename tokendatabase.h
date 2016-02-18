@@ -50,15 +50,15 @@ public:
     ~ClFilenameDatabase();
 
     static bool ReadIn( ClFilenameDatabase& tokenDatabase, wxInputStream& in );
-    static bool WriteOut( ClFilenameDatabase& db, wxOutputStream& out );
+    static bool WriteOut( const ClFilenameDatabase& db, wxOutputStream& out );
 
-    ClFileId GetFilenameId(const wxString& filename);
-    wxString GetFilename(const ClFileId fId);
-    wxDateTime GetFilenameTimestamp(const ClFileId fId);
-    void UpdateFilenameTimestamp( const ClFileId fId, const wxDateTime timestamp );
+    ClFileId GetFilenameId(const wxString& filename) const;
+    wxString GetFilename(const ClFileId fId) const;
+    const wxDateTime GetFilenameTimestamp(const ClFileId fId) const;
+    void UpdateFilenameTimestamp( const ClFileId fId, const wxDateTime& timestamp );
 private:
     ClTreeMap<ClFilenameEntry>* m_pFileEntries;
-    wxMutex m_Mutex;
+    mutable wxMutex m_Mutex;
 };
 
 class ClTokenDatabase
@@ -72,15 +72,15 @@ public:
 
 
     static bool ReadIn( ClTokenDatabase& tokenDatabase, wxInputStream& in );
-    static bool WriteOut( ClTokenDatabase& tokenDatabase, wxOutputStream& out );
+    static bool WriteOut( const ClTokenDatabase& tokenDatabase, wxOutputStream& out );
 
-    ClFileId GetFilenameId(const wxString& filename);
-    wxString GetFilename(const ClFileId fId);
-    wxDateTime GetFilenameTimestamp(const ClFileId fId);
-    ClTokenId GetTokenId(const wxString& identifier, ClFileId fId, ClTokenType tokenType, unsigned tokenHash); ///< returns wxNOT_FOUND on failure
+    ClFileId GetFilenameId(const wxString& filename) const;
+    wxString GetFilename(const ClFileId fId) const;
+    wxDateTime GetFilenameTimestamp(const ClFileId fId) const;
+    ClTokenId GetTokenId(const wxString& identifier, ClFileId fId, ClTokenType tokenType, unsigned tokenHash) const; ///< returns wxNOT_FOUND on failure
     ClTokenId InsertToken(const ClAbstractToken& token); // duplicate tokens are discarded
-    ClAbstractToken GetToken(const ClTokenId tId);
-    ClFilenameDatabase& GetFileDB()
+    ClAbstractToken GetToken(const ClTokenId tId) const;
+    ClFilenameDatabase& GetFileDB() const
     {
         return m_FileDB;
     }
@@ -88,11 +88,11 @@ public:
     /**
      * Return a list of tokenId's for the given token identifier
      */
-    std::vector<ClTokenId> GetTokenMatches(const wxString& identifier);
+    std::vector<ClTokenId> GetTokenMatches(const wxString& identifier) const;
     /**
      * Return a list of tokenId's that are found in the given file
      */
-    std::vector<ClTokenId> GetFileTokens(const ClFileId fId);
+    std::vector<ClTokenId> GetFileTokens(const ClFileId fId) const;
 
     /**
      * Clears the database
@@ -113,7 +113,7 @@ private:
     ClFilenameDatabase& m_FileDB;
     ClTreeMap<ClAbstractToken>* m_pTokens;
     ClTreeMap<int>* m_pFileTokens;
-    wxMutex m_Mutex;
+    mutable wxMutex m_Mutex;
 };
 
 #endif // TOKENDATABASE_H
