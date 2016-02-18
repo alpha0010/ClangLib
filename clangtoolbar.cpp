@@ -88,8 +88,10 @@ void ClangToolbar::OnEditorActivate(CodeBlocksEvent& event)
         ClTranslUnitId id = m_pClangPlugin->GetTranslationUnitId(fn);
         if (m_TranslUnitId != id )
         {
-            m_Scope->Clear();
-            m_Function->Clear();
+            if (m_Scope)
+                m_Scope->Clear();
+            if (m_Function)
+                m_Function->Clear();
             EnableToolbarTools(false);
         }
         m_TranslUnitId = id;
@@ -159,6 +161,12 @@ void ClangToolbar::OnUpdateSelection( wxCommandEvent& event )
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (ed)
     {
+        if (!m_ToolBar)
+            return;
+        if (!m_Function )
+            return;
+        if (!m_Scope)
+            return;
         if (m_Scope->GetCount() == 0 )
             OnUpdateContents(event);
         cbStyledTextCtrl* stc = ed->GetControl();
@@ -206,9 +214,14 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& /*event*/ )
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
-    {
         return;
-    }
+    if (!m_ToolBar)
+        return;
+    if (!m_Function )
+        return;
+    if (!m_Scope)
+        return;
+
     int sel = m_Scope->GetSelection();
     wxString selScope = m_Scope->GetString(sel);
     std::vector<std::pair<wxString, wxString> > scopes;
@@ -236,6 +249,12 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& /*event*/ )
 
 void ClangToolbar::OnScope( wxCommandEvent& /*evt*/ )
 {
+    if (!m_ToolBar)
+        return;
+    if (!m_Function )
+        return;
+    if (!m_Scope)
+        return;
     int sel = m_Scope->GetSelection();
     if (sel == -1)
         return;
@@ -247,9 +266,13 @@ void ClangToolbar::OnFunction( wxCommandEvent& /*evt*/ )
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
-    {
         return;
-    }
+    if (!m_ToolBar)
+        return;
+    if (!m_Function )
+        return;
+    if (!m_Scope)
+        return;
 
     wxString func = m_Function->GetString(m_Function->GetSelection());
     wxString scope = m_Scope->GetString( m_Scope->GetSelection() );
@@ -284,7 +307,8 @@ bool ClangToolbar::BuildToolBar(wxToolBar* toolBar)
 void ClangToolbar::UpdateToolBar()
 {
     bool showScope = Manager::Get()->GetConfigManager(_T("ClangLib"))->ReadBool(_T("/scope_filter"), true);
-
+    if (!m_ToolBar)
+        return;
     if (showScope && !m_Scope)
     {
         m_Scope = new wxChoice(m_ToolBar, wxNewId(), wxPoint(0, 0), wxSize(280, -1), 0, 0);
@@ -307,9 +331,13 @@ void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
-    {
         return;
-    }
+    if (!m_ToolBar)
+        return;
+    if (!m_Function )
+        return;
+    if (!m_Scope)
+        return;
     std::vector<std::pair<wxString, wxString> > funcList;
     m_pClangPlugin->GetFunctionScopes(GetCurrentTranslationUnitId(), ed->GetFilename(), funcList);
     std::sort(funcList.begin(), funcList.end(), SortByFunctionName);

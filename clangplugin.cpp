@@ -595,18 +595,14 @@ void ClangPlugin::OnEditorActivate(CodeBlocksEvent& event)
         {
             m_TranslUnitId = GetTranslationUnitId(filename);
         }
-        int reparseNeeded = UpdateCompileCommand(ed);
-        if( ed->GetModified() ){
-            // Since it's an editor being worked on, switching to it has a high change it needs a reparse due to external modifications to header files
-            reparseNeeded = 1;
-        }
+        UpdateCompileCommand(ed);
         if (m_TranslUnitId == wxNOT_FOUND)
         {
             wxCommandEvent evt(cbEVT_COMMAND_CREATETU, idClangCreateTU);
             evt.SetString(ed->GetFilename());
             AddPendingEvent(evt);
         }
-        else if(reparseNeeded)
+        else
         {
             RequestReparse();
         }
