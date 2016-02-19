@@ -1055,13 +1055,13 @@ void ClangPlugin::OnClangCreateTUFinished( wxEvent& event )
     {
         return;
     }
-    if ( HasEventSink(clEVT_DIAGNOSTICS_UPDATED ) )
-    {
-        ClangProxy::GetDiagnosticsJob job( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangGetDiagnostics, pJob->GetTranslationUnitId(), pJob->GetFilename() );
-        m_Proxy.AppendPendingJob(job);
-    }
-    ClangProxy::UpdateTokenDatabaseJob updateDbJob( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangUpdateTokenDatabase, pJob->GetTranslationUnitId());
-    m_Proxy.AppendPendingJob(updateDbJob);
+    //if ( HasEventSink(clEVT_DIAGNOSTICS_UPDATED ) )
+    //{
+    //    ClangProxy::GetDiagnosticsJob job( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangGetDiagnostics, pJob->GetTranslationUnitId(), pJob->GetFilename() );
+    //    m_Proxy.AppendPendingJob(job);
+    //}
+    //ClangProxy::UpdateTokenDatabaseJob updateDbJob( cbEVT_CLANG_ASYNCTASK_FINISHED, idClangUpdateTokenDatabase, pJob->GetTranslationUnitId());
+    //m_Proxy.AppendPendingJob(updateDbJob);
     ClangEvent evt( clEVT_REPARSE_FINISHED, pJob->GetTranslationUnitId(), pJob->GetFilename());
     ProcessEvent(evt);
     if (pJob->GetFilename() != ed->GetFilename())
