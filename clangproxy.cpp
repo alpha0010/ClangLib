@@ -597,11 +597,10 @@ void ClangProxy::ReparseJob::Execute(ClangProxy& clangproxy)
                 }
             }
         }
-        //for (std::set<ClTranslUnitId>::iterator it = parentTranslUnits.begin(); it != parentTranslUnits.end(); ++it)
-        //{
-            //fprintf(stdout,"Reparsing parent/child %d\n", (int)*it);
-        //    clangproxy.Reparse( *it, m_CompileCommand, m_UnsavedFiles );
-        //}
+        for (std::set<ClTranslUnitId>::iterator it = parentTranslUnits.begin(); it != parentTranslUnits.end(); ++it)
+        {
+            clangproxy.Reparse( *it, m_CompileCommand, m_UnsavedFiles );
+        }
     }
 
     // Get rid of some copied memory

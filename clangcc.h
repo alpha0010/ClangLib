@@ -85,7 +85,7 @@ private:
 
     unsigned int m_CCOutstanding;
     long m_CCOutstandingLastMessageTime;
-    int m_CCOutstandingPos;
+    int m_CCOutstandingTokenStart;
     ClTokenPosition m_CCOutstandingLoc;
     std::vector<ClToken> m_CCOutstandingResults;
     std::vector<wxString> m_TabJumpArguments;

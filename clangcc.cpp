@@ -36,7 +36,7 @@ ClangCodeCompletion::ClangCodeCompletion() :
     m_EditorHookId(-1),
     m_CCOutstanding(0),
     m_CCOutstandingLastMessageTime(0),
-    m_CCOutstandingPos(-1),
+    m_CCOutstandingTokenStart(-1),
     m_CCOutstandingLoc(0,0)
 {
 
@@ -93,7 +93,8 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
         m_TranslUnitId = id;
         m_CCOutstanding = 0;
         m_CCOutstandingLastMessageTime = 0;
-        m_CCOutstandingPos = 0;
+        m_CCOutstandingTokenStart = 0;
+        m_CCOutstandingResults.clear();
         cbStyledTextCtrl* stc = ed->GetControl();
 #ifndef __WXMSW__
         stc->Disconnect( wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ) );
@@ -282,7 +283,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         const int endPos = stc->WordEndPosition(lineIndentPos + 1, true);
         const wxString str = stc->GetTextRange(startPos, endPos);
 
-        if (str == wxT("include") && tknEnd > endPos)
+        if (str == wxT("include") && (tknEnd > endPos))
         {
             return GetAutocompListIncludes( isAuto, ed, tknStart, tknEnd);
         }
@@ -320,12 +321,32 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     if ( stc->IsString(style)||stc->IsComment(style)||stc->IsCharacter(style))
         return tokens;
 
+    // TODO: The outstanding bits really have become a mess: It's complicated with CC that can come in with the same position from C::B, CC request that can come in from the result and an old request that might still have been in the pipe
+
+    //CCLogger::Get()->DebugLog( F(wxT("GetAutoCompList m_CCOutstanding=%d m_CCOutstandingTokenStart=%d"), m_CCOutstanding, m_CCOutstandingTokenStart ) );
+
     int CCOutstanding = m_CCOutstanding;
-    if ((CCOutstanding > 0)&&(m_CCOutstandingPos != ed->GetControl()->GetCurrentPos()))
+    if ((CCOutstanding > 0)&&(m_CCOutstandingTokenStart == tknStart)&&(m_CCOutstandingResults.size()==0))
+    {
+        CCLogger::Get()->DebugLog( wxT("CC request allready requested") );
+        return tokens;
+    }
+    if (m_CCOutstandingTokenStart != tknStart)
+    {
+        m_CCOutstandingResults.clear();
+    }
+    if ((CCOutstanding > 0)&&(m_CCOutstandingTokenStart != tknStart))
     {
         CCOutstanding = 0;
     }
-    m_CCOutstanding = 0;
+
+    if ((CCOutstanding > 0)&&(m_CCOutstandingResults.size() == 0) )
+    {
+        CCLogger::Get()->DebugLog( wxT("CodeCompletion allready requested, wait until it's finished!") );
+        // This request is allready scheduled to be performed but is not ready yet...
+        return tokens;
+    }
+
 
     const int line = stc->LineFromPosition(tknStart);
     const int lnStart = stc->PositionFromLine(line);
@@ -353,15 +374,9 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     }
 
     std::vector<ClToken> tknResults;
-    if ((CCOutstanding == 0)||(m_CCOutstandingResults.size()==0))
+    if (m_CCOutstandingResults.size()==0)
     {
         ClTokenPosition loc(line+1, column+1);
-        if (CCOutstanding > 0)
-        {
-            CCLogger::Get()->DebugLog( wxT("CodeCompletion allready requested, wait until it's finished!") );
-            // This request is allready scheduled to be performed but is not ready yet...
-            return tokens;
-        }
         unsigned long timeout = 20;
         if ( !isAuto )
         {
@@ -370,7 +385,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         if ( wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, includeCtors, timeout, tknResults))
         {
             m_CCOutstanding++;
-            m_CCOutstandingPos = ed->GetControl()->GetCurrentPos();
+            m_CCOutstandingTokenStart = tknStart;
             m_CCOutstandingLoc = loc;
             m_CCOutstandingResults.clear();
             return tokens;
@@ -380,6 +395,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     {
         tknResults = m_CCOutstandingResults;
     }
+    m_CCOutstanding = 0;
     if (prefix.Length() > 3) // larger context, match the prefix at any point in the token
     {
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
@@ -420,11 +436,11 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         //for (int i = 0; i < imgCount; ++i)
         //    stc->RegisterImage(i, m_pClangPlugin->GetImageList(translUnitId).GetBitmap(i));
         bool isPP = stc->GetLine(line).Strip(wxString::leading).StartsWith(wxT("#"));
+         wxStringVec keywords = m_pClangPlugin->GetKeywords(translUnitId);
         std::set<int> usedWeights;
         for (std::vector<cbCodeCompletionPlugin::CCToken>::iterator tknIt = tokens.begin();
                 tknIt != tokens.end(); ++tknIt)
         {
-            wxStringVec keywords = m_pClangPlugin->GetKeywords(translUnitId);
             usedWeights.insert(tknIt->weight);
             switch (tknIt->category)
             {
@@ -626,12 +642,13 @@ void ClangCodeCompletion::OnTranslationUnitCreated( ClangEvent& event )
         return;
     }
     m_CCOutstanding = 0;
-    m_CCOutstandingPos = 0;
+    m_CCOutstandingTokenStart = 0;
     m_CCOutstandingResults.clear();
 }
 
 void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
 {
+    //CCLogger::Get()->DebugLog( wxT("OnCodeCompleteFinished") );
     if ( event.GetTranslationUnitId() != m_TranslUnitId )
     {
         return;
@@ -647,16 +664,13 @@ void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
         cbEditor* ed = edMgr->GetBuiltinActiveEditor();
         if (ed)
         {
-            if (ed->GetControl()->GetCurrentPos() == m_CCOutstandingPos)
+            m_CCOutstandingResults = event.GetCodeCompletionResults();
+            if ( m_CCOutstandingResults.size() > 0 )
             {
-                m_CCOutstandingResults = event.GetCodeCompletionResults();
-                if ( m_CCOutstandingResults.size() > 0 )
-                {
-                    CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
-                    evt.SetInt(1);
-                    Manager::Get()->ProcessEvent(evt);
-                    return;
-                }
+                CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
+                evt.SetInt(1);
+                Manager::Get()->ProcessEvent(evt);
+                return;
             }
         }
         m_CCOutstanding--;

@@ -37,7 +37,7 @@
 					<Add option="-m32" />
 				</Linker>
 				<ExtraCommands>
-					<Add after="zip -j9 C:\git\clanglib.zip resources/manifest.xml resources/ccsettings.xrc resources/codecompletion_toolbar.xrc" />
+					<Add after="zip -j9 C:\git\clanglib.zip resources/manifest.xml resources/ccsettings.xrc resources/clangcodecompletion_toolbar.xrc" />
 					<Mode after="always" />
 				</ExtraCommands>
 			</Target>

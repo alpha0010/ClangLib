@@ -161,8 +161,6 @@ void ClangToolbar::OnUpdateSelection( wxCommandEvent& event )
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (ed)
     {
-        if (!m_ToolBar)
-            return;
         if (!m_Function )
             return;
         if (!m_Scope)
@@ -215,8 +213,6 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& /*event*/ )
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
         return;
-    if (!m_ToolBar)
-        return;
     if (!m_Function )
         return;
     if (!m_Scope)
@@ -249,10 +245,6 @@ void ClangToolbar::OnUpdateContents( wxCommandEvent& /*event*/ )
 
 void ClangToolbar::OnScope( wxCommandEvent& /*evt*/ )
 {
-    if (!m_ToolBar)
-        return;
-    if (!m_Function )
-        return;
     if (!m_Scope)
         return;
     int sel = m_Scope->GetSelection();
@@ -266,8 +258,6 @@ void ClangToolbar::OnFunction( wxCommandEvent& /*evt*/ )
 {
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
-        return;
-    if (!m_ToolBar)
         return;
     if (!m_Function )
         return;
@@ -332,11 +322,7 @@ void ClangToolbar::UpdateFunctions( const wxString& scopeItem )
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
         return;
-    if (!m_ToolBar)
-        return;
     if (!m_Function )
-        return;
-    if (!m_Scope)
         return;
     std::vector<std::pair<wxString, wxString> > funcList;
     m_pClangPlugin->GetFunctionScopes(GetCurrentTranslationUnitId(), ed->GetFilename(), funcList);
