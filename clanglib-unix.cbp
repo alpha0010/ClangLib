@@ -85,7 +85,7 @@
 		<Unit filename="clangtoolbar.cpp" />
 		<Unit filename="clangtoolbar.h" />
 		<Unit filename="resources/ccsettings.xrc" />
-		<Unit filename="resources/codecompletion_toolbar.xrc" />
+		<Unit filename="resources/clangcodecompletion_toolbar.xrc" />
 		<Unit filename="resources/manifest.xml" />
 		<Unit filename="tokendatabase.cpp" />
 		<Unit filename="tokendatabase.h" />
