@@ -150,7 +150,6 @@ CXCodeCompleteResults* ClTranslationUnit::CodeCompleteAt( const wxString& comple
         unsigned numDiag = clang_codeCompleteGetNumDiagnostics(m_LastCC);
         //unsigned int IsIncomplete = 0;
         //CXCursorKind kind = clang_codeCompleteGetContainerKind(m_LastCC, &IsIncomplete );
-        //fprintf(stdout, "codecomplete numdiag: %d, container kind: %d, incomplete: %d\n", (int)numDiag, kind, IsIncomplete );
         unsigned int diagIdx = 0;
         std::vector<ClDiagnostic> diaglist;
         for ( diagIdx=0; diagIdx < numDiag; ++diagIdx )
@@ -158,10 +157,6 @@ CXCodeCompleteResults* ClTranslationUnit::CodeCompleteAt( const wxString& comple
             CXDiagnostic diag = clang_codeCompleteGetDiagnostic( m_LastCC, diagIdx );
             ExpandDiagnostic( diag, complete_filename, diaglist );
         }
-        //for ( std::vector<ClDiagnostic>::const_iterator it = diaglist.begin(); it != diaglist.end(); ++it)
-        //{
-        //    fprintf(stdout, " l=%d  s=%d '%s'\n", it->line, it->severity, (const char*)it->message.mb_str() );
-        //}
     }
 
     return m_LastCC;

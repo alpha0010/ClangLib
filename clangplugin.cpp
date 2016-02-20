@@ -1093,7 +1093,6 @@ void ClangPlugin::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
         return;
     cbStyledTextCtrl* stc = ed->GetControl();
     //CCLogger::Get()->Log( wxT("OnEditorHook") );
-    //fprintf( stdout, "OnEditorHook %x\n", event.GetModificationType() );
     if (event.GetModificationType() & (wxSCI_MOD_INSERTTEXT | wxSCI_MOD_DELETETEXT))
     {
         const int pos = stc->GetCurrentPos();

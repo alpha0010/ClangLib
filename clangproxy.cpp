@@ -644,8 +644,6 @@ ClangProxy::~ClangProxy()
 
 void ClangProxy::CreateTranslationUnit(const wxString& filename, const wxString& commands, const std::map<wxString, wxString>& unsavedFiles, ClTranslUnitId& out_TranslId)
 {
-    //fprintf(stdout,"%s '%s'\n", __PRETTY_FUNCTION__, (const char*)filename.mb_str());
-
     if ( filename.Length() == 0 )
         return;
 
@@ -781,7 +779,6 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
                                  std::vector<ClToken>& results,
                                  std::vector<ClDiagnostic>& diagnostics )
 {
-    //fprintf(stdout,"%s\n", __PRETTY_FUNCTION__);
     if (translUnitId < 0)
     {
         return;
@@ -812,7 +809,6 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
                                        clUnsavedFiles.size());
     if (!clResults)
     {
-        //fprintf(stdout,"%s No results...\n", __PRETTY_FUNCTION__);
         return;
     }
 
@@ -896,7 +892,6 @@ void ClangProxy::CodeCompleteAt( ClTranslUnitId translUnitId, const wxString& fi
     }
 
     CCLogger::Get()->DebugLog( F(wxT("CodeCompleteAt done: %d elements"), (int)results.size()) );
-    //fprintf(stdout,"CodeCompleteAt done (%p) (%d elements)\n", (void*)m_TranslUnits[translUnitId].GetId(), (int)results.size());
 }
 
 wxString ClangProxy::DocumentCCToken(ClTranslUnitId translUnitId, int tknId)
@@ -1071,7 +1066,6 @@ wxString ClangProxy::GetCCInsertSuffix(ClTranslUnitId translUnitId, int tknId, c
         case CXCompletionChunk_Informative:
         {
             CXString str = clang_getCompletionChunkText(clCompStr, i);
-            //fprintf(stdout, "informative text: %s", clang_getCString(str) );
             clang_disposeString(str);
         }
         break;
@@ -1654,8 +1648,6 @@ void ClangProxy::GetDiagnostics(ClTranslUnitId translUnitId, const wxString& fil
 
 void ClangProxy::AppendPendingJob( ClangProxy::ClangJob& job )
 {
-    //CCLogger::Get()->DebugLog( F(wxT("AppendPendingJob %d"), job.GetJobType()));
-    //fprintf(stdout, "AppendPendingJob %d", job.GetJobType());
     if (!m_pThread)
     {
         return;
