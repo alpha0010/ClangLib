@@ -223,8 +223,8 @@ void ClangCodeCompletion::OnCompleteCode( CodeBlocksEvent &event )
     {
         return;
     }
-    wxString filename = ed->GetFilename();
-    m_pClangPlugin->RequestReparse( m_TranslUnitId, filename );
+    //wxString filename = ed->GetFilename();
+    //m_pClangPlugin->RequestReparse( m_TranslUnitId, filename );
 }
 
 ClTranslUnitId ClangCodeCompletion::GetCurrentTranslationUnitId()
@@ -473,6 +473,8 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
             }
         }
     }
+
+    CCLogger::Get()->DebugLog( wxT("Delivering list of CC Tokens") );
 
     return tokens;
 }

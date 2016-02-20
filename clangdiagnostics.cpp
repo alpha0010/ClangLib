@@ -60,8 +60,8 @@ void ClangDiagnostics::OnAttach( IClangPlugin* pClangPlugin )
 
     //Connect(wxEVT_IDLE, wxIdleEventHandler(ClangDiagnostics::OnIdle));
 
-    typedef cbEventFunctor<ClangDiagnostics, ClangEvent> ClCCEvent;
-    pClangPlugin->RegisterEventSink(clEVT_DIAGNOSTICS_UPDATED, new ClCCEvent(this, &ClangDiagnostics::OnDiagnostics) );
+    typedef cbEventFunctor<ClangDiagnostics, ClangEvent> ClDiagEvent;
+    pClangPlugin->RegisterEventSink(clEVT_DIAGNOSTICS_UPDATED, new ClDiagEvent(this, &ClangDiagnostics::OnDiagnosticsUpdated) );
 }
 
 void ClangDiagnostics::OnRelease( IClangPlugin* pClangPlugin )
@@ -178,7 +178,7 @@ void ClangDiagnostics::OnEditorClose(CodeBlocksEvent& event)
     m_TranslUnitId = -1;
 }
 
-void ClangDiagnostics::OnDiagnostics( ClangEvent& event )
+void ClangDiagnostics::OnDiagnosticsUpdated( ClangEvent& event )
 {
     event.Skip();
     if ( !IsAttached() )

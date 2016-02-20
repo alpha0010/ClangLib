@@ -29,7 +29,7 @@ public: // Code::Blocks events
     void OnEditorClose(CodeBlocksEvent& event);
 
 public: // Clang events
-    void OnDiagnostics( ClangEvent& event );
+    void OnDiagnosticsUpdated( ClangEvent& event );
 
 public:
     ClTranslUnitId GetCurrentTranslationUnitId();
