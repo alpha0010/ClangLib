@@ -18,7 +18,7 @@ class ClangPlugin;
 class ClangSettingsDlg : public cbConfigurationPanel
 {
 public:
-    ClangSettingsDlg(wxWindow* parent, ClangPlugin* pPlugin  );
+    ClangSettingsDlg(wxWindow* parent, ClangPlugin* pPlugin);
     virtual ~ClangSettingsDlg();
 
     virtual wxString GetTitle() const

@@ -24,7 +24,7 @@ public:
     ClangPlugin();
     virtual ~ClangPlugin();
 
-    bool ProcessEvent( wxEvent& event );
+    bool ProcessEvent(wxEvent& event);
 
     /*-- Public interface --*/
     virtual int GetConfigurationGroup() const
@@ -103,32 +103,32 @@ private:
     void OnCCDebugLogger(CodeBlocksThreadEvent& event);
 
     /// Start up parsing timers
-    void OnEditorOpen( CodeBlocksEvent& event );
+    void OnEditorOpen(CodeBlocksEvent& event);
     /// Start up parsing timers
-    void OnEditorActivate( CodeBlocksEvent& event );
-    void OnEditorSave( CodeBlocksEvent& event );
-    void OnEditorClose( CodeBlocksEvent& event );
+    void OnEditorActivate(CodeBlocksEvent& event);
+    void OnEditorSave(CodeBlocksEvent& event);
+    void OnEditorClose(CodeBlocksEvent& event);
     /// Make project-dependent setup
-    void OnProjectActivate( CodeBlocksEvent& event );
-    void OnProjectFileChanged( CodeBlocksEvent& event );
+    void OnProjectActivate(CodeBlocksEvent& event);
+    void OnProjectFileChanged(CodeBlocksEvent& event);
     /// Update project-dependent setup
-    void OnProjectOptionsChanged( CodeBlocksEvent& event );
+    void OnProjectOptionsChanged(CodeBlocksEvent& event);
     /// Close project
-    void OnProjectClose( CodeBlocksEvent& event );
+    void OnProjectClose(CodeBlocksEvent& event);
     /// Generic handler for various timers
     void OnTimer(wxTimerEvent& event);
     /// Start re-parse
-    void OnEditorHook( cbEditor* ed, wxScintillaEvent& event );
+    void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
     /// Resolve the token under the cursor and open the relevant location
-    void OnGotoDeclaration( wxCommandEvent& event );
+    void OnGotoDeclaration(wxCommandEvent& event);
     /// Find the token implementation under the cursor and open the relevant location
-    void OnGotoImplementation( wxCommandEvent& event );
+    void OnGotoImplementation(wxCommandEvent& event);
 
     // Async
     //void OnReparse( wxCommandEvent& evt );
 
     // Async
-    void OnCreateTranslationUnit( wxCommandEvent& evt );
+    void OnCreateTranslationUnit(wxCommandEvent& evt);
 
     /**
      * Update editor diagnostic mark up
@@ -141,19 +141,19 @@ private:
 
 
     /// Set the clang translation unit (callback)
-    void OnClangCreateTUFinished( wxEvent& event );
+    void OnClangCreateTUFinished(wxEvent& event);
 
     /// Update after clang has reparsing done (callback)
-    void OnClangReparseFinished( wxEvent& event );
+    void OnClangReparseFinished(wxEvent& event);
 
     /// Update after updating the token database has finished
-    void OnClangUpdateTokenDatabaseFinished( wxEvent& event );
+    void OnClangUpdateTokenDatabaseFinished(wxEvent& event);
 
     /// Update after clang has built diagnostics
-    void OnClangGetDiagnosticsFinished( wxEvent& event );
+    void OnClangGetDiagnosticsFinished(wxEvent& event);
 
     /// Update after clang has finished a synchronous task
-    void OnClangSyncTaskFinished( wxEvent& event );
+    void OnClangSyncTaskFinished(wxEvent& event);
 
     /**
      * Semantically highlight all occurrences of the token under the cursor
@@ -169,42 +169,49 @@ private: // Internal utility functions
     // Builds compile command
     int UpdateCompileCommand(cbEditor* ed);
 
-    void RequestReparse( int delayMilliseconds = CLANG_REPARSE_DELAY );
+    void RequestReparse(int delayMilliseconds = CLANG_REPARSE_DELAY);
 
-    bool ActivateComponent( ClangPluginComponent* pComponent );
-    bool DeactivateComponent( ClangPluginComponent* pComponent );
+    bool ActivateComponent(ClangPluginComponent* pComponent);
+    bool DeactivateComponent(ClangPluginComponent* pComponent);
     bool ProcessEvent(ClangEvent& event);
-    bool HasEventSink( const wxEventType eventType);
+    bool HasEventSink(const wxEventType eventType);
 
 public: // IClangPlugin
     bool IsProviderFor(cbEditor* ed);
-    ClTranslUnitId GetTranslationUnitId( const wxString& filename );
-    void RegisterEventSink( wxEventType, IEventFunctorBase<ClangEvent>* functor);
+    ClTranslUnitId GetTranslationUnitId(const wxString& filename);
+    void RegisterEventSink(wxEventType, IEventFunctorBase<ClangEvent>* functor);
     void RemoveAllEventSinksFor(void* owner);
 
     void RequestReparse(const ClTranslUnitId id, const wxString& filename);
-    std::pair<wxString,wxString> GetFunctionScopeAt( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& location );
-    ClTokenPosition GetFunctionScopeLocation( const ClTranslUnitId id, const wxString& filename, const wxString& scope, const wxString& functioname);
-    void GetFunctionScopes( const ClTranslUnitId, const wxString& filename, std::vector<std::pair<wxString, wxString> >& out_scopes );
-    wxCondError GetOccurrencesOf( const ClTranslUnitId, const wxString& filename, const ClTokenPosition& loc, unsigned long timeout, std::vector< std::pair<int, int> >& out_occurrences );
-    wxCondError GetCodeCompletionAt( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc, bool includeCtors, unsigned long timeout, std::vector<ClToken>& out_tknResults);
-    wxString GetCodeCompletionTokenDocumentation( const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc, ClTokenId tokenId );
-    wxString GetCodeCompletionInsertSuffix( const ClTranslUnitId translId, int tknId, const wxString& newLine, std::vector< std::pair<int, int> >& offsets );
+    std::pair<wxString, wxString> GetFunctionScopeAt(const ClTranslUnitId id, const wxString& filename,
+                                                     const ClTokenPosition& location);
+    ClTokenPosition GetFunctionScopeLocation(const ClTranslUnitId id, const wxString& filename,
+                                             const wxString& scope, const wxString& functioname);
+    void GetFunctionScopes(const ClTranslUnitId, const wxString& filename,
+                           std::vector<std::pair<wxString, wxString> >& out_scopes);
+    wxCondError GetOccurrencesOf(const ClTranslUnitId, const wxString& filename, const ClTokenPosition& loc,
+                                 unsigned long timeout, std::vector< std::pair<int, int> >& out_occurrences);
+    wxCondError GetCodeCompletionAt(const ClTranslUnitId id, const wxString& filename, const ClTokenPosition& loc,
+                                    bool includeCtors, unsigned long timeout, std::vector<ClToken>& out_tknResults);
+    wxString GetCodeCompletionTokenDocumentation(const ClTranslUnitId id, const wxString& filename,
+                                                 const ClTokenPosition& loc, ClTokenId tokenId);
+    wxString GetCodeCompletionInsertSuffix(const ClTranslUnitId translId, int tknId, const wxString& newLine,
+                                           std::vector< std::pair<int, int> >& offsets);
 
-    const wxImageList& GetImageList(const ClTranslUnitId /*id*/ )
+    const wxImageList& GetImageList(const ClTranslUnitId WXUNUSED(id))
     {
         return m_ImageList;
     }
-    const wxStringVec& GetKeywords( const ClTranslUnitId /*id*/ )
+    const wxStringVec& GetKeywords(const ClTranslUnitId WXUNUSED(id))
     {
         return m_CppKeywords;
     }
 private: // Members
     std::vector<ClangPluginComponent*> m_ActiveComponentList;
 
-    typedef std::vector< IEventFunctorBase<ClangEvent>* > EventSinksArray;
-    typedef std::map< wxEventType, EventSinksArray >   EventSinksMap;
-    EventSinksMap       m_EventSinks;
+    typedef std::vector<IEventFunctorBase<ClangEvent>*> EventSinksArray;
+    typedef std::map<wxEventType, EventSinksArray> EventSinksMap;
+    EventSinksMap m_EventSinks;
 
     ClFilenameDatabase m_FileDatabase;
     ClTokenDatabase m_Database;

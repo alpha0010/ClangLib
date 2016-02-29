@@ -11,21 +11,21 @@ public:
     ClangToolbar();
     virtual ~ClangToolbar();
 
-    void OnAttach( IClangPlugin* pClangPlugin );
-    void OnRelease( IClangPlugin* pClangPlugin );
+    void OnAttach(IClangPlugin* pClangPlugin);
+    void OnRelease(IClangPlugin* pClangPlugin);
 
 public: // Code::Blocks events
     void OnEditorActivate(CodeBlocksEvent& event);
     void OnEditorClose(CodeBlocksEvent& event);
     void OnEditorHook(cbEditor* ed, wxScintillaEvent& event);
 public: // Clang events
-    void OnTokenDatabaseUpdated( ClangEvent& event );
+    void OnTokenDatabaseUpdated(ClangEvent& event);
 
 public: // Command events
-    void OnUpdateSelection( wxCommandEvent& evt );
-    void OnUpdateContents( wxCommandEvent& evt );
-    void OnScope( wxCommandEvent& evt );
-    void OnFunction( wxCommandEvent& evt );
+    void OnUpdateSelection(wxCommandEvent& evt);
+    void OnUpdateContents(wxCommandEvent& evt);
+    void OnScope(wxCommandEvent& evt);
+    void OnFunction(wxCommandEvent& evt);
 public:
     bool BuildToolBar(wxToolBar* toolBar);
     /** enable the two wxChoices */
@@ -35,7 +35,7 @@ public:
     void UpdateToolBar();
 
     // Updates the functions when the scope has changed
-    void UpdateFunctions( const wxString& scopeItem );
+    void UpdateFunctions(const wxString& scopeItem);
 
     ClTranslUnitId GetCurrentTranslationUnitId();
 
@@ -45,11 +45,11 @@ private:
     int m_CurrentEditorLine;
 private:
     /** the CC's toolbar */
-    wxToolBar*              m_ToolBar;
+    wxToolBar* m_ToolBar;
     /** function choice control of CC's toolbar, it is the second choice */
-    wxChoice*               m_Function;
+    wxChoice* m_Function;
     /** namespace/scope choice control, it is the first choice control */
-    wxChoice*               m_Scope;
+    wxChoice* m_Scope;
 };
 
 #endif

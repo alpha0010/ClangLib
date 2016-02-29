@@ -19,10 +19,12 @@ struct ClAbstractToken
     ClAbstractToken(ClTokenType typ, ClFileId fId, ClTokenPosition loc, wxString name, wxString _displayName, wxString _scopeName, unsigned tknHash) :
         tokenType(typ), fileId(fId), location(loc), identifier(name), displayName(_displayName.c_str()), scopeName(_scopeName.c_str()), tokenHash(tknHash) {}
     ClAbstractToken( const ClAbstractToken& other ) :
-        tokenType(other.tokenType), fileId(other.fileId), location(other.location), identifier(other.identifier), displayName( other.displayName.c_str()), scopeName(other.scopeName.c_str()), tokenHash(other.tokenHash) {}
+        tokenType(other.tokenType), fileId(other.fileId), location(other.location),
+        identifier(other.identifier), displayName( other.displayName.c_str()),
+        scopeName(other.scopeName.c_str()), tokenHash(other.tokenHash) {}
 
-    static bool ReadIn( ClAbstractToken& token, wxInputStream& in );
-    static bool WriteOut( const ClAbstractToken& token,  wxOutputStream& out );
+    static bool ReadIn(ClAbstractToken& token, wxInputStream& in);
+    static bool WriteOut(const ClAbstractToken& token,  wxOutputStream& out);
 
     ClTokenType tokenType;
     ClFileId fileId;
@@ -49,13 +51,13 @@ public:
     ClFilenameDatabase();
     ~ClFilenameDatabase();
 
-    static bool ReadIn( ClFilenameDatabase& tokenDatabase, wxInputStream& in );
-    static bool WriteOut( const ClFilenameDatabase& db, wxOutputStream& out );
+    static bool ReadIn(ClFilenameDatabase& tokenDatabase, wxInputStream& in);
+    static bool WriteOut(const ClFilenameDatabase& db, wxOutputStream& out);
 
     ClFileId GetFilenameId(const wxString& filename) const;
     wxString GetFilename(const ClFileId fId) const;
     const wxDateTime GetFilenameTimestamp(const ClFileId fId) const;
-    void UpdateFilenameTimestamp( const ClFileId fId, const wxDateTime& timestamp );
+    void UpdateFilenameTimestamp(const ClFileId fId, const wxDateTime& timestamp);
 private:
     ClTreeMap<ClFilenameEntry>* m_pFileEntries;
     mutable wxMutex m_Mutex;
@@ -64,15 +66,15 @@ private:
 class ClTokenDatabase
 {
 public:
-    ClTokenDatabase( ClFilenameDatabase& fileDB );
-    ClTokenDatabase( const ClTokenDatabase& other);
+    ClTokenDatabase(ClFilenameDatabase& fileDB);
+    ClTokenDatabase(const ClTokenDatabase& other);
     ~ClTokenDatabase();
 
-    friend void swap( ClTokenDatabase& first, ClTokenDatabase& second );
+    friend void swap(ClTokenDatabase& first, ClTokenDatabase& second);
 
 
-    static bool ReadIn( ClTokenDatabase& tokenDatabase, wxInputStream& in );
-    static bool WriteOut( const ClTokenDatabase& tokenDatabase, wxOutputStream& out );
+    static bool ReadIn(ClTokenDatabase& tokenDatabase, wxInputStream& in);
+    static bool WriteOut(const ClTokenDatabase& tokenDatabase, wxOutputStream& out);
 
     ClFileId GetFilenameId(const wxString& filename) const;
     wxString GetFilename(const ClFileId fId) const;
@@ -84,7 +86,7 @@ public:
     {
         return m_FileDB;
     }
-    void RemoveToken( const ClTokenId tokenId );
+    void RemoveToken(const ClTokenId tokenId);
     /**
      * Return a list of tokenId's for the given token identifier
      */
@@ -106,9 +108,9 @@ public:
     /**
      * Updates the data from the argument into the database. This invalidates any token previously present in the database, replacing it by the matching token from the merged-in database.
      */
-    void Update( const ClFileId fileId, const ClTokenDatabase& db );
+    void Update(const ClFileId fileId, const ClTokenDatabase& db);
 private:
-    void UpdateToken( const ClTokenId tokenId, const ClAbstractToken& token);
+    void UpdateToken(const ClTokenId tokenId, const ClAbstractToken& token);
 private:
     ClFilenameDatabase& m_FileDB;
     ClTreeMap<ClAbstractToken>* m_pTokens;

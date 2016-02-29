@@ -15,13 +15,13 @@ public:
 
     static const wxString SettingName;
 
-    void OnAttach( IClangPlugin* pClangPlugin );
-    void OnRelease( IClangPlugin* pClangPlugin );
+    void OnAttach(IClangPlugin* pClangPlugin);
+    void OnRelease(IClangPlugin* pClangPlugin);
 
-    cbCodeCompletionPlugin::CCProviderStatus GetProviderStatusFor( cbEditor* ed );
+    cbCodeCompletionPlugin::CCProviderStatus GetProviderStatusFor(cbEditor* ed);
     std::vector<cbCodeCompletionPlugin::CCToken> GetAutocompList(bool isAuto, cbEditor* ed, int& tknStart, int& tknEnd);
-    wxString GetDocumentation( const cbCodeCompletionPlugin::CCToken& token );
-    bool DoAutocomplete( const cbCodeCompletionPlugin::CCToken& /*token*/, cbEditor* /*ed*/);
+    wxString GetDocumentation(const cbCodeCompletionPlugin::CCToken& token);
+    bool DoAutocomplete(const cbCodeCompletionPlugin::CCToken& WXUNUSED(token), cbEditor* WXUNUSED(ed));
 
     /**
      * Semantically highlight all occurrences of the token under the cursor
@@ -40,8 +40,8 @@ public: // Code::Blocks events
     void OnCompleteCode(CodeBlocksEvent& event);
 
 public: // Clang events
-    void OnTranslationUnitCreated( ClangEvent& event );
-    void OnCodeCompleteFinished( ClangEvent& event );
+    void OnTranslationUnitCreated(ClangEvent& event);
+    void OnCodeCompleteFinished(ClangEvent& event);
 
 private:
     /** Perform auto completion for #include filenames */

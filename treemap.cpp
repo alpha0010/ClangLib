@@ -192,9 +192,9 @@ void ClTreeMap<int>::Remove(const wxString& key, int value)
     std::pair<leafItr, leafItr> rg = m_Root->leaves.equal_range(key);
     for (leafItr itr = rg.first; itr != rg.second; ++itr)
     {
-        if ( itr->second == value )
+        if (itr->second == value)
         {
-            m_Root->leaves.erase( itr );
+            m_Root->leaves.erase(itr);
             return;
         }
     }

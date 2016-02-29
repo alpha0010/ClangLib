@@ -53,17 +53,17 @@ void ClangCodeCompletion::OnAttach(IClangPlugin* pClangPlugin)
 
     ColourManager *pColours = Manager::Get()->GetColourManager();
 
-    pColours->RegisterColour( _("Code completion"), _("Documentation popup scope text"), _("cc_docs_scope_fore"), *wxBLUE );
+    pColours->RegisterColour(_("Code completion"), _("Documentation popup scope text"), wxT("cc_docs_scope_fore"), *wxBLUE);
 
     typedef cbEventFunctor<ClangCodeCompletion, CodeBlocksEvent> CBCCEvent;
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_ACTIVATED, new CBCCEvent(this, &ClangCodeCompletion::OnEditorActivate));
     Manager::Get()->RegisterEventSink(cbEVT_EDITOR_CLOSE,     new CBCCEvent(this, &ClangCodeCompletion::OnEditorClose));
 
-    Connect(idHighlightTimer,  wxEVT_TIMER, wxTimerEventHandler(ClangCodeCompletion::OnTimer));
+    Connect(idHighlightTimer, wxEVT_TIMER, wxTimerEventHandler(ClangCodeCompletion::OnTimer));
 
     typedef cbEventFunctor<ClangCodeCompletion, ClangEvent> ClCCEvent;
-    pClangPlugin->RegisterEventSink(clEVT_TRANSLATIONUNIT_CREATED, new ClCCEvent(this, &ClangCodeCompletion::OnTranslationUnitCreated) );
-    pClangPlugin->RegisterEventSink(clEVT_GETCODECOMPLETE_FINISHED, new ClCCEvent(this, &ClangCodeCompletion::OnCodeCompleteFinished) );
+    pClangPlugin->RegisterEventSink(clEVT_TRANSLATIONUNIT_CREATED,  new ClCCEvent(this, &ClangCodeCompletion::OnTranslationUnitCreated));
+    pClangPlugin->RegisterEventSink(clEVT_GETCODECOMPLETE_FINISHED, new ClCCEvent(this, &ClangCodeCompletion::OnCodeCompleteFinished));
 
     m_EditorHookId = EditorHooks::RegisterHook(new EditorHooks::HookFunctor<ClangCodeCompletion>(this, &ClangCodeCompletion::OnEditorHook));
 }
@@ -81,7 +81,7 @@ void ClangCodeCompletion::OnRelease(IClangPlugin* pClangPlugin)
 void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
 {
     event.Skip();
-    if ( !IsAttached() )
+    if (!IsAttached())
         return;
 
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(event.GetEditor());
@@ -97,8 +97,8 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
         m_CCOutstandingResults.clear();
         cbStyledTextCtrl* stc = ed->GetControl();
 #ifndef __WXMSW__
-        stc->Disconnect( wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ) );
-        stc->Connect( wxID_ANY, wxEVT_KEY_DOWN, wxKeyEventHandler( ClangCodeCompletion::OnKeyDown ), (wxObject*)NULL, this );
+        stc->Disconnect(wxEVT_KEY_DOWN, wxKeyEventHandler(ClangCodeCompletion::OnKeyDown));
+        stc->Connect(wxID_ANY, wxEVT_KEY_DOWN, wxKeyEventHandler(ClangCodeCompletion::OnKeyDown), (wxObject*)nullptr, this);
 #endif
         const int imgCount = m_pClangPlugin->GetImageList(id).GetImageCount();
         for (int i = 0; i < imgCount; ++i)
@@ -109,20 +109,18 @@ void ClangCodeCompletion::OnEditorActivate(CodeBlocksEvent& event)
 void ClangCodeCompletion::OnEditorClose(CodeBlocksEvent& event)
 {
     event.Skip();
-    if ( !IsAttached() )
+    if (!IsAttached())
         return;
 
     EditorManager* edm = Manager::Get()->GetEditorManager();
     if (!edm)
-    {
         return;
-    }
 }
 
 void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 {
     event.Skip();
-    if ( !IsAttached() )
+    if (!IsAttached())
         return;
     bool clearIndicator = false;
     //if (!m_pClangPlugin->IsProviderFor(ed))
@@ -163,48 +161,40 @@ void ClangCodeCompletion::OnEditorHook(cbEditor* ed, wxScintillaEvent& event)
 void ClangCodeCompletion::OnTimer(wxTimerEvent& event)
 {
     if (!IsAttached())
-    {
         return;
-    }
     const int evId = event.GetId();
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
-    {
         return;
-    }
 
     if (evId == idHighlightTimer)
-    {
         HighlightOccurrences(ed);
-    }
     else
-    {
         event.Skip();
-    }
 }
 
 void ClangCodeCompletion::OnKeyDown(wxKeyEvent& event)
 {
     //fprintf(stdout,"OnKeyDown");
-    if ( event.GetKeyCode() == WXK_TAB )
+    if (event.GetKeyCode() == WXK_TAB)
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
         if (ed)
         {
             cbStyledTextCtrl* stc = ed->GetControl();
-            if ( !stc->AutoCompActive() )
+            if (!stc->AutoCompActive())
             {
-                int pos = stc->PositionFromLine( stc->GetCurrentLine() );
-                int maxPos = stc->PositionFromLine( stc->GetCurrentLine() + 1 );
+                int pos = stc->PositionFromLine(stc->GetCurrentLine());
+                int maxPos = stc->PositionFromLine(stc->GetCurrentLine() + 1);
                 for (std::vector<wxString>::iterator it = m_TabJumpArguments.begin(); it != m_TabJumpArguments.end(); ++it)
                 {
-                    int argPos = stc->FindText( pos, maxPos, *it );
-                    if ( argPos != wxNOT_FOUND )
+                    int argPos = stc->FindText(pos, maxPos, *it);
+                    if (argPos != wxNOT_FOUND)
                     {
-                        stc->SetSelectionVoid( argPos, argPos + it->Length() - 1 );
+                        stc->SetSelectionVoid(argPos, argPos + it->Length() - 1);
                         wxString value = *it;
-                        it = m_TabJumpArguments.erase( it );
-                        m_TabJumpArguments.push_back( value );
+                        it = m_TabJumpArguments.erase(it);
+                        m_TabJumpArguments.push_back(value);
                         stc->EnableTabSmartJump();
                         return;
                     }
@@ -215,34 +205,30 @@ void ClangCodeCompletion::OnKeyDown(wxKeyEvent& event)
     event.Skip();
 }
 
-void ClangCodeCompletion::OnCompleteCode( CodeBlocksEvent &event )
+void ClangCodeCompletion::OnCompleteCode(CodeBlocksEvent &event)
 {
     event.Skip();
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (!ed)
-    {
         return;
-    }
     //wxString filename = ed->GetFilename();
     //m_pClangPlugin->RequestReparse( m_TranslUnitId, filename );
 }
 
 ClTranslUnitId ClangCodeCompletion::GetCurrentTranslationUnitId()
 {
-    if (m_TranslUnitId == -1 )
+    if (m_TranslUnitId == wxNOT_FOUND)
     {
         cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
         if (!ed)
-        {
-            return -1;
-        }
+            return wxNOT_FOUND;
         wxString filename = ed->GetFilename();
         m_TranslUnitId = m_pClangPlugin->GetTranslationUnitId( filename );
     }
     return m_TranslUnitId;
 }
 
-cbCodeCompletionPlugin::CCProviderStatus ClangCodeCompletion::GetProviderStatusFor( cbEditor* ed )
+cbCodeCompletionPlugin::CCProviderStatus ClangCodeCompletion::GetProviderStatusFor(cbEditor* ed)
 {
     if (ed->GetLanguage() == ed->GetColourSet()->GetHighlightLanguage(wxT("C/C++")))
         return cbCodeCompletionPlugin::ccpsActive;
@@ -269,8 +255,8 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
 {
     std::vector<cbCodeCompletionPlugin::CCToken> tokens;
 
-    ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("ClangLib"));
-    size_t maxResultCount = cfg->ReadInt( _T("/max_matches"), 1024);
+    ConfigManager* cfg = Manager::Get()->GetConfigManager(wxT("ClangLib"));
+    size_t maxResultCount = cfg->ReadInt(wxT("/max_matches"), 1024);
 
     cbStyledTextCtrl* stc = ed->GetControl();
     const int style = stc->GetStyleAt( tknEnd );
@@ -284,9 +270,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         const wxString str = stc->GetTextRange(startPos, endPos);
 
         if (str == wxT("include") && (tknEnd > endPos))
-        {
-            return GetAutocompListIncludes( isAuto, ed, tknStart, tknEnd);
-        }
+            return GetAutocompListIncludes(isAuto, ed, tknStart, tknEnd);
     }
 
     ClTranslUnitId translUnitId = GetCurrentTranslationUnitId();
@@ -301,24 +285,24 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         }
         return tokens;
     }
-    if ( translUnitId != m_TranslUnitId )
+    if (translUnitId != m_TranslUnitId)
         return tokens;
 
     const wxChar curChar = stc->GetCharAt(tknEnd - 1);
     if (isAuto) // filter illogical cases of auto-launch
     {
-        if ((curChar == wxT(':') // scope operator
+        if (   (   curChar == wxT(':') // scope operator
                 && stc->GetCharAt(tknEnd - 2) != wxT(':') )
-                || ( curChar == wxT('>') // '->'
-                     && stc->GetCharAt(tknEnd - 2) != wxT('-') )
-                || ( wxString(wxT("<\"/")).Find(curChar) != wxNOT_FOUND // #include directive (TODO: enumerate completable include files)
-                     && !stc->IsPreprocessor(style)))
+            || (   curChar == wxT('>') // '->'
+                && stc->GetCharAt(tknEnd - 2) != wxT('-') )
+            || (   wxString(wxT("<\"/")).Find(curChar) != wxNOT_FOUND // #include directive (TODO: enumerate completable include files)
+                && !stc->IsPreprocessor(style) ) )
         {
             return tokens;
         }
     }
 
-    if ( stc->IsString(style)||stc->IsComment(style)||stc->IsCharacter(style))
+    if (stc->IsString(style)||stc->IsComment(style)||stc->IsCharacter(style))
         return tokens;
 
     // TODO: The outstanding bits really have become a mess: It's complicated with CC that can come in with the same position from C::B, CC request that can come in from the result and an old request that might still have been in the pipe
@@ -326,21 +310,21 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     //CCLogger::Get()->DebugLog( F(wxT("GetAutoCompList m_CCOutstanding=%d m_CCOutstandingTokenStart=%d"), m_CCOutstanding, m_CCOutstandingTokenStart ) );
 
     int CCOutstanding = m_CCOutstanding;
-    if ((CCOutstanding > 0)&&(m_CCOutstandingTokenStart == tknStart)&&(m_CCOutstandingResults.size()==0))
+    if ((CCOutstanding > 0) && (m_CCOutstandingTokenStart == tknStart) && m_CCOutstandingResults.empty())
     {
-        CCLogger::Get()->DebugLog( wxT("CC request allready requested") );
+        CCLogger::Get()->DebugLog(wxT("CC request allready requested"));
         return tokens;
     }
     if (m_CCOutstandingTokenStart != tknStart)
     {
         m_CCOutstandingResults.clear();
     }
-    if ((CCOutstanding > 0)&&(m_CCOutstandingTokenStart != tknStart))
+    if ((CCOutstanding > 0) && (m_CCOutstandingTokenStart != tknStart))
     {
         CCOutstanding = 0;
     }
 
-    if ((CCOutstanding > 0)&&(m_CCOutstandingResults.size() == 0) )
+    if ((CCOutstanding > 0) && m_CCOutstandingResults.empty())
     {
         CCLogger::Get()->DebugLog( wxT("CodeCompletion allready requested, wait until it's finished!") );
         // This request is allready scheduled to be performed but is not ready yet...
@@ -353,8 +337,8 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     int column = tknStart - lnStart;
     for (; column > 0; --column)
     {
-        if (!wxIsspace(stc->GetCharAt(lnStart + column - 1))
-                || (column != 1 && !wxIsspace(stc->GetCharAt(lnStart + column - 2))))
+        if (   !wxIsspace(stc->GetCharAt(lnStart + column - 1))
+            || (column != 1 && !wxIsspace(stc->GetCharAt(lnStart + column - 2))) )
         {
             break;
         }
@@ -374,15 +358,15 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     }
 
     std::vector<ClToken> tknResults;
-    if (m_CCOutstandingResults.size()==0)
+    if (m_CCOutstandingResults.empty())
     {
-        ClTokenPosition loc(line+1, column+1);
+        ClTokenPosition loc(line + 1, column + 1);
         unsigned long timeout = 20;
         if ( !isAuto )
         {
             timeout = 100;
         }
-        if ( wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, includeCtors, timeout, tknResults))
+        if (wxCOND_TIMEOUT == m_pClangPlugin->GetCodeCompletionAt(translUnitId, ed->GetFilename(), loc, includeCtors, timeout, tknResults))
         {
             m_CCOutstanding++;
             m_CCOutstandingTokenStart = tknStart;
@@ -399,7 +383,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     if (prefix.Length() > 3) // larger context, match the prefix at any point in the token
     {
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
-                tknIt != tknResults.end(); ++tknIt)
+             tknIt != tknResults.end(); ++tknIt)
         {
             if ( (tknIt->name.Lower().Find(prefix) != wxNOT_FOUND) && (includeCtors || (tknIt->category != tcCtorPublic)) )
                 tokens.push_back(cbCodeCompletionPlugin::CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
@@ -411,14 +395,14 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
                 tknIt != tknResults.end(); ++tknIt)
         {
             // it is rather unlikely for an operator to be the desired completion
-            if ( (!tknIt->name.StartsWith(wxT("operator"))) && (includeCtors || tknIt->category != tcCtorPublic))
+            if ( (!tknIt->name.StartsWith(wxT("operator"))) && (includeCtors || tknIt->category != tcCtorPublic) )
                 tokens.push_back(cbCodeCompletionPlugin::CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
         }
     }
     else // smaller context, only allow matches of the prefix at the beginning of the token
     {
         for (std::vector<ClToken>::const_iterator tknIt = tknResults.begin();
-                tknIt != tknResults.end(); ++tknIt)
+             tknIt != tknResults.end(); ++tknIt)
         {
             if (tknIt->name.Lower().StartsWith(prefix) && (includeCtors || tknIt->category != tcCtorPublic))
                 tokens.push_back(cbCodeCompletionPlugin::CCToken(tknIt->id, tknIt->name, tknIt->name, tknIt->weight, tknIt->category));
@@ -436,10 +420,10 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
         //for (int i = 0; i < imgCount; ++i)
         //    stc->RegisterImage(i, m_pClangPlugin->GetImageList(translUnitId).GetBitmap(i));
         bool isPP = stc->GetLine(line).Strip(wxString::leading).StartsWith(wxT("#"));
-         wxStringVec keywords = m_pClangPlugin->GetKeywords(translUnitId);
+        wxStringVec keywords = m_pClangPlugin->GetKeywords(translUnitId);
         std::set<int> usedWeights;
         for (std::vector<cbCodeCompletionPlugin::CCToken>::iterator tknIt = tokens.begin();
-                tknIt != tokens.end(); ++tknIt)
+             tknIt != tokens.end(); ++tknIt)
         {
             usedWeights.insert(tknIt->weight);
             switch (tknIt->category)
@@ -479,7 +463,7 @@ std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompLis
     return tokens;
 }
 
-std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompListIncludes(bool /*isAuto*/, cbEditor* /*ed*/, int& /*tknStart*/, int& /*tknEnd*/)
+std::vector<cbCodeCompletionPlugin::CCToken> ClangCodeCompletion::GetAutocompListIncludes(bool WXUNUSED(isAuto), cbEditor* WXUNUSED(ed), int& WXUNUSED(tknStart), int& WXUNUSED(tknEnd))
 {
     std::vector<cbCodeCompletionPlugin::CCToken> result;
 
@@ -494,10 +478,10 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
         tknText.Truncate(idx);
     std::vector<std::pair<int, int> > offsetsList;
     cbStyledTextCtrl* stc = ed->GetControl();
-    wxString suffix = m_pClangPlugin->GetCodeCompletionInsertSuffix(GetCurrentTranslationUnitId(), token.id,
-                      GetEOLStr(stc->GetEOLMode())
-                      + ed->GetLineIndentString(stc->GetCurrentLine()),
-                      offsetsList);
+    wxString suffix = m_pClangPlugin->GetCodeCompletionInsertSuffix(GetCurrentTranslationUnitId(),
+                                                                    token.id,
+                                                                    GetEOLStr(stc->GetEOLMode()) + ed->GetLineIndentString(stc->GetCurrentLine()),
+                                                                    offsetsList);
     //if (offsetsList.size() == 0)
     //    offsetsList.push_back( std::make_pair<int,int>(0,0) );
     int pos = stc->GetCurrentPos();
@@ -521,7 +505,7 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
             else
             {
                 tknText += suffix;
-                if ( suffix.Length() == 2 )
+                if (suffix.Length() == 2)
                 {
                     moveToPos += 2;
                 }
@@ -540,13 +524,9 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
     if (stc->GetTextRange(startPos, endPos) != tknText)
         stc->ReplaceTarget(tknText);
     if (offsetsList.size() > 0)
-    {
         stc->SetSelectionVoid(moveToPos + offsetsList[0].first, moveToPos + offsetsList[0].second);
-    }
     else
-    {
-        stc->SetSelectionVoid( moveToPos, moveToPos );
-    }
+        stc->SetSelectionVoid(moveToPos, moveToPos);
     stc->ChooseCaretX();
     if (m_TabJumpArguments.size() > 10 )
         m_TabJumpArguments.clear();
@@ -554,21 +534,21 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
     {
         if (it->first != it->second)
         {
-            m_TabJumpArguments.push_back( suffix.SubString( it->first, it->second ) );
+            m_TabJumpArguments.push_back( suffix.SubString(it->first, it->second) );
             stc->EnableTabSmartJump();
         }
     }
-    if ( offsetsList.size() > 0 )
+    if (offsetsList.size() > 0)
     {
-        if ( m_TabJumpArguments.size() > 0 )
+        if (m_TabJumpArguments.size() > 0)
         {
             // Move the first to the last since the first is allready selected
             wxString first = m_TabJumpArguments.front();
-            m_TabJumpArguments.erase(  m_TabJumpArguments.begin() );
-            m_TabJumpArguments.push_back( first );
+            m_TabJumpArguments.erase(m_TabJumpArguments.begin());
+            m_TabJumpArguments.push_back(first);
         }
-        if ( (token.category != tcLangKeyword)
-                && ( (offsetsList[0].first != offsetsList[0].second) || (offsetsList[0].first == 1)) )
+        if (   (token.category != tcLangKeyword)
+            && ((offsetsList[0].first != offsetsList[0].second) || (offsetsList[0].first == 1)) )
         {
             int tooltipMode = Manager::Get()->GetConfigManager(wxT("ccmanager"))->ReadInt(wxT("/tooltip_mode"), 1);
             if (tooltipMode != 3) // keybound only
@@ -581,13 +561,13 @@ bool ClangCodeCompletion::DoAutocomplete( const cbCodeCompletionPlugin::CCToken&
     return true;
 }
 
-wxString ClangCodeCompletion::GetDocumentation( const cbCodeCompletionPlugin::CCToken &token )
+wxString ClangCodeCompletion::GetDocumentation(const cbCodeCompletionPlugin::CCToken &token)
 {
     EditorManager* edMgr = Manager::Get()->GetEditorManager();
     cbEditor* ed = edMgr->GetBuiltinActiveEditor();
     if (ed)
     {
-        return m_pClangPlugin->GetCodeCompletionTokenDocumentation( m_TranslUnitId, ed->GetFilename(), ClTokenPosition(0,0), token.id );
+        return m_pClangPlugin->GetCodeCompletionTokenDocumentation(m_TranslUnitId, ed->GetFilename(), ClTokenPosition(0,0), token.id);
     }
     return wxEmptyString;
 }
@@ -598,9 +578,9 @@ void ClangCodeCompletion::HighlightOccurrences(cbEditor* ed)
     cbStyledTextCtrl* stc = ed->GetControl();
     int pos = stc->GetCurrentPos();
     const wxChar ch = stc->GetCharAt(pos);
-    if (pos > 0
-            && (wxIsspace(ch) || (ch != wxT('_') && wxIspunct(ch)))
-            && !wxIsspace(stc->GetCharAt(pos - 1)))
+    if (   pos > 0
+        && (wxIsspace(ch) || (ch != wxT('_') && wxIspunct(ch)))
+        && !wxIsspace(stc->GetCharAt(pos - 1)) )
     {
         --pos;
     }
@@ -631,7 +611,7 @@ void ClangCodeCompletion::HighlightOccurrences(cbEditor* ed)
     m_pClangPlugin->GetOccurrencesOf( translId,  ed->GetFilename(), loc, 100, occurrences );
 
     for (std::vector< std::pair<int, int> >::const_iterator tkn = occurrences.begin();
-            tkn != occurrences.end(); ++tkn)
+         tkn != occurrences.end(); ++tkn)
     {
         stc->IndicatorFillRange(tkn->first, tkn->second);
     }
@@ -639,27 +619,24 @@ void ClangCodeCompletion::HighlightOccurrences(cbEditor* ed)
 
 void ClangCodeCompletion::OnTranslationUnitCreated( ClangEvent& event )
 {
-    if ( event.GetTranslationUnitId() != GetCurrentTranslationUnitId() )
-    {
+    if (event.GetTranslationUnitId() != GetCurrentTranslationUnitId())
         return;
-    }
     m_CCOutstanding = 0;
     m_CCOutstandingTokenStart = 0;
     m_CCOutstandingResults.clear();
 }
 
-void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
+void ClangCodeCompletion::OnCodeCompleteFinished(ClangEvent& event)
 {
     //CCLogger::Get()->DebugLog( wxT("OnCodeCompleteFinished") );
-    if ( event.GetTranslationUnitId() != m_TranslUnitId )
-    {
+    if (event.GetTranslationUnitId() != m_TranslUnitId)
         return;
-    }
+
     if (m_CCOutstanding > 0)
     {
-        if ( event.GetLocation() != m_CCOutstandingLoc )
+        if (event.GetLocation() != m_CCOutstandingLoc)
         {
-            CCLogger::Get()->DebugLog( wxT("Discard old CodeCompletion request result") );
+            CCLogger::Get()->DebugLog(wxT("Discard old CodeCompletion request result"));
             return;
         }
         EditorManager* edMgr = Manager::Get()->GetEditorManager();
@@ -667,7 +644,7 @@ void ClangCodeCompletion::OnCodeCompleteFinished( ClangEvent& event )
         if (ed)
         {
             m_CCOutstandingResults = event.GetCodeCompletionResults();
-            if ( m_CCOutstandingResults.size() > 0 )
+            if (m_CCOutstandingResults.size() > 0)
             {
                 CodeBlocksEvent evt(cbEVT_COMPLETE_CODE);
                 evt.SetInt(1);

@@ -14,22 +14,22 @@ public:
 
     static const wxString SettingName;
 
-    void OnAttach( IClangPlugin* pClangPlugin );
-    void OnRelease( IClangPlugin* pClangPlugin );
-    void BuildMenu( wxMenuBar* menuBar );
+    void OnAttach(IClangPlugin* pClangPlugin);
+    void OnRelease(IClangPlugin* pClangPlugin);
+    void BuildMenu(wxMenuBar* menuBar);
 
     void OnIdle( wxIdleEvent& event );
 
 public: // Command handlers
-    void OnGotoNextDiagnostic( wxCommandEvent& WXUNUSED(event) );
-    void OnGotoPrevDiagnostic( wxCommandEvent& WXUNUSED(event) );
+    void OnGotoNextDiagnostic(wxCommandEvent& WXUNUSED(event));
+    void OnGotoPrevDiagnostic(wxCommandEvent& WXUNUSED(event));
 
 public: // Code::Blocks events
     void OnEditorActivate(CodeBlocksEvent& event);
     void OnEditorClose(CodeBlocksEvent& event);
 
 public: // Clang events
-    void OnDiagnosticsUpdated( ClangEvent& event );
+    void OnDiagnosticsUpdated(ClangEvent& event);
 
 public:
     ClTranslUnitId GetCurrentTranslationUnitId();
